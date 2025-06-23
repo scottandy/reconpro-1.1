@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { AuthState, User, Dealership, LoginCredentials, RegisterDealershipData, RegisterUserData } from '../types/auth';
-import { AuthManager } from '../utils/auth';
+import { DatabaseService, supabase } from '../utils/database';
 
 interface AuthContextType extends AuthState {
   login: (credentials: LoginCredentials) => Promise<void>;
@@ -62,38 +62,107 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [state, dispatch] = useReducer(authReducer, initialState);
 
   useEffect(() => {
-    // Initialize demo data
-    AuthManager.initializeDemoData();
+    // Check for existing Supabase session
+    const checkSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session?.user) {
+          const user = await DatabaseService.getCurrentUser();
+          if (user && user.dealershipId) {
+            const dealership = await DatabaseService.getDealership(user.dealershipId);
+            if (dealership) {
+              dispatch({ type: 'LOGIN_SUCCESS', payload: { user, dealership } });
+              return;
+            }
+          }
+        }
+        
+        dispatch({ type: 'SET_LOADING', payload: false });
+      } catch (error) {
+        console.error('Error checking session:', error);
+        dispatch({ type: 'SET_LOADING', payload: false });
+      }
+    };
 
-    // Check for existing session
-    const session = AuthManager.getCurrentSession();
-    if (session) {
-      dispatch({ type: 'LOGIN_SUCCESS', payload: session });
-    } else {
-      dispatch({ type: 'SET_LOADING', payload: false });
-    }
+    checkSession();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'SIGNED_IN' && session?.user) {
+          const user = await DatabaseService.getCurrentUser();
+          if (user && user.dealershipId) {
+            const dealership = await DatabaseService.getDealership(user.dealershipId);
+            if (dealership) {
+              dispatch({ type: 'LOGIN_SUCCESS', payload: { user, dealership } });
+            }
+          }
+        } else if (event === 'SIGNED_OUT') {
+          dispatch({ type: 'LOGOUT' });
+        }
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const login = async (credentials: LoginCredentials) => {
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
-      const result = await AuthManager.login(credentials);
-      dispatch({ type: 'LOGIN_SUCCESS', payload: result });
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: credentials.email,
+        password: credentials.password
+      });
+
+      if (error) throw error;
+
+      if (data.user) {
+        const user = await DatabaseService.getCurrentUser();
+        if (user && user.dealershipId) {
+          const dealership = await DatabaseService.getDealership(user.dealershipId);
+          if (dealership) {
+            dispatch({ type: 'LOGIN_SUCCESS', payload: { user, dealership } });
+            return;
+          }
+        }
+      }
+
+      throw new Error('Invalid credentials');
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Login failed' });
     }
   };
 
-  const logout = () => {
-    AuthManager.logout();
-    dispatch({ type: 'LOGOUT' });
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+      dispatch({ type: 'LOGOUT' });
+    } catch (error) {
+      console.error('Error during logout:', error);
+      dispatch({ type: 'LOGOUT' });
+    }
   };
 
   const registerDealership = async (data: RegisterDealershipData) => {
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
-      const result = await AuthManager.registerDealership(data);
-      dispatch({ type: 'LOGIN_SUCCESS', payload: result });
+      const { data: { user }, error } = await DatabaseService.registerDealership(data);
+
+      if (error) {
+        throw error;
+      }
+
+      if (user) {
+        // After successful signup, the trigger creates the profile.
+        // Now, we log the user in to get a session and update the app state.
+        // This will fail if email confirmation is required, which is correct behavior.
+        // The `login` function will handle dispatching success or error.
+        await login({ email: data.email, password: data.password });
+      } else {
+        // This case should not be reached if there is no error.
+        throw new Error('Registration failed: no user data returned.');
+      }
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Registration failed' });
     }
@@ -106,7 +175,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
-      await AuthManager.registerUser(data, state.dealership.id);
+      // Create user in Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          data: {
+            first_name: data.firstName,
+            last_name: data.lastName,
+            role: data.role,
+            dealership_id: state.dealership.id
+          }
+        }
+      });
+
+      if (authError || !authData.user) {
+        throw new Error(authError?.message || 'Failed to create user');
+      }
+
+      // Create profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: authData.user.id,
+          first_name: data.firstName,
+          last_name: data.lastName,
+          initials: `${data.firstName[0]}${data.lastName[0]}`.toUpperCase(),
+          role: data.role,
+          dealership_id: state.dealership.id,
+          is_active: true
+        });
+
+      if (profileError) {
+        throw new Error(profileError.message);
+      }
+
       dispatch({ type: 'SET_LOADING', payload: false });
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'User registration failed' });

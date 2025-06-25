@@ -17,7 +17,10 @@ const AppContent: React.FC = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
   const [currentView, setCurrentView] = useState<AppView>('landing');
 
+  console.log('AppContent render:', { isAuthenticated, isLoading, currentView, user: user?.email });
+
   if (isLoading) {
+    console.log('Showing loading screen');
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 dark:from-gray-900 dark:via-gray-800/30 dark:to-gray-900/20 flex items-center justify-center">
         <div className="text-center">
@@ -31,6 +34,7 @@ const AppContent: React.FC = () => {
   }
 
   if (isAuthenticated && user) {
+    console.log('User authenticated, showing dashboard');
     // Check if user is super admin
     const isSuperAdmin = AuthManager.isSuperAdmin(user);
     
@@ -50,11 +54,15 @@ const AppContent: React.FC = () => {
     );
   }
 
+  console.log('User not authenticated, showing view:', currentView);
   switch (currentView) {
     case 'login':
       return (
         <LoginForm
-          onBack={() => setCurrentView('landing')}
+          onBack={() => {
+            console.log('LoginForm onBack called');
+            setCurrentView('landing');
+          }}
           onShowRegister={() => setCurrentView('register')}
           onShowSuperAdmin={() => setCurrentView('super-admin')}
         />

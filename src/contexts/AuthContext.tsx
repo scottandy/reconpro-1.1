@@ -3,7 +3,7 @@ import { AuthState, User, Dealership, LoginCredentials, RegisterDealershipData, 
 import { DatabaseService, supabase } from '../utils/database';
 
 interface AuthContextType extends AuthState {
-  login: (credentials: LoginCredentials) => Promise<void>;
+  login: (credentials: LoginCredentials) => Promise<boolean>;
   logout: () => void;
   registerDealership: (data: RegisterDealershipData) => Promise<void>;
   registerUser: (data: RegisterUserData) => Promise<void>;
@@ -88,7 +88,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     checkSession();
   }, []);
 
-  const login = async (credentials: LoginCredentials) => {
+  const login = async (credentials: LoginCredentials): Promise<boolean> => {
+    console.log('Login function called with credentials:', credentials.email);
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -96,23 +97,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         password: credentials.password
       });
 
-      if (error) throw error;
+      if (error) {
+        console.log('Supabase auth error:', error);
+        if (error.message.includes('Invalid login credentials')) {
+          throw new Error('Incorrect email or password');
+        } else if (error.message.includes('Email not confirmed')) {
+          throw new Error('Please check your email and confirm your account');
+        } else if (error.message.includes('Too many requests')) {
+          throw new Error('Too many login attempts. Please try again later');
+        } else {
+          throw new Error(error.message);
+        }
+      }
 
       if (data.user) {
+        console.log('Supabase auth successful, getting user data');
         const user = await DatabaseService.getCurrentUser();
         if (user && user.dealershipId) {
           const dealership = await DatabaseService.getDealership(user.dealershipId);
           if (dealership) {
+            console.log('Login successful, dispatching LOGIN_SUCCESS');
             dispatch({ type: 'LOGIN_SUCCESS', payload: { user, dealership } });
-            return;
+            return true;
+          } else {
+            throw new Error('Dealership not found. Please contact support.');
           }
+        } else {
+          throw new Error('User profile not found. Please contact support.');
         }
       }
 
+      console.log('Invalid credentials case');
       throw new Error('Invalid credentials');
     } catch (error) {
       console.error('LOGIN ERROR:', error);
       dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Login failed' });
+      return false;
     }
   };
 

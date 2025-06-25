@@ -1,152 +1,116 @@
-import { Location, LocationType, LocationSettings, LOCATION_TYPE_CONFIGS } from '../types/location';
+import { Location, LocationType, LocationSettings, LocationColorSettings, LOCATION_TYPE_CONFIGS } from '../types/location';
+import { supabase } from './supabaseClient';
 
 export class LocationManager {
-  private static readonly STORAGE_KEYS = {
-    LOCATIONS: 'dealership_locations',
-    LOCATION_SETTINGS: 'dealership_location_settings'
-  };
-
-  static initializeDefaultLocations(dealershipId: string): void {
-    const existingLocations = this.getLocations(dealershipId);
-    if (existingLocations.length > 0) return;
-
-    const defaultLocations: Omit<Location, 'id'>[] = [
-      {
-        name: 'Lot A',
-        type: 'on-site',
-        description: 'Main front lot',
-        isActive: true,
-        capacity: 50,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      },
-      {
-        name: 'Lot B',
-        type: 'on-site',
-        description: 'Side lot',
-        isActive: true,
-        capacity: 30,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      },
-      {
-        name: 'Indoor Showroom',
-        type: 'display',
-        description: 'Indoor display area',
-        isActive: true,
-        capacity: 8,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      },
-      {
-        name: 'Service Bay',
-        type: 'service',
-        description: 'Service department',
-        isActive: true,
-        capacity: 12,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      },
-      {
-        name: 'Test Drive',
-        type: 'test-drive',
-        description: 'Vehicles out for test drives',
-        isActive: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      },
-      {
-        name: 'Demo Fleet',
-        type: 'demo',
-        description: 'Demo vehicles',
-        isActive: true,
-        capacity: 5,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      },
-      {
-        name: 'In-Transit',
-        type: 'in-transit',
-        description: 'Vehicles being transported',
-        isActive: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      }
-    ];
-
-    const locations = defaultLocations.map(loc => ({
-      ...loc,
-      id: `loc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-    }));
-
-    this.saveLocations(dealershipId, locations);
-  }
-
-  static getLocations(dealershipId: string): Location[] {
-    const key = `${this.STORAGE_KEYS.LOCATIONS}_${dealershipId}`;
-    const data = localStorage.getItem(key);
-    return data ? JSON.parse(data) : [];
-  }
-
-  static saveLocations(dealershipId: string, locations: Location[]): void {
-    const key = `${this.STORAGE_KEYS.LOCATIONS}_${dealershipId}`;
-    localStorage.setItem(key, JSON.stringify(locations));
-  }
-
-  static addLocation(dealershipId: string, locationData: Omit<Location, 'id' | 'createdAt' | 'updatedAt'>): Location {
-    const locations = this.getLocations(dealershipId);
-    const newLocation: Location = {
-      ...locationData,
-      id: `loc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+  // Helper function to convert frontend Location to database format
+  private static toDatabaseFormat(location: Omit<Location, 'id' | 'createdAt' | 'updatedAt'>): any {
+    return {
+      name: location.name,
+      type: location.type,
+      description: location.description || null,
+      is_active: location.isActive,
+      capacity: location.capacity || null,
+      color: location.color || '#3B82F6'
     };
-
-    locations.push(newLocation);
-    this.saveLocations(dealershipId, locations);
-    return newLocation;
   }
 
-  static updateLocation(dealershipId: string, locationId: string, updates: Partial<Location>): Location | null {
-    const locations = this.getLocations(dealershipId);
-    const index = locations.findIndex(loc => loc.id === locationId);
-    
-    if (index === -1) return null;
-
-    locations[index] = {
-      ...locations[index],
-      ...updates,
-      updatedAt: new Date().toISOString()
+  // Helper function to convert database format to frontend Location
+  private static fromDatabaseFormat(data: any): Location {
+    return {
+      id: data.id,
+      name: data.name,
+      type: data.type,
+      description: data.description,
+      isActive: data.is_active,
+      capacity: data.capacity,
+      color: data.color,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at
     };
-
-    this.saveLocations(dealershipId, locations);
-    return locations[index];
   }
 
-  static deleteLocation(dealershipId: string, locationId: string): boolean {
-    const locations = this.getLocations(dealershipId);
-    const filteredLocations = locations.filter(loc => loc.id !== locationId);
+  static async getLocations(dealershipId: string): Promise<Location[]> {
+    const { data, error } = await supabase
+      .from('locations')
+      .select('*')
+      .eq('dealership_id', dealershipId)
+      .order('created_at', { ascending: false });
+    if (error) return [];
+    return (data || []).map(this.fromDatabaseFormat);
+  }
+
+  static async addLocation(dealershipId: string, locationData: Omit<Location, 'id' | 'createdAt' | 'updatedAt'>): Promise<Location | null> {
+    const dbData = this.toDatabaseFormat(locationData);
+    dbData.dealership_id = dealershipId;
     
-    if (filteredLocations.length === locations.length) return false;
-
-    this.saveLocations(dealershipId, filteredLocations);
-    return true;
+    const { data, error } = await supabase
+      .from('locations')
+      .insert([dbData])
+      .select()
+      .single();
+    if (error) {
+      console.error('Error adding location to Supabase:', error);
+      return null;
+    }
+    return this.fromDatabaseFormat(data);
   }
 
-  static getLocationsByType(dealershipId: string, type: LocationType): Location[] {
-    return this.getLocations(dealershipId).filter(loc => loc.type === type && loc.isActive);
+  static async updateLocation(dealershipId: string, locationId: string, updates: Partial<Location>): Promise<Location | null> {
+    const dbUpdates = this.toDatabaseFormat(updates as any);
+    dbUpdates.updated_at = new Date().toISOString();
+    
+    const { data, error } = await supabase
+      .from('locations')
+      .update(dbUpdates)
+      .eq('id', locationId)
+      .eq('dealership_id', dealershipId)
+      .select()
+      .single();
+    if (error) {
+      console.error('Error updating location in Supabase:', error);
+      return null;
+    }
+    return this.fromDatabaseFormat(data);
   }
 
-  static getActiveLocations(dealershipId: string): Location[] {
-    return this.getLocations(dealershipId).filter(loc => loc.isActive);
+  static async deleteLocation(dealershipId: string, locationId: string): Promise<boolean> {
+    const { error } = await supabase
+      .from('locations')
+      .delete()
+      .eq('id', locationId)
+      .eq('dealership_id', dealershipId);
+    return !error;
   }
 
-  static getLocationStats(dealershipId: string): {
+  static async getLocationsByType(dealershipId: string, type: LocationType): Promise<Location[]> {
+    const { data, error } = await supabase
+      .from('locations')
+      .select('*')
+      .eq('dealership_id', dealershipId)
+      .eq('type', type)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+    if (error) return [];
+    return (data || []).map(this.fromDatabaseFormat);
+  }
+
+  static async getActiveLocations(dealershipId: string): Promise<Location[]> {
+    const { data, error } = await supabase
+      .from('locations')
+      .select('*')
+      .eq('dealership_id', dealershipId)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+    if (error) return [];
+    return (data || []).map(this.fromDatabaseFormat);
+  }
+
+  static async getLocationStats(dealershipId: string): Promise<{
     total: number;
     active: number;
     byType: Record<LocationType, number>;
-  } {
-    const locations = this.getLocations(dealershipId);
+  }> {
+    const locations = await this.getLocations(dealershipId);
     const active = locations.filter(loc => loc.isActive);
     
     const byType = Object.keys(LOCATION_TYPE_CONFIGS).reduce((acc, type) => {
@@ -161,12 +125,51 @@ export class LocationManager {
     };
   }
 
-  static getLocationSettings(dealershipId: string): LocationSettings {
-    const key = `${this.STORAGE_KEYS.LOCATION_SETTINGS}_${dealershipId}`;
+  // Settings Management - Using Supabase with localStorage fallback
+  static async getLocationSettings(dealershipId: string): Promise<LocationSettings> {
+    try {
+      // First try to get from Supabase
+      const { data, error } = await supabase
+        .from('location_settings')
+        .select('settings')
+        .eq('dealership_id', dealershipId)
+        .single();
+
+      if (!error && data && data.settings) {
+        const storedSettings = data.settings;
+        
+        // Merge with default settings
+        const mergedSettings: LocationSettings = {
+          defaultLocationType: 'on-site',
+          allowCustomLocations: true,
+          requireLocationForVehicles: true,
+          autoAssignLocation: false,
+          locationCapacityTracking: true,
+          ...storedSettings
+        };
+        
+        // Also save to localStorage as backup
+        this.saveLocationSettingsToLocalStorage(dealershipId, mergedSettings);
+        return mergedSettings;
+      }
+    } catch (error) {
+      console.error('Error fetching location settings from Supabase:', error);
+    }
+
+    // Fallback to localStorage
+    return this.getLocationSettingsFromLocalStorage(dealershipId);
+  }
+
+  private static getLocationSettingsFromLocalStorage(dealershipId: string): LocationSettings {
+    const key = `location_settings_${dealershipId}`;
     const data = localStorage.getItem(key);
     
     if (data) {
-      return JSON.parse(data);
+      try {
+        return JSON.parse(data);
+      } catch (error) {
+        console.error('Error parsing location settings from localStorage:', error);
+      }
     }
 
     // Default settings
@@ -178,135 +181,169 @@ export class LocationManager {
       locationCapacityTracking: true
     };
 
-    this.saveLocationSettings(dealershipId, defaultSettings);
+    this.saveLocationSettingsToLocalStorage(dealershipId, defaultSettings);
     return defaultSettings;
   }
 
-  static saveLocationSettings(dealershipId: string, settings: LocationSettings): void {
-    const key = `${this.STORAGE_KEYS.LOCATION_SETTINGS}_${dealershipId}`;
+  private static saveLocationSettingsToLocalStorage(dealershipId: string, settings: LocationSettings): void {
+    const key = `location_settings_${dealershipId}`;
     localStorage.setItem(key, JSON.stringify(settings));
+  }
+
+  static async saveLocationSettings(dealershipId: string, settings: LocationSettings): Promise<void> {
+    try {
+      // Save to Supabase
+      const { error } = await supabase
+        .from('location_settings')
+        .upsert({
+          dealership_id: dealershipId,
+          settings,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'dealership_id'
+        });
+
+      if (error) {
+        console.error('Error saving location settings to Supabase:', error);
+        throw error;
+      }
+    } catch (error) {
+      console.error('Error saving location settings to Supabase:', error);
+      // Continue to save to localStorage as backup
+    }
+
+    // Always save to localStorage as backup
+    this.saveLocationSettingsToLocalStorage(dealershipId, settings);
   }
 
   static getLocationTypeConfig(type: LocationType) {
     return LOCATION_TYPE_CONFIGS[type];
   }
 
-  static getVehicleCountByLocation(locationName: string): number {
-    // Get all vehicles from various sources
-    let allVehicles: any[] = [];
-
-    // Load mock vehicles
-    try {
-      const mockVehiclesModule = import('../data/mockVehicles');
-      // Since we can't dynamically import in this context, we'll check localStorage directly
-    } catch (error) {
-      // Fallback to empty array
-    }
-
-    // Load added vehicles from localStorage
-    const savedAddedVehicles = localStorage.getItem('addedVehicles');
-    if (savedAddedVehicles) {
-      try {
-        const addedVehicles = JSON.parse(savedAddedVehicles);
-        allVehicles = [...allVehicles, ...addedVehicles];
-      } catch (error) {
-        console.error('Error loading added vehicles:', error);
-      }
-    }
-
-    // Load vehicle updates from localStorage
-    const savedUpdates = localStorage.getItem('vehicleUpdates');
-    if (savedUpdates) {
-      try {
-        const updates = JSON.parse(savedUpdates);
-        allVehicles = allVehicles.map(v => 
-          updates[v.id] ? { ...v, ...updates[v.id] } : v
-        );
-      } catch (error) {
-        console.error('Error loading vehicle updates:', error);
-      }
-    }
-
-    // Filter out sold and pending vehicles, then count by location
-    const activeVehicles = allVehicles.filter(v => !v.isSold && !v.isPending);
-    return activeVehicles.filter(vehicle => vehicle.location === locationName).length;
+  static async getVehicleCountByLocation(dealershipId: string, locationName: string): Promise<number> {
+    const { data, error } = await supabase
+      .from('vehicles')
+      .select('id')
+      .eq('dealership_id', dealershipId)
+      .eq('location', locationName)
+      .eq('isSold', false)
+      .eq('isPending', false);
+    if (error) return 0;
+    return data.length;
   }
 
-  static getAllVehicleLocationCounts(): Record<string, number> {
-    // Get all vehicles from various sources
-    let allVehicles: any[] = [];
+  static async getAllVehicleLocationCounts(dealershipId: string): Promise<Record<string, number>> {
+    const { data, error } = await supabase
+      .from('vehicles')
+      .select('location')
+      .eq('dealership_id', dealershipId)
+      .eq('isSold', false)
+      .eq('isPending', false)
+      .not('location', 'is', null);
+    if (error) return {};
 
-    // Load mock vehicles - we'll need to hardcode the mock data here since we can't import
-    const mockVehicles = [
-      {
-        id: '1',
-        location: 'Lot A-12',
-        isSold: false,
-        isPending: false
-      },
-      {
-        id: '2',
-        location: 'Lot B-03',
-        isSold: false,
-        isPending: false
-      },
-      {
-        id: '3',
-        location: 'Indoor-05',
-        isSold: false,
-        isPending: false
-      },
-      {
-        id: '4',
-        location: 'Lot A-07',
-        isSold: false,
-        isPending: false
-      },
-      {
-        id: '5',
-        location: 'Lot C-15',
-        isSold: false,
-        isPending: false
-      }
-    ];
-
-    allVehicles = [...mockVehicles];
-
-    // Load added vehicles from localStorage
-    const savedAddedVehicles = localStorage.getItem('addedVehicles');
-    if (savedAddedVehicles) {
-      try {
-        const addedVehicles = JSON.parse(savedAddedVehicles);
-        allVehicles = [...allVehicles, ...addedVehicles];
-      } catch (error) {
-        console.error('Error loading added vehicles:', error);
-      }
-    }
-
-    // Load vehicle updates from localStorage
-    const savedUpdates = localStorage.getItem('vehicleUpdates');
-    if (savedUpdates) {
-      try {
-        const updates = JSON.parse(savedUpdates);
-        allVehicles = allVehicles.map(v => 
-          updates[v.id] ? { ...v, ...updates[v.id] } : v
-        );
-      } catch (error) {
-        console.error('Error loading vehicle updates:', error);
-      }
-    }
-
-    // Filter out sold and pending vehicles
-    const activeVehicles = allVehicles.filter(v => !v.isSold && !v.isPending);
-
-    // Count vehicles by location
     const locationCounts: Record<string, number> = {};
-    activeVehicles.forEach(vehicle => {
+    data.forEach(vehicle => {
       if (vehicle.location) {
         locationCounts[vehicle.location] = (locationCounts[vehicle.location] || 0) + 1;
       }
     });
 
     return locationCounts;
+  }
+
+  // Location Color Settings Management - Using Supabase with localStorage fallback
+  static async getLocationColorSettings(dealershipId: string): Promise<LocationColorSettings> {
+    try {
+      // First try to get from Supabase
+      const { data, error } = await supabase
+        .from('location_color_settings')
+        .select('settings')
+        .eq('dealership_id', dealershipId)
+        .single();
+
+      if (!error && data && data.settings) {
+        const storedSettings = data.settings;
+        
+        // Merge with default settings
+        const mergedSettings: LocationColorSettings = {
+          onSiteKeywords: ['lot', 'indoor', 'showroom', 'service', 'display', 'demo'],
+          offSiteKeywords: ['off-site', 'storage', 'external'],
+          transitKeywords: ['transit', 'transport'],
+          ...storedSettings
+        };
+        
+        // Also save to localStorage as backup
+        this.saveLocationColorSettingsToLocalStorage(dealershipId, mergedSettings);
+        return mergedSettings;
+      }
+    } catch (error) {
+      console.error('Error fetching location color settings from Supabase:', error);
+    }
+
+    // Fallback to localStorage
+    return this.getLocationColorSettingsFromLocalStorage(dealershipId);
+  }
+
+  private static getLocationColorSettingsFromLocalStorage(dealershipId: string): LocationColorSettings {
+    const key = `locationColorSettings_${dealershipId}`;
+    const data = localStorage.getItem(key);
+    
+    if (data) {
+      try {
+        return JSON.parse(data);
+      } catch (error) {
+        console.error('Error parsing location color settings from localStorage:', error);
+      }
+    }
+
+    // Default settings
+    const defaultSettings: LocationColorSettings = {
+      onSiteKeywords: ['lot', 'indoor', 'showroom', 'service', 'display', 'demo'],
+      offSiteKeywords: ['off-site', 'storage', 'external'],
+      transitKeywords: ['transit', 'transport']
+    };
+
+    this.saveLocationColorSettingsToLocalStorage(dealershipId, defaultSettings);
+    return defaultSettings;
+  }
+
+  private static saveLocationColorSettingsToLocalStorage(dealershipId: string, settings: LocationColorSettings): void {
+    const key = `locationColorSettings_${dealershipId}`;
+    localStorage.setItem(key, JSON.stringify(settings));
+  }
+
+  static async saveLocationColorSettings(dealershipId: string, settings: LocationColorSettings): Promise<void> {
+    try {
+      // Save to Supabase
+      const { error } = await supabase
+        .from('location_color_settings')
+        .upsert({
+          dealership_id: dealershipId,
+          settings,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'dealership_id'
+        });
+
+      if (error) {
+        console.error('Error saving location color settings to Supabase:', error);
+        throw error;
+      }
+      // On successful save, remove localStorage fallback for this dealership
+      this.removeLocationColorSettingsFromLocalStorage(dealershipId);
+    } catch (error) {
+      console.error('Error saving location color settings to Supabase:', error);
+      // Continue to save to localStorage as backup
+      this.saveLocationColorSettingsToLocalStorage(dealershipId, settings);
+    }
+
+    // Always save to localStorage as backup (for offline/legacy)
+    // this.saveLocationColorSettingsToLocalStorage(dealershipId, settings); // <-- REMOVE this line
+  }
+
+  private static removeLocationColorSettingsFromLocalStorage(dealershipId: string): void {
+    const key = `locationColorSettings_${dealershipId}`;
+    localStorage.removeItem(key);
   }
 }

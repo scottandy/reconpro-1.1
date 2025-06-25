@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { LocationManager } from '../utils/locationManager';
 import { Location, LocationType, LOCATION_TYPE_CONFIGS } from '../types/location';
 import { Vehicle } from '../types/vehicle';
-import { mockVehicles } from '../data/mockVehicles';
+import { supabase } from '../utils/supabaseClient';
 import { 
   MapPin, 
   Plus, 
@@ -322,34 +322,51 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({ location, veh
 
 // NEW: Location Color Settings Component for Admin Users
 const LocationColorSettings: React.FC = () => {
+  const { dealership } = useAuth();
   const [colorSettings, setColorSettings] = useState({
     onSiteKeywords: ['lot', 'indoor', 'showroom', 'service', 'display', 'demo'],
     offSiteKeywords: ['off-site', 'storage', 'external'],
     transitKeywords: ['transit', 'transport']
   });
   const [hasChanges, setHasChanges] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Load saved settings
-    const saved = localStorage.getItem('locationColorSettings');
-    if (saved) {
-      try {
-        setColorSettings(JSON.parse(saved));
-      } catch (error) {
-        console.error('Error loading location color settings:', error);
-      }
+    if (dealership) {
+      loadColorSettings();
     }
-  }, []);
+  }, [dealership]);
+
+  const loadColorSettings = async () => {
+    if (!dealership) return;
+    
+    setLoading(true);
+    try {
+      const settings = await LocationManager.getLocationColorSettings(dealership.id);
+      setColorSettings(settings);
+    } catch (error) {
+      console.error('Error loading color settings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleKeywordChange = (category: keyof typeof colorSettings, keywords: string[]) => {
     setColorSettings(prev => ({ ...prev, [category]: keywords }));
     setHasChanges(true);
   };
 
-  const handleSave = () => {
-    localStorage.setItem('locationColorSettings', JSON.stringify(colorSettings));
-    setHasChanges(false);
-    alert('Location color settings saved successfully!');
+  const handleSave = async () => {
+    if (!dealership) return;
+    
+    try {
+      await LocationManager.saveLocationColorSettings(dealership.id, colorSettings);
+      setHasChanges(false);
+      alert('Location color settings saved successfully!');
+    } catch (error) {
+      console.error('Error saving color settings:', error);
+      alert('Failed to save color settings. Please try again.');
+    }
   };
 
   const addKeyword = (category: keyof typeof colorSettings, keyword: string) => {
@@ -419,6 +436,14 @@ const LocationColorSettings: React.FC = () => {
       </div>
     );
   };
+
+  if (loading) {
+    return (
+      <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">
+        <div className="text-center py-8 text-gray-500">Loading color settings...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">
@@ -509,6 +534,7 @@ const LocationManagement: React.FC = () => {
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [showColorSettings, setShowColorSettings] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     type: 'on-site' as LocationType,
@@ -518,7 +544,6 @@ const LocationManagement: React.FC = () => {
 
   useEffect(() => {
     if (dealership) {
-      LocationManager.initializeDefaultLocations(dealership.id);
       loadLocations();
       loadVehicles();
     }
@@ -528,65 +553,47 @@ const LocationManagement: React.FC = () => {
     filterLocations();
   }, [locations, searchTerm, typeFilter]);
 
-  // Listen for vehicle updates to refresh location counts
-  useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'vehicleUpdates' || e.key === 'addedVehicles' || e.key === 'soldVehicles' || e.key === 'pendingVehicles') {
-        loadVehicles();
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
-
-  const loadLocations = () => {
+  const loadLocations = async () => {
     if (dealership) {
-      const locs = LocationManager.getLocations(dealership.id);
-      setLocations(locs);
+      setLoading(true);
+      try {
+        const locs = await LocationManager.getLocations(dealership.id);
+        setLocations(locs);
+      } catch (error) {
+        console.error('Error loading locations:', error);
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
-  const loadVehicles = () => {
-    // Load all vehicles from various sources
-    let vehicles = [...mockVehicles];
-
-    // Load added vehicles from localStorage
-    const savedAddedVehicles = localStorage.getItem('addedVehicles');
-    if (savedAddedVehicles) {
-      try {
-        const addedVehicles = JSON.parse(savedAddedVehicles);
-        vehicles = [...addedVehicles, ...vehicles];
-      } catch (error) {
-        console.error('Error loading added vehicles:', error);
+  const loadVehicles = async () => {
+    if (!dealership) return;
+    
+    try {
+      // Load vehicles from Supabase
+      const { data: vehicles, error } = await supabase
+        .from('vehicles')
+        .select('*')
+        .eq('dealership_id', dealership.id)
+        .eq('isSold', false)
+        .eq('isPending', false);
+      
+      if (!error && vehicles) {
+        setAllVehicles(vehicles as Vehicle[]);
+        
+        // Calculate location counts
+        const counts: Record<string, number> = {};
+        vehicles.forEach(vehicle => {
+          if (vehicle.location) {
+            counts[vehicle.location] = (counts[vehicle.location] || 0) + 1;
+          }
+        });
+        setVehicleLocationCounts(counts);
       }
+    } catch (error) {
+      console.error('Error loading vehicles:', error);
     }
-
-    // Load vehicle updates from localStorage
-    const savedUpdates = localStorage.getItem('vehicleUpdates');
-    if (savedUpdates) {
-      try {
-        const updates = JSON.parse(savedUpdates);
-        vehicles = vehicles.map(v => 
-          updates[v.id] ? { ...v, ...updates[v.id] } : v
-        );
-      } catch (error) {
-        console.error('Error loading vehicle updates:', error);
-      }
-    }
-
-    // Filter out sold and pending vehicles
-    const activeVehicles = vehicles.filter(v => !v.isSold && !v.isPending);
-    setAllVehicles(activeVehicles);
-
-    // Calculate location counts
-    const counts: Record<string, number> = {};
-    activeVehicles.forEach(vehicle => {
-      if (vehicle.location) {
-        counts[vehicle.location] = (counts[vehicle.location] || 0) + 1;
-      }
-    });
-    setVehicleLocationCounts(counts);
   };
 
   const filterLocations = () => {
@@ -610,49 +617,61 @@ const LocationManagement: React.FC = () => {
     setSelectedLocation(location);
   };
 
-  const handleAddLocation = () => {
+  const handleAddLocation = async () => {
     if (!dealership || !formData.name.trim()) return;
 
-    const locationData = {
-      name: formData.name.trim(),
-      type: formData.type,
-      description: formData.description.trim() || undefined,
-      capacity: formData.capacity ? parseInt(formData.capacity) : undefined,
-      isActive: true
-    };
+    try {
+      const locationData = {
+        name: formData.name.trim(),
+        type: formData.type,
+        description: formData.description.trim() || undefined,
+        capacity: formData.capacity ? parseInt(formData.capacity) : undefined,
+        isActive: true
+      };
 
-    LocationManager.addLocation(dealership.id, locationData);
-    loadLocations();
-    resetForm();
-    setShowAddModal(false);
+      await LocationManager.addLocation(dealership.id, locationData);
+      await loadLocations();
+      resetForm();
+      setShowAddModal(false);
+    } catch (error) {
+      console.error('Error adding location:', error);
+    }
   };
 
-  const handleEditLocation = () => {
+  const handleEditLocation = async () => {
     if (!dealership || !editingLocation || !formData.name.trim()) return;
 
-    const updates = {
-      name: formData.name.trim(),
-      type: formData.type,
-      description: formData.description.trim() || undefined,
-      capacity: formData.capacity ? parseInt(formData.capacity) : undefined
-    };
+    try {
+      const updates = {
+        name: formData.name.trim(),
+        type: formData.type,
+        description: formData.description.trim() || undefined,
+        capacity: formData.capacity ? parseInt(formData.capacity) : undefined
+      };
 
-    LocationManager.updateLocation(dealership.id, editingLocation.id, updates);
-    loadLocations();
-    resetForm();
-    setEditingLocation(null);
+      await LocationManager.updateLocation(dealership.id, editingLocation.id, updates);
+      await loadLocations();
+      resetForm();
+      setEditingLocation(null);
+    } catch (error) {
+      console.error('Error updating location:', error);
+    }
   };
 
-  const handleToggleActive = (location: Location) => {
+  const handleToggleActive = async (location: Location) => {
     if (!dealership) return;
 
-    LocationManager.updateLocation(dealership.id, location.id, {
-      isActive: !location.isActive
-    });
-    loadLocations();
+    try {
+      await LocationManager.updateLocation(dealership.id, location.id, {
+        isActive: !location.isActive
+      });
+      await loadLocations();
+    } catch (error) {
+      console.error('Error toggling location active status:', error);
+    }
   };
 
-  const handleDeleteLocation = (location: Location) => {
+  const handleDeleteLocation = async (location: Location) => {
     if (!dealership) return;
 
     const vehicleCount = vehicleLocationCounts[location.name] || 0;
@@ -662,8 +681,12 @@ const LocationManagement: React.FC = () => {
     }
 
     if (window.confirm(`Are you sure you want to delete "${location.name}"?`)) {
-      LocationManager.deleteLocation(dealership.id, location.id);
-      loadLocations();
+      try {
+        await LocationManager.deleteLocation(dealership.id, location.id);
+        await loadLocations();
+      } catch (error) {
+        console.error('Error deleting location:', error);
+      }
     }
   };
 
@@ -794,142 +817,166 @@ const LocationManagement: React.FC = () => {
 
       {/* Individual Location Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {filteredLocations.map((location) => {
-          const typeConfig = LOCATION_TYPE_CONFIGS[location.type];
-          const vehicleCount = vehicleLocationCounts[location.name] || 0;
-          const capacityStatus = getCapacityStatus(location);
-          
-          return (
-            <div 
-              key={location.id} 
-              onClick={() => handleLocationClick(location)}
-              className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/30 hover:shadow-xl hover:bg-white/90 transition-all duration-300 hover:scale-[1.02] group cursor-pointer"
-            >
-              <div className="p-6">
-                {/* Location Header */}
-                <div className="flex items-center justify-between mb-4">
-                  <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center text-2xl flex-shrink-0">
-                    {typeConfig.icon}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {!location.isActive && (
-                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
-                        Inactive
-                      </span>
-                    )}
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleToggleActive(location);
-                        }}
-                        className={`p-1.5 rounded-lg transition-colors ${
-                          location.isActive
-                            ? 'text-green-600 hover:bg-green-50'
-                            : 'text-gray-400 hover:bg-gray-50'
-                        }`}
-                        title={location.isActive ? 'Deactivate' : 'Activate'}
-                      >
-                        {location.isActive ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openEditModal(location);
-                        }}
-                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Edit"
-                      >
-                        <Edit3 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteLocation(location);
-                        }}
-                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+        {loading ? (
+          <div className="text-center py-8 text-gray-500">Loading locations...</div>
+        ) : filteredLocations.length === 0 ? (
+          <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-12 text-center">
+            <MapPin className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">No Locations Found</h3>
+            <p className="text-gray-600 mb-6">
+              {searchTerm || typeFilter !== 'all' 
+                ? 'Try adjusting your search or filter criteria.'
+                : 'Add your first location to get started organizing your vehicle inventory.'
+              }
+            </p>
+            {!searchTerm && typeFilter === 'all' && (
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              >
+                <Plus className="w-5 h-5" />
+                Add Your First Location
+              </button>
+            )}
+          </div>
+        ) : (
+          filteredLocations.map((location) => {
+            const typeConfig = LOCATION_TYPE_CONFIGS[location.type];
+            const vehicleCount = vehicleLocationCounts[location.name] || 0;
+            const capacityStatus = getCapacityStatus(location);
+            
+            return (
+              <div 
+                key={location.id} 
+                onClick={() => handleLocationClick(location)}
+                className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/30 hover:shadow-xl hover:bg-white/90 transition-all duration-300 hover:scale-[1.02] group cursor-pointer"
+              >
+                <div className="p-6">
+                  {/* Location Header */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center text-2xl flex-shrink-0">
+                      {typeConfig.icon}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {!location.isActive && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
+                          Inactive
+                        </span>
+                      )}
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleActive(location);
+                          }}
+                          className={`p-1.5 rounded-lg transition-colors ${
+                            location.isActive
+                              ? 'text-green-600 hover:bg-green-50'
+                              : 'text-gray-400 hover:bg-gray-50'
+                          }`}
+                          title={location.isActive ? 'Deactivate' : 'Activate'}
+                        >
+                          {location.isActive ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openEditModal(location);
+                          }}
+                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Edit"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteLocation(location);
+                          }}
+                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Location Name */}
-                <div className="mb-3">
-                  <h3 className="text-lg font-bold text-gray-900 mb-1">{location.name}</h3>
-                  <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${typeConfig.color}`}>
-                    {typeConfig.label}
-                  </span>
-                </div>
+                  {/* Location Name */}
+                  <div className="mb-3">
+                    <h3 className="text-lg font-bold text-gray-900 mb-1">{location.name}</h3>
+                    <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${typeConfig.color}`}>
+                      {typeConfig.label}
+                    </span>
+                  </div>
 
-                {/* Description */}
-                {location.description && (
-                  <p className="text-sm text-gray-600 mb-4 line-clamp-2">{location.description}</p>
-                )}
+                  {/* Description */}
+                  {location.description && (
+                    <p className="text-sm text-gray-600 mb-4 line-clamp-2">{location.description}</p>
+                  )}
 
-                {/* Vehicle Count - Main Focus */}
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-200/60 mb-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-1">Vehicles</p>
-                      <p className="text-2xl font-bold text-blue-900">{vehicleCount}</p>
-                    </div>
-                    <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
-                      <Car className="w-5 h-5 text-white" />
+                  {/* Vehicle Count - Main Focus */}
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-200/60 mb-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-1">Vehicles</p>
+                        <p className="text-2xl font-bold text-blue-900">{vehicleCount}</p>
+                      </div>
+                      <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
+                        <Car className="w-5 h-5 text-white" />
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Capacity Information */}
-                {location.capacity && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Capacity</span>
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${getCapacityColor(capacityStatus)}`}>
-                        {Math.round((vehicleCount / location.capacity) * 100)}%
-                      </span>
+                  {/* Capacity Information */}
+                  {location.capacity && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-600">Capacity</span>
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${getCapacityColor(capacityStatus)}`}>
+                          {Math.round((vehicleCount / location.capacity) * 100)}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className={`h-2 rounded-full transition-all duration-300 ${
+                            capacityStatus === 'full' ? 'bg-red-500' :
+                            capacityStatus === 'warning' ? 'bg-amber-500' :
+                            'bg-green-500'
+                          }`}
+                          style={{ width: `${Math.min((vehicleCount / location.capacity) * 100, 100)}%` }}
+                        ></div>
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-500">
+                        <span>{vehicleCount} vehicles</span>
+                        <span>{location.capacity} max</span>
+                      </div>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
-                        className={`h-2 rounded-full transition-all duration-300 ${
-                          capacityStatus === 'full' ? 'bg-red-500' :
-                          capacityStatus === 'warning' ? 'bg-amber-500' :
-                          'bg-green-500'
-                        }`}
-                        style={{ width: `${Math.min((vehicleCount / location.capacity) * 100, 100)}%` }}
-                      ></div>
+                  )}
+
+                  {/* No Capacity Set */}
+                  {!location.capacity && (
+                    <div className="text-center py-2">
+                      <p className="text-xs text-gray-500">No capacity limit set</p>
                     </div>
-                    <div className="flex justify-between text-xs text-gray-500">
-                      <span>{vehicleCount} vehicles</span>
-                      <span>{location.capacity} max</span>
-                    </div>
+                  )}
+
+                  {/* Created Date */}
+                  <div className="mt-4 pt-4 border-t border-gray-200/60">
+                    <p className="text-xs text-gray-500">
+                      Created: {new Date(location.createdAt).toLocaleDateString()}
+                    </p>
                   </div>
-                )}
 
-                {/* No Capacity Set */}
-                {!location.capacity && (
-                  <div className="text-center py-2">
-                    <p className="text-xs text-gray-500">No capacity limit set</p>
+                  {/* Click indicator */}
+                  <div className="mt-3 pt-3 border-t border-gray-200/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <p className="text-center text-sm text-blue-600 font-medium">Click to view vehicles →</p>
                   </div>
-                )}
-
-                {/* Created Date */}
-                <div className="mt-4 pt-4 border-t border-gray-200/60">
-                  <p className="text-xs text-gray-500">
-                    Created: {new Date(location.createdAt).toLocaleDateString()}
-                  </p>
-                </div>
-
-                {/* Click indicator */}
-                <div className="mt-3 pt-3 border-t border-gray-200/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                  <p className="text-center text-sm text-blue-600 font-medium">Click to view vehicles →</p>
                 </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })
+        )}
         
         {/* Add New Location Card */}
         <div 
@@ -945,29 +992,6 @@ const LocationManagement: React.FC = () => {
           </div>
         </div>
       </div>
-
-      {/* Empty State */}
-      {filteredLocations.length === 0 && (
-        <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-12 text-center">
-          <MapPin className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">No Locations Found</h3>
-          <p className="text-gray-600 mb-6">
-            {searchTerm || typeFilter !== 'all' 
-              ? 'Try adjusting your search or filter criteria.'
-              : 'Add your first location to get started organizing your vehicle inventory.'
-            }
-          </p>
-          {!searchTerm && typeFilter === 'all' && (
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-            >
-              <Plus className="w-5 h-5" />
-              Add Your First Location
-            </button>
-          )}
-        </div>
-      )}
 
       {/* Summary Stats Footer */}
       <div className="bg-white/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 p-6">

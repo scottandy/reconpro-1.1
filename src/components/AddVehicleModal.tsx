@@ -15,7 +15,7 @@ const AddVehicleModal: React.FC<AddVehicleModalProps> = ({ isOpen, onClose, onAd
     make: '',
     model: '',
     trim: '',
-    mileage: 0,
+    mileage: '0',
     color: '',
     dateAcquired: new Date().toISOString().split('T')[0],
     location: '',
@@ -36,7 +36,14 @@ const AddVehicleModal: React.FC<AddVehicleModalProps> = ({ isOpen, onClose, onAd
     if (formData.year < 1900 || formData.year > new Date().getFullYear() + 1) {
       newErrors.year = 'Please enter a valid year';
     }
-    if (formData.mileage < 0) newErrors.mileage = 'Mileage cannot be negative';
+    
+    // Validate mileage
+    const mileageNum = parseInt(formData.mileage);
+    if (!formData.mileage.trim()) {
+      newErrors.mileage = 'Mileage is required';
+    } else if (isNaN(mileageNum) || mileageNum < 0) {
+      newErrors.mileage = 'Please enter a valid mileage';
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -56,6 +63,7 @@ const AddVehicleModal: React.FC<AddVehicleModalProps> = ({ isOpen, onClose, onAd
       color: formData.color.trim(),
       location: formData.location.trim(),
       notes: formData.notes.trim() || undefined,
+      mileage: parseInt(formData.mileage),
       price: 0, // Default price to 0 when not specified
       status: {
         emissions: 'not-started' as InspectionStatus,
@@ -78,7 +86,7 @@ const AddVehicleModal: React.FC<AddVehicleModalProps> = ({ isOpen, onClose, onAd
       make: '',
       model: '',
       trim: '',
-      mileage: 0,
+      mileage: '0',
       color: '',
       dateAcquired: new Date().toISOString().split('T')[0],
       location: '',
@@ -240,10 +248,13 @@ const AddVehicleModal: React.FC<AddVehicleModalProps> = ({ isOpen, onClose, onAd
                   Mileage *
                 </label>
                 <input
-                  type="number"
+                  type="text"
                   value={formData.mileage}
-                  onChange={(e) => handleInputChange('mileage', parseInt(e.target.value) || 0)}
-                  min="0"
+                  onChange={(e) => {
+                    // Only allow numeric characters
+                    const numericValue = e.target.value.replace(/[^0-9]/g, '');
+                    handleInputChange('mileage', numericValue);
+                  }}
                   placeholder="Enter mileage"
                   className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base ${
                     errors.mileage ? 'border-red-300' : 'border-gray-300'

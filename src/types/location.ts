@@ -30,6 +30,12 @@ export interface LocationSettings {
   locationCapacityTracking: boolean;
 }
 
+export interface LocationColorSettings {
+  onSiteKeywords: string[];
+  offSiteKeywords: string[];
+  transitKeywords: string[];
+}
+
 export const LOCATION_TYPE_CONFIGS = {
   'on-site': {
     label: 'On-Site',

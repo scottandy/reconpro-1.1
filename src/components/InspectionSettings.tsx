@@ -501,91 +501,134 @@ const InspectionSettings: React.FC = () => {
 
   useEffect(() => {
     if (dealership) {
-      InspectionSettingsManager.initializeDefaultSettings(dealership.id);
-      loadSettings();
+      initializeSettings();
     }
   }, [dealership]);
 
-  const loadSettings = () => {
+  const initializeSettings = async () => {
+    if (!dealership) return;
+    
+    try {
+      await InspectionSettingsManager.initializeDefaultSettings(dealership.id);
+      await loadSettings();
+    } catch (error) {
+      console.error('Error initializing settings:', error);
+    }
+  };
+
+  const loadSettings = async () => {
     if (!dealership) return;
     
     setIsLoading(true);
-    const currentSettings = InspectionSettingsManager.getSettings(dealership.id);
-    setSettings(currentSettings);
-    setIsLoading(false);
+    try {
+      const currentSettings = await InspectionSettingsManager.getSettings(dealership.id);
+      setSettings(currentSettings);
+    } catch (error) {
+      console.error('Error loading settings:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleAddSection = (sectionData: Omit<InspectionSection, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const handleAddSection = async (sectionData: Omit<InspectionSection, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!dealership) return;
     
-    InspectionSettingsManager.addSection(dealership.id, sectionData);
-    loadSettings();
-    setShowSectionModal(false);
+    try {
+      await InspectionSettingsManager.addSection(dealership.id, sectionData);
+      await loadSettings();
+      setShowSectionModal(false);
+    } catch (error) {
+      console.error('Error adding section:', error);
+    }
   };
 
-  const handleEditSection = (sectionData: Omit<InspectionSection, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const handleEditSection = async (sectionData: Omit<InspectionSection, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!dealership || !editingSection) return;
     
-    InspectionSettingsManager.updateSection(dealership.id, editingSection.id, sectionData);
-    loadSettings();
-    setEditingSection(null);
+    try {
+      await InspectionSettingsManager.updateSection(dealership.id, editingSection.id, sectionData);
+      await loadSettings();
+      setEditingSection(null);
+    } catch (error) {
+      console.error('Error updating section:', error);
+    }
   };
 
-  const handleDeleteSection = (sectionId: string) => {
+  const handleDeleteSection = async (sectionId: string) => {
     if (!dealership) return;
     
     const section = settings?.sections.find(s => s.id === sectionId);
     if (!section) return;
 
     if (window.confirm(`Are you sure you want to delete the "${section.label}" section? This will also delete all items in this section.`)) {
-      InspectionSettingsManager.deleteSection(dealership.id, sectionId);
-      loadSettings();
+      try {
+        await InspectionSettingsManager.deleteSection(dealership.id, sectionId);
+        await loadSettings();
+      } catch (error) {
+        console.error('Error deleting section:', error);
+      }
     }
   };
 
-  const handleToggleSectionActive = (sectionId: string) => {
+  const handleToggleSectionActive = async (sectionId: string) => {
     if (!dealership) return;
     
     const section = settings?.sections.find(s => s.id === sectionId);
     if (!section) return;
 
-    InspectionSettingsManager.updateSection(dealership.id, sectionId, {
-      isActive: !section.isActive
-    });
-    loadSettings();
+    try {
+      await InspectionSettingsManager.updateSection(dealership.id, sectionId, {
+        isActive: !section.isActive
+      });
+      await loadSettings();
+    } catch (error) {
+      console.error('Error toggling section active:', error);
+    }
   };
 
-  const handleToggleSectionCustomerVisible = (sectionId: string) => {
+  const handleToggleSectionCustomerVisible = async (sectionId: string) => {
     if (!dealership) return;
     
     const section = settings?.sections.find(s => s.id === sectionId);
     if (!section) return;
 
-    InspectionSettingsManager.updateSection(dealership.id, sectionId, {
-      isCustomerVisible: !section.isCustomerVisible
-    });
-    loadSettings();
+    try {
+      await InspectionSettingsManager.updateSection(dealership.id, sectionId, {
+        isCustomerVisible: !section.isCustomerVisible
+      });
+      await loadSettings();
+    } catch (error) {
+      console.error('Error toggling section customer visible:', error);
+    }
   };
 
-  const handleAddItem = (itemData: Omit<InspectionItem, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const handleAddItem = async (itemData: Omit<InspectionItem, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!dealership || !selectedSectionId) return;
     
-    InspectionSettingsManager.addItem(dealership.id, selectedSectionId, itemData);
-    loadSettings();
-    setShowItemModal(false);
-    setSelectedSectionId(null);
+    try {
+      await InspectionSettingsManager.addItem(dealership.id, selectedSectionId, itemData);
+      await loadSettings();
+      setShowItemModal(false);
+      setSelectedSectionId(null);
+    } catch (error) {
+      console.error('Error adding item:', error);
+    }
   };
 
-  const handleEditItem = (itemData: Omit<InspectionItem, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const handleEditItem = async (itemData: Omit<InspectionItem, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!dealership || !selectedSectionId || !editingItem) return;
     
-    InspectionSettingsManager.updateItem(dealership.id, selectedSectionId, editingItem.id, itemData);
-    loadSettings();
-    setEditingItem(null);
-    setSelectedSectionId(null);
+    try {
+      await InspectionSettingsManager.updateItem(dealership.id, selectedSectionId, editingItem.id, itemData);
+      await loadSettings();
+      setEditingItem(null);
+      setSelectedSectionId(null);
+    } catch (error) {
+      console.error('Error updating item:', error);
+    }
   };
 
-  const handleDeleteItem = (sectionId: string, itemId: string) => {
+  const handleDeleteItem = async (sectionId: string, itemId: string) => {
     if (!dealership) return;
     
     const section = settings?.sections.find(s => s.id === sectionId);
@@ -593,77 +636,107 @@ const InspectionSettings: React.FC = () => {
     if (!item) return;
 
     if (window.confirm(`Are you sure you want to delete the "${item.label}" item?`)) {
-      InspectionSettingsManager.deleteItem(dealership.id, sectionId, itemId);
-      loadSettings();
+      try {
+        await InspectionSettingsManager.deleteItem(dealership.id, sectionId, itemId);
+        await loadSettings();
+      } catch (error) {
+        console.error('Error deleting item:', error);
+      }
     }
   };
 
-  const handleToggleItemActive = (sectionId: string, itemId: string) => {
+  const handleToggleItemActive = async (sectionId: string, itemId: string) => {
     if (!dealership) return;
     
     const section = settings?.sections.find(s => s.id === sectionId);
     const item = section?.items.find(i => i.id === itemId);
     if (!item) return;
 
-    InspectionSettingsManager.updateItem(dealership.id, sectionId, itemId, {
-      isActive: !item.isActive
-    });
-    loadSettings();
-  };
-
-  const handleUpdateRatingLabel = (labelKey: 'great' | 'fair' | 'needs-attention' | 'not-checked', updates: Partial<RatingLabel>) => {
-    if (!dealership) return;
-    
-    InspectionSettingsManager.updateRatingLabel(dealership.id, labelKey, updates);
-    loadSettings();
-  };
-
-  const handleUpdateCustomerPdfSettings = (updates: Partial<InspectionSettingsType['customerPdfSettings']>) => {
-    if (!dealership) return;
-    
-    InspectionSettingsManager.updateCustomerPdfSettings(dealership.id, updates);
-    loadSettings();
-  };
-
-  const handleResetToDefaults = () => {
-    if (!dealership) return;
-    
-    if (window.confirm('Are you sure you want to reset all inspection settings to defaults? This will remove all custom sections and items.')) {
-      InspectionSettingsManager.resetToDefaults(dealership.id);
-      loadSettings();
+    try {
+      await InspectionSettingsManager.updateItem(dealership.id, sectionId, itemId, {
+        isActive: !item.isActive
+      });
+      await loadSettings();
+    } catch (error) {
+      console.error('Error toggling item active:', error);
     }
   };
 
-  const handleExportSettings = () => {
+  const handleUpdateRatingLabel = async (labelKey: 'great' | 'fair' | 'needs-attention' | 'not-checked', updates: Partial<RatingLabel>) => {
     if (!dealership) return;
     
-    const exportData = InspectionSettingsManager.exportSettings(dealership.id);
-    if (!exportData) return;
-
-    const blob = new Blob([exportData], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `inspection-settings-${dealership.name.replace(/\s+/g, '-').toLowerCase()}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    try {
+      await InspectionSettingsManager.updateRatingLabel(dealership.id, labelKey, updates);
+      await loadSettings();
+    } catch (error) {
+      console.error('Error updating rating label:', error);
+    }
   };
 
-  const handleImportSettings = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUpdateCustomerPdfSettings = async (updates: Partial<InspectionSettingsType['customerPdfSettings']>) => {
+    if (!dealership) return;
+    
+    try {
+      await InspectionSettingsManager.updateCustomerPdfSettings(dealership.id, updates);
+      await loadSettings();
+    } catch (error) {
+      console.error('Error updating customer PDF settings:', error);
+    }
+  };
+
+  const handleResetToDefaults = async () => {
+    if (!dealership) return;
+    
+    if (window.confirm('Are you sure you want to reset all inspection settings to defaults? This will remove all custom sections and items.')) {
+      try {
+        await InspectionSettingsManager.resetToDefaults(dealership.id);
+        await loadSettings();
+      } catch (error) {
+        console.error('Error resetting to defaults:', error);
+      }
+    }
+  };
+
+  const handleExportSettings = async () => {
+    if (!dealership) return;
+    
+    try {
+      const exportData = await InspectionSettingsManager.exportSettings(dealership.id);
+      if (!exportData) return;
+
+      const blob = new Blob([exportData], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `inspection-settings-${dealership.name.replace(/\s+/g, '-').toLowerCase()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error exporting settings:', error);
+    }
+  };
+
+  const handleImportSettings = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!dealership) return;
     
     const file = event.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       const content = e.target?.result as string;
-      if (InspectionSettingsManager.importSettings(dealership.id, content)) {
-        loadSettings();
-        alert('Settings imported successfully!');
-      } else {
+      try {
+        const success = await InspectionSettingsManager.importSettings(dealership.id, content);
+        if (success) {
+          await loadSettings();
+          alert('Settings imported successfully!');
+        } else {
+          alert('Error importing settings. Please check the file format.');
+        }
+      } catch (error) {
+        console.error('Error importing settings:', error);
         alert('Error importing settings. Please check the file format.');
       }
     };

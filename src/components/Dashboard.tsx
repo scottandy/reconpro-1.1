@@ -36,17 +36,8 @@ import {
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import AddVehicleModal from './AddVehicleModal';
-import VehicleCard from './VehicleCard';
-import InventorySummary from './InventorySummary';
-import AnalyticsOverview from './AnalyticsOverview';
-import UserManagement from './UserManagement';
-import LocationManagement from './LocationManagement';
-import ContactManagement from './ContactManagement';
-import TodoManagement from './TodoManagement';
-import SettingsPanel from './SettingsPanel';
-import InspectionSettings from './InspectionSettings';
+import { supabase } from '../utils/supabaseClient';
+import { VehicleManager } from '../utils/vehicleManager';
 
 type DashboardView = 'inventory' | 'analytics' | 'users' | 'locations' | 'contacts' | 'todos' | 'settings' | 'inspection-settings';
 type VehicleFilter = 'all' | 'active' | 'completed' | 'pending' | 'needs-attention' | 'sold' | 'vehicle-pending';
@@ -75,46 +66,54 @@ const Dashboard: React.FC = () => {
       loadAllVehicles();
     }
   }, [dealership]);
+    if (dealership) {
+      loadAllVehicles();
+    }
+  }, [dealership]);
 
   const loadAllVehicles = async () => {
     if (!dealership) return;
     
-    setIsLoading(true);
     try {
-      const allVehicles = await DatabaseService.getVehicles(dealership.id);
+      // Load all vehicles using VehicleManager
+      const allVehicles = await VehicleManager.getVehicles(dealership.id);
       
       // Separate active, sold, and pending vehicles
-      const activeVehicles = allVehicles.filter(v => !v.isSold && !v.isPending);
-      const soldVehiclesList = allVehicles.filter(v => v.isSold);
-      const pendingVehiclesList = allVehicles.filter(v => v.isPending);
-
+      const activeVehicles = allVehicles.filter((v: any) => !v.is_sold && !v.is_pending);
+      const soldVehiclesList = allVehicles.filter((v: any) => v.is_sold);
+      const pendingVehiclesList = allVehicles.filter((v: any) => v.is_pending);
+      
       setVehicles(activeVehicles);
       setSoldVehicles(soldVehiclesList);
       setPendingVehicles(pendingVehiclesList);
     } catch (error) {
-      console.error('Error loading vehicles:', error);
-    } finally {
-      setIsLoading(false);
+      console.error('Error loading vehicles from Supabase:', error);
+      setVehicles([]);
+      setSoldVehicles([]);
+      setPendingVehicles([]);
     }
   };
 
   const handleAddVehicle = async (vehicleData: Omit<Vehicle, 'id'>) => {
     if (!dealership) return;
 
-    try {
-      const newVehicle = await DatabaseService.createVehicle({
-        ...vehicleData,
-        dealershipId: dealership.id
-      });
+    console.log('Dashboard received vehicle data:', vehicleData);
+    console.log('Dealership ID:', dealership.id);
 
+    try {
+      const newVehicle = await VehicleManager.addVehicle(dealership.id, vehicleData);
       if (newVehicle) {
-        // Update local state
-        setVehicles(prev => [newVehicle, ...prev]);
+        console.log('Successfully added vehicle:', newVehicle);
+        // Reload all vehicles to get the updated list
+        await loadAllVehicles();
         setShowAddVehicle(false);
+      } else {
+        console.error('Failed to add vehicle to database - VehicleManager returned null');
+        alert('Failed to add vehicle. Please try again.');
       }
     } catch (error) {
       console.error('Error adding vehicle:', error);
-      alert('Failed to add vehicle. Please try again.');
+      alert('Error adding vehicle. Please try again.');
     }
   };
 
@@ -171,7 +170,7 @@ const Dashboard: React.FC = () => {
 
   // NEW: Location type detection function
   const getVehicleLocationType = (location: string): LocationFilter => {
-    const locationLower = location.toLowerCase();
+    const locationLower = (location || '').toLowerCase();
     
     // Check for In-Transit indicators
     if (locationLower.includes('transit') || locationLower.includes('transport')) {

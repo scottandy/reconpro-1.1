@@ -443,20 +443,27 @@ const ContactModal: React.FC<ContactModalProps> = ({ contact, isOpen, onClose, o
 };
 
 const ContactManagement: React.FC = () => {
-  const { dealership } = useAuth();
+  const { dealership, user } = useAuth();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [filteredContacts, setFilteredContacts] = useState<Contact[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<ContactCategory | 'all' | 'favorites'>('all');
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [showInactive, setShowInactive] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingContact, setEditingContact] = useState<Contact | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [stats, setStats] = useState({
+    total: 0,
+    active: 0,
+    favorites: 0,
+    byCategory: {} as Record<ContactCategory, number>
+  });
 
   useEffect(() => {
     if (dealership) {
-      ContactManager.initializeDefaultContacts(dealership.id);
       loadContacts();
+      loadStats();
     }
   }, [dealership]);
 
@@ -464,81 +471,125 @@ const ContactManagement: React.FC = () => {
     filterContacts();
   }, [contacts, searchTerm, categoryFilter, showInactive]);
 
-  const loadContacts = () => {
+  const loadContacts = async () => {
     if (dealership) {
-      const allContacts = ContactManager.getContacts(dealership.id);
-      setContacts(allContacts);
+      setLoading(true);
+      try {
+        const allContacts = await ContactManager.getContacts(dealership.id);
+        setContacts(allContacts);
+      } catch (error) {
+        console.error('Error loading contacts:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const loadStats = async () => {
+    if (dealership) {
+      try {
+        const contactStats = await ContactManager.getContactStats(dealership.id);
+        setStats(contactStats);
+      } catch (error) {
+        console.error('Error loading contact stats:', error);
+      }
     }
   };
 
   const filterContacts = () => {
     let filtered = contacts;
 
-    // Filter by active/inactive
-    if (!showInactive) {
-      filtered = filtered.filter(contact => contact.isActive);
-    }
-
-    // Filter by search term
+    // Search filter
     if (searchTerm) {
-      filtered = ContactManager.searchContacts(dealership?.id || '', searchTerm);
-      if (!showInactive) {
-        filtered = filtered.filter(contact => contact.isActive);
-      }
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter(contact => 
+        contact.name.toLowerCase().includes(searchLower) ||
+        contact.company?.toLowerCase().includes(searchLower) ||
+        contact.phone.includes(searchLower) ||
+        contact.email?.toLowerCase().includes(searchLower) ||
+        contact.specialties?.some(specialty => specialty.toLowerCase().includes(searchLower))
+      );
     }
 
-    // Filter by category
+    // Category filter
     if (categoryFilter === 'favorites') {
       filtered = filtered.filter(contact => contact.isFavorite);
     } else if (categoryFilter !== 'all') {
       filtered = filtered.filter(contact => contact.category === categoryFilter);
     }
 
-    // Sort: favorites first, then by name
-    filtered.sort((a, b) => {
-      if (a.isFavorite && !b.isFavorite) return -1;
-      if (!a.isFavorite && b.isFavorite) return 1;
-      return a.name.localeCompare(b.name);
-    });
+    // Active/Inactive filter
+    if (!showInactive) {
+      filtered = filtered.filter(contact => contact.isActive);
+    }
+
+    // Sort by name
+    filtered.sort((a, b) => a.name.localeCompare(b.name));
 
     setFilteredContacts(filtered);
   };
 
-  const handleAddContact = (contactData: Omit<Contact, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const handleAddContact = async (contactData: Omit<Contact, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (dealership) {
-      ContactManager.addContact(dealership.id, contactData);
-      loadContacts();
-      setShowAddModal(false);
+      try {
+        await ContactManager.addContact(dealership.id, contactData);
+        await loadContacts();
+        await loadStats();
+        setShowAddModal(false);
+      } catch (error) {
+        console.error('Error adding contact:', error);
+      }
     }
   };
 
-  const handleEditContact = (contactData: Omit<Contact, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const handleEditContact = async (contactData: Omit<Contact, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (dealership && editingContact) {
-      ContactManager.updateContact(dealership.id, editingContact.id, contactData);
-      loadContacts();
-      setEditingContact(null);
+      try {
+        await ContactManager.updateContact(dealership.id, editingContact.id, contactData);
+        await loadContacts();
+        await loadStats();
+        setEditingContact(null);
+      } catch (error) {
+        console.error('Error updating contact:', error);
+      }
     }
   };
 
-  const handleDeleteContact = (contact: Contact) => {
+  const handleDeleteContact = async (contact: Contact) => {
     if (dealership && window.confirm(`Are you sure you want to delete "${contact.name}"?`)) {
-      ContactManager.deleteContact(dealership.id, contact.id);
-      loadContacts();
+      try {
+        await ContactManager.deleteContact(dealership.id, contact.id);
+        await loadContacts();
+        await loadStats();
+      } catch (error) {
+        console.error('Error deleting contact:', error);
+      }
     }
   };
 
-  const handleToggleFavorite = (contact: Contact) => {
+  const handleToggleFavorite = async (contact: Contact) => {
     if (dealership) {
-      ContactManager.toggleFavorite(dealership.id, contact.id);
-      loadContacts();
+      try {
+        await ContactManager.toggleFavorite(dealership.id, contact.id);
+        await loadContacts();
+        await loadStats();
+      } catch (error) {
+        console.error('Error toggling favorite:', error);
+      }
     }
   };
 
-  const handleCall = (contact: Contact) => {
+  const handleCall = async (contact: Contact) => {
     if (dealership) {
-      ContactManager.logCall(dealership.id, contact.id);
-      ContactManager.makePhoneCall(contact.phone);
-      loadContacts(); // Refresh to update last contacted
+      try {
+        await ContactManager.logCall(dealership.id, contact.id);
+        await loadContacts();
+        ContactManager.makePhoneCall(contact.phone);
+      } catch (error) {
+        console.error('Error logging call:', error);
+        // Still make the call even if logging fails
+        ContactManager.makePhoneCall(contact.phone);
+      }
     }
   };
 
@@ -549,13 +600,6 @@ const ContactManagement: React.FC = () => {
       year: 'numeric'
     });
   };
-
-  const getContactStats = () => {
-    if (!dealership) return { total: 0, active: 0, favorites: 0, byCategory: {} };
-    return ContactManager.getContactStats(dealership.id);
-  };
-
-  const stats = getContactStats();
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -698,138 +742,162 @@ const ContactManagement: React.FC = () => {
 
       {/* Contacts Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
-        {filteredContacts.map((contact) => {
-          const categoryConfig = CONTACT_CATEGORY_CONFIGS[contact.category];
-          
-          return (
-            <div 
-              key={contact.id}
-              className={`bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg border border-white/30 dark:border-gray-700/30 hover:shadow-xl transition-all duration-300 hover:scale-[1.02] ${
-                !contact.isActive ? 'opacity-60' : ''
-              }`}
-            >
-              <div className="p-4 sm:p-6">
-                {/* Header */}
-                <div className="flex items-start justify-between mb-3 sm:mb-4">
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg sm:rounded-xl flex items-center justify-center text-white font-bold text-sm sm:text-lg">
-                      {contact.name.charAt(0).toUpperCase()}
+        {loading ? (
+          <div className="text-center py-8 text-gray-500">Loading contacts...</div>
+        ) : filteredContacts.length === 0 ? (
+          <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/20 p-8 sm:p-12 text-center transition-colors duration-300">
+            <Phone className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+            <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-2">No Contacts Found</h3>
+            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-6">
+              {searchTerm || categoryFilter !== 'all' 
+                ? 'Try adjusting your search or filter criteria.'
+                : 'Add your first contact to get started managing your reconditioning service providers.'
+              }
+            </p>
+            {!searchTerm && categoryFilter === 'all' && (
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="inline-flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm sm:text-base"
+              >
+                <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                Add Your First Contact
+              </button>
+            )}
+          </div>
+        ) : (
+          filteredContacts.map((contact) => {
+            const categoryConfig = CONTACT_CATEGORY_CONFIGS[contact.category];
+            
+            return (
+              <div 
+                key={contact.id}
+                className={`bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg border border-white/30 dark:border-gray-700/30 hover:shadow-xl transition-all duration-300 hover:scale-[1.02] ${
+                  !contact.isActive ? 'opacity-60' : ''
+                }`}
+              >
+                <div className="p-4 sm:p-6">
+                  {/* Header */}
+                  <div className="flex items-start justify-between mb-3 sm:mb-4">
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg sm:rounded-xl flex items-center justify-center text-white font-bold text-sm sm:text-lg">
+                        {contact.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white truncate">{contact.name}</h3>
+                        {contact.company && (
+                          <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">{contact.company}</p>
+                        )}
+                        {contact.title && (
+                          <p className="text-xs text-gray-500 dark:text-gray-500 truncate">{contact.title}</p>
+                        )}
+                      </div>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white truncate">{contact.name}</h3>
-                      {contact.company && (
-                        <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">{contact.company}</p>
-                      )}
-                      {contact.title && (
-                        <p className="text-xs text-gray-500 dark:text-gray-500 truncate">{contact.title}</p>
-                      )}
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleToggleFavorite(contact)}
+                        className={`p-1.5 sm:p-2 rounded-lg transition-colors ${
+                          contact.isFavorite
+                            ? 'text-yellow-500 hover:bg-yellow-50 dark:hover:bg-yellow-900/20'
+                            : 'text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        <Star className={`w-3 h-3 sm:w-4 sm:h-4 ${contact.isFavorite ? 'fill-current' : ''}`} />
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
+
+                  {/* Category Badge */}
+                  <div className="mb-3 sm:mb-4">
+                    <span className={`inline-flex items-center gap-1 px-2 sm:px-3 py-1 rounded-full text-xs font-medium border ${categoryConfig.color}`}>
+                      <span>{categoryConfig.icon}</span>
+                      <span className="hidden sm:inline">{categoryConfig.label}</span>
+                    </span>
+                  </div>
+
+                  {/* Contact Info */}
+                  <div className="space-y-2 sm:space-y-3 mb-3 sm:mb-4">
+                    <div className="flex items-center gap-2">
+                      <Phone className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+                      <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 font-mono">
+                        {ContactManager.formatPhoneNumber(contact.phone)}
+                      </span>
+                    </div>
+                    
+                    {contact.email && (
+                      <div className="flex items-center gap-2">
+                        <Mail className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+                        <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 truncate">{contact.email}</span>
+                      </div>
+                    )}
+                    
+                    {(contact.city || contact.state) && (
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+                        <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 truncate">
+                          {[contact.city, contact.state].filter(Boolean).join(', ')}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Specialties */}
+                  {contact.specialties && contact.specialties.length > 0 && (
+                    <div className="mb-3 sm:mb-4">
+                      <div className="flex flex-wrap gap-1">
+                        {contact.specialties.slice(0, 2).map((specialty, index) => (
+                          <span
+                            key={index}
+                            className="inline-block px-2 py-0.5 sm:py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded text-xs"
+                          >
+                            {specialty}
+                          </span>
+                        ))}
+                        {contact.specialties.length > 2 && (
+                          <span className="inline-block px-2 py-0.5 sm:py-1 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded text-xs">
+                            +{contact.specialties.length - 2} more
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Last Contacted */}
+                  {contact.lastContacted && (
+                    <div className="mb-3 sm:mb-4 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                      <Clock className="w-3 h-3" />
+                      <span>Last contacted: {formatDate(contact.lastContacted)}</span>
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-2">
                     <button
-                      onClick={() => handleToggleFavorite(contact)}
-                      className={`p-1.5 sm:p-2 rounded-lg transition-colors ${
-                        contact.isFavorite
-                          ? 'text-yellow-500 hover:bg-yellow-50 dark:hover:bg-yellow-900/20'
-                          : 'text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'
-                      }`}
+                      onClick={() => handleCall(contact)}
+                      className="flex-1 inline-flex items-center justify-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium text-xs sm:text-sm"
                     >
-                      <Star className={`w-3 h-3 sm:w-4 sm:h-4 ${contact.isFavorite ? 'fill-current' : ''}`} />
+                      <PhoneCall className="w-3 h-3 sm:w-4 sm:h-4" />
+                      <span>Call</span>
+                    </button>
+                    <button
+                      onClick={() => setEditingContact(contact)}
+                      className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                      title="Edit"
+                    >
+                      <Edit3 className="w-3 h-3 sm:w-4 sm:h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteContact(contact)}
+                      className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
                     </button>
                   </div>
                 </div>
-
-                {/* Category Badge */}
-                <div className="mb-3 sm:mb-4">
-                  <span className={`inline-flex items-center gap-1 px-2 sm:px-3 py-1 rounded-full text-xs font-medium border ${categoryConfig.color}`}>
-                    <span>{categoryConfig.icon}</span>
-                    <span className="hidden sm:inline">{categoryConfig.label}</span>
-                  </span>
-                </div>
-
-                {/* Contact Info */}
-                <div className="space-y-2 sm:space-y-3 mb-3 sm:mb-4">
-                  <div className="flex items-center gap-2">
-                    <Phone className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
-                    <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 font-mono">
-                      {ContactManager.formatPhoneNumber(contact.phone)}
-                    </span>
-                  </div>
-                  
-                  {contact.email && (
-                    <div className="flex items-center gap-2">
-                      <Mail className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
-                      <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 truncate">{contact.email}</span>
-                    </div>
-                  )}
-                  
-                  {(contact.city || contact.state) && (
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
-                      <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 truncate">
-                        {[contact.city, contact.state].filter(Boolean).join(', ')}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Specialties */}
-                {contact.specialties && contact.specialties.length > 0 && (
-                  <div className="mb-3 sm:mb-4">
-                    <div className="flex flex-wrap gap-1">
-                      {contact.specialties.slice(0, 2).map((specialty, index) => (
-                        <span
-                          key={index}
-                          className="inline-block px-2 py-0.5 sm:py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded text-xs"
-                        >
-                          {specialty}
-                        </span>
-                      ))}
-                      {contact.specialties.length > 2 && (
-                        <span className="inline-block px-2 py-0.5 sm:py-1 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded text-xs">
-                          +{contact.specialties.length - 2} more
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Last Contacted */}
-                {contact.lastContacted && (
-                  <div className="mb-3 sm:mb-4 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                    <Clock className="w-3 h-3" />
-                    <span>Last contacted: {formatDate(contact.lastContacted)}</span>
-                  </div>
-                )}
-
-                {/* Action Buttons */}
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleCall(contact)}
-                    className="flex-1 inline-flex items-center justify-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium text-xs sm:text-sm"
-                  >
-                    <PhoneCall className="w-3 h-3 sm:w-4 sm:h-4" />
-                    <span>Call</span>
-                  </button>
-                  <button
-                    onClick={() => setEditingContact(contact)}
-                    className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                    title="Edit"
-                  >
-                    <Edit3 className="w-3 h-3 sm:w-4 sm:h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteContact(contact)}
-                    className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                    title="Delete"
-                  >
-                    <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
-                  </button>
-                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })
+        )}
 
         {/* Add New Contact Card */}
         <div 
@@ -845,29 +913,6 @@ const ContactManagement: React.FC = () => {
           </div>
         </div>
       </div>
-
-      {/* Empty State */}
-      {filteredContacts.length === 0 && (
-        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/20 p-8 sm:p-12 text-center transition-colors duration-300">
-          <Phone className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
-          <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-2">No Contacts Found</h3>
-          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-6">
-            {searchTerm || categoryFilter !== 'all' 
-              ? 'Try adjusting your search or filter criteria.'
-              : 'Add your first contact to get started managing your reconditioning service providers.'
-            }
-          </p>
-          {!searchTerm && categoryFilter === 'all' && (
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="inline-flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm sm:text-base"
-            >
-              <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-              Add Your First Contact
-            </button>
-          )}
-        </div>
-      )}
 
       {/* Add/Edit Contact Modal */}
       <ContactModal

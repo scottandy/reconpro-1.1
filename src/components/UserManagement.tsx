@@ -18,6 +18,8 @@ const UserManagement: React.FC = () => {
     role: 'technician'
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string>('');
 
   useEffect(() => {
     if (dealership) {
@@ -25,10 +27,14 @@ const UserManagement: React.FC = () => {
     }
   }, [dealership]);
 
-  const loadUsers = () => {
+  const loadUsers = async () => {
     if (dealership) {
-      const dealershipUsers = AuthManager.getDealershipUsers(dealership.id);
-      setUsers(dealershipUsers);
+      try {
+        const dealershipUsers = await AuthManager.getDealershipUsers(dealership.id);
+        setUsers(dealershipUsers);
+      } catch (error) {
+        console.error('Error loading users:', error);
+      }
     }
   };
 
@@ -54,9 +60,11 @@ const UserManagement: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     clearError();
+    setSuccessMessage('');
     
     if (!validateForm()) return;
 
+    setIsLoading(true);
     try {
       await registerUser(formData);
       setFormData({
@@ -68,9 +76,12 @@ const UserManagement: React.FC = () => {
         role: 'technician'
       });
       setShowAddUser(false);
-      loadUsers();
+      setSuccessMessage(`User ${formData.firstName} ${formData.lastName} has been added successfully! They can now sign in with their email and password.`);
+      await loadUsers();
     } catch (error) {
       // Error is handled by the auth context
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -81,10 +92,14 @@ const UserManagement: React.FC = () => {
     }
   };
 
-  const handleDeactivateUser = (userId: string) => {
-    if (window.confirm('Are you sure you want to deactivate this user?')) {
-      AuthManager.deactivateUser(userId);
-      loadUsers();
+  const handleDeactivateUser = async (userId: string) => {
+    if (window.confirm('Are you sure you want to delete this user? This action cannot be undone and will permanently remove the user.')) {
+      try {
+        await AuthManager.deleteUser(userId);
+        await loadUsers();
+      } catch (error) {
+        console.error('Error deleting user:', error);
+      }
     }
   };
 
@@ -123,6 +138,27 @@ const UserManagement: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Success Message */}
+      {successMessage && (
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+              <Users className="w-4 h-4 text-green-600" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-green-900">User Added Successfully</h3>
+              <p className="text-sm text-green-700">{successMessage}</p>
+            </div>
+            <button
+              onClick={() => setSuccessMessage('')}
+              className="text-green-400 hover:text-green-600"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -192,7 +228,7 @@ const UserManagement: React.FC = () => {
                     </h4>
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <Mail className="w-3 h-3" />
-                      <span>{user.email}</span>
+                      <span>{user.email || 'Email not available'}</span>
                     </div>
                   </div>
                 </div>
@@ -397,9 +433,10 @@ const UserManagement: React.FC = () => {
                 <div className="flex gap-3 pt-4">
                   <button
                     type="submit"
-                    className="flex-1 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
+                    disabled={isLoading}
+                    className="flex-1 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Add User
+                    {isLoading ? 'Adding User...' : 'Add User'}
                   </button>
                   <button
                     type="button"

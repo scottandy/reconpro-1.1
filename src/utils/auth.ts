@@ -1,409 +1,347 @@
 import { User, Dealership, AuthState, LoginCredentials, RegisterDealershipData, RegisterUserData } from '../types/auth';
+import { supabase } from './supabaseClient';
 
 export class AuthManager {
-  private static readonly STORAGE_KEYS = {
-    DEALERSHIPS: 'dealerships',
-    USERS: 'users',
-    CURRENT_SESSION: 'currentSession',
-    VEHICLE_DATA_PREFIX: 'dealership_vehicles_'
-  };
-
-  // Initialize with demo data
-  static initializeDemoData(): void {
-    // Always reinitialize to ensure super admin exists
-    console.log('🔧 Initializing demo data...');
-    
-    const demoDealerships: Dealership[] = [
-      // Super Admin "Dealership" - Platform Management
-      {
-        id: 'platform-admin',
-        name: 'ReconPro Platform',
-        address: '1 Platform Drive',
-        city: 'Tech City',
-        state: 'CA',
-        zipCode: '94000',
-        phone: '(555) 000-0000',
-        email: 'platform@reconpro.com',
-        website: 'https://reconpro.com',
-        isActive: true,
-        subscriptionPlan: 'enterprise',
-        createdAt: new Date().toISOString(),
-        settings: {
-          allowUserRegistration: true,
-          requireApproval: false,
-          maxUsers: 999,
-          features: {
-            analytics: true,
-            multiLocation: true,
-            customReports: true,
-            apiAccess: true
-          }
-        }
-      },
-      {
-        id: 'demo-dealership-1',
-        name: 'Premier Auto Group',
-        address: '123 Main Street',
-        city: 'Springfield',
-        state: 'IL',
-        zipCode: '62701',
-        phone: '(555) 123-4567',
-        email: 'info@premierauto.com',
-        website: 'https://premierauto.com',
-        isActive: true,
-        subscriptionPlan: 'premium',
-        createdAt: new Date().toISOString(),
-        settings: {
-          allowUserRegistration: true,
-          requireApproval: false,
-          maxUsers: 50,
-          features: {
-            analytics: true,
-            multiLocation: true,
-            customReports: true,
-            apiAccess: false
-          }
-        }
-      },
-      {
-        id: 'demo-dealership-2',
-        name: 'City Motors',
-        address: '456 Oak Avenue',
-        city: 'Chicago',
-        state: 'IL',
-        zipCode: '60601',
-        phone: '(555) 987-6543',
-        email: 'contact@citymotors.com',
-        isActive: true,
-        subscriptionPlan: 'basic',
-        createdAt: new Date().toISOString(),
-        settings: {
-          allowUserRegistration: false,
-          requireApproval: true,
-          maxUsers: 10,
-          features: {
-            analytics: false,
-            multiLocation: false,
-            customReports: false,
-            apiAccess: false
-          }
-        }
-      }
-    ];
-
-    const demoUsers: User[] = [
-      // Super Admin User
-      {
-        id: 'super-admin-1',
-        email: 'admin@reconpro.com',
-        firstName: 'Super',
-        lastName: 'Admin',
-        initials: 'SA',
-        role: 'admin',
-        dealershipId: 'platform-admin',
-        isActive: true,
-        createdAt: new Date().toISOString()
-      },
-      // Premier Auto Group users
-      {
-        id: 'user-1',
-        email: 'admin@premierauto.com',
-        firstName: 'John',
-        lastName: 'Smith',
-        initials: 'JS',
-        role: 'admin',
-        dealershipId: 'demo-dealership-1',
-        isActive: true,
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'user-2',
-        email: 'manager@premierauto.com',
-        firstName: 'Sarah',
-        lastName: 'Johnson',
-        initials: 'SJ',
-        role: 'manager',
-        dealershipId: 'demo-dealership-1',
-        isActive: true,
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'user-3',
-        email: 'tech@premierauto.com',
-        firstName: 'Mike',
-        lastName: 'Wilson',
-        initials: 'MW',
-        role: 'technician',
-        dealershipId: 'demo-dealership-1',
-        isActive: true,
-        createdAt: new Date().toISOString()
-      },
-      // City Motors users
-      {
-        id: 'user-4',
-        email: 'admin@citymotors.com',
-        firstName: 'Lisa',
-        lastName: 'Davis',
-        initials: 'LD',
-        role: 'admin',
-        dealershipId: 'demo-dealership-2',
-        isActive: true,
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'user-5',
-        email: 'sales@citymotors.com',
-        firstName: 'Tom',
-        lastName: 'Brown',
-        initials: 'TB',
-        role: 'sales',
-        dealershipId: 'demo-dealership-2',
-        isActive: true,
-        createdAt: new Date().toISOString()
-      }
-    ];
-
-    // Always overwrite to ensure consistency
-    localStorage.setItem(this.STORAGE_KEYS.DEALERSHIPS, JSON.stringify(demoDealerships));
-    localStorage.setItem(this.STORAGE_KEYS.USERS, JSON.stringify(demoUsers));
-    
-    console.log('✅ Demo data initialized');
-    console.log('🏆 Super Admin:', demoUsers[0]);
+  static async getUsers(): Promise<User[]> {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*');
+    if (error) {
+      console.error('Error fetching users:', error);
+      return [];
+    }
+    return data as User[];
   }
 
-  static async login(credentials: LoginCredentials): Promise<{ user: User; dealership: Dealership }> {
-    console.log('🔐 Login attempt for:', credentials.email);
-    
-    const users = this.getUsers();
-    const dealerships = this.getDealerships();
-
-    console.log('👥 Available users:', users.map(u => ({ email: u.email, dealership: u.dealershipId })));
-
-    // Find user by email (case insensitive)
-    const user = users.find(u => u.email.toLowerCase() === credentials.email.toLowerCase() && u.isActive);
-    
-    if (!user) {
-      console.log('❌ User not found for email:', credentials.email);
-      throw new Error('Invalid email or password');
+  static async getDealerships(): Promise<Dealership[]> {
+    const { data, error } = await supabase
+      .from('dealerships')
+      .select('*');
+    if (error) {
+      console.error('Error fetching dealerships:', error);
+      return [];
     }
+    return data as Dealership[];
+  }
 
-    console.log('✅ User found:', user);
-
-    // Find dealership
-    const dealership = dealerships.find(d => d.id === user.dealershipId && d.isActive);
-    if (!dealership) {
-      console.log('❌ Dealership not found for ID:', user.dealershipId);
-      throw new Error('Dealership not found or inactive');
+  static async login(credentials: LoginCredentials): Promise<{ user: User | null; dealership: Dealership | null }> {
+    try {
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: credentials.email,
+        password: credentials.password,
+      });
+      if (signInError || !signInData.session || !signInData.user) {
+        return { user: null, dealership: null };
+      }
+      try {
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', signInData.user.id)
+          .single();
+        if (profileError || !profile) {
+          return { user: null, dealership: null };
+        }
+        const { data: dealership, error: dealershipError } = await supabase
+          .from('dealerships')
+          .select('*')
+          .eq('id', profile.dealership_id)
+          .single();
+        if (dealershipError || !dealership) {
+          return { user: null, dealership: null };
+        }
+        return { user: profile as User, dealership: dealership as Dealership };
+      } catch (err) {
+        return { user: null, dealership: null };
+      }
+    } catch (err) {
+      return { user: null, dealership: null };
     }
-
-    console.log('✅ Dealership found:', dealership);
-
-    // Update last login
-    user.lastLogin = new Date().toISOString();
-    this.updateUser(user);
-
-    // Store session
-    const session = { userId: user.id, dealershipId: dealership.id };
-    localStorage.setItem(this.STORAGE_KEYS.CURRENT_SESSION, JSON.stringify(session));
-
-    console.log('🎉 Login successful!');
-    return { user, dealership };
   }
 
   static logout(): void {
-    localStorage.removeItem(this.STORAGE_KEYS.CURRENT_SESSION);
+    supabase.auth.signOut();
   }
 
   static getCurrentSession(): { user: User; dealership: Dealership } | null {
-    const sessionData = localStorage.getItem(this.STORAGE_KEYS.CURRENT_SESSION);
-    if (!sessionData) return null;
-
-    try {
-      const session = JSON.parse(sessionData);
-      const users = this.getUsers();
-      const dealerships = this.getDealerships();
-
-      const user = users.find(u => u.id === session.userId && u.isActive);
-      const dealership = dealerships.find(d => d.id === session.dealershipId && d.isActive);
-
-      if (user && dealership) {
-        return { user, dealership };
-      }
-    } catch (error) {
-      console.error('Error parsing session:', error);
-    }
-
     return null;
   }
 
   static async registerDealership(data: RegisterDealershipData): Promise<{ user: User; dealership: Dealership }> {
-    const dealerships = this.getDealerships();
-    const users = this.getUsers();
-
-    // Check if dealership email already exists
-    if (dealerships.some(d => d.email.toLowerCase() === data.dealershipEmail.toLowerCase())) {
-      throw new Error('A dealership with this email already exists');
-    }
-
-    // Check if user email already exists
-    if (users.some(u => u.email.toLowerCase() === data.email.toLowerCase())) {
-      throw new Error('A user with this email already exists');
-    }
-
-    // Validate passwords match
-    if (data.password !== data.confirmPassword) {
-      throw new Error('Passwords do not match');
-    }
-
-    // Create dealership
-    const dealership: Dealership = {
-      id: `dealership-${Date.now()}`,
-      name: data.dealershipName,
-      address: data.address,
-      city: data.city,
-      state: data.state,
-      zipCode: data.zipCode,
-      phone: data.phone,
-      email: data.dealershipEmail,
-      website: data.website,
-      isActive: true,
-      subscriptionPlan: 'basic',
-      createdAt: new Date().toISOString(),
-      settings: {
-        allowUserRegistration: true,
-        requireApproval: false,
-        maxUsers: 10,
-        features: {
-          analytics: false,
-          multiLocation: false,
-          customReports: false,
-          apiAccess: false
+    // 1. Create user in Supabase Auth
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      email: data.email,
+      password: data.password,
+      options: {
+        data: {
+          first_name: data.firstName,
+          last_name: data.lastName,
+          dealership_name: data.dealershipName,
+          address: data.address,
+          city: data.city,
+          state: data.state,
+          zip_code: data.zipCode,
+          phone: data.phone,
+          dealership_email: data.dealershipEmail,
+          website: data.website,
         }
       }
+    });
+
+    if (signUpError) throw signUpError;
+
+    // Wait for trigger to create dealership/profile (or fetch them)
+    // For now, just return the user object from signUpData
+    return {
+      user: signUpData.user as any, // You may want to fetch the full profile
+      dealership: {} as any // You may want to fetch the dealership by email
     };
-
-    // Create admin user
-    const user: User = {
-      id: `user-${Date.now()}`,
-      email: data.email,
-      firstName: data.firstName,
-      lastName: data.lastName,
-      initials: `${data.firstName.charAt(0)}${data.lastName.charAt(0)}`.toUpperCase(),
-      role: 'admin',
-      dealershipId: dealership.id,
-      isActive: true,
-      createdAt: new Date().toISOString()
-    };
-
-    // Save to storage
-    dealerships.push(dealership);
-    users.push(user);
-    localStorage.setItem(this.STORAGE_KEYS.DEALERSHIPS, JSON.stringify(dealerships));
-    localStorage.setItem(this.STORAGE_KEYS.USERS, JSON.stringify(users));
-
-    return { user, dealership };
   }
 
   static async registerUser(data: RegisterUserData, dealershipId: string): Promise<User> {
-    const users = this.getUsers();
-    const dealerships = this.getDealerships();
+    try {
+      // Since we can't use admin methods from the client, we'll use the regular signup method
+      // but with a special approach to handle the dealership assignment
+      
+      // First, check if user already exists by trying to sign them up
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          data: {
+            first_name: data.firstName,
+            last_name: data.lastName,
+            role: data.role || 'technician', // Default to technician (user role)
+            dealership_id: dealershipId,
+            is_admin_created: true // Flag to indicate this was created by an admin
+          }
+        }
+      });
 
-    const dealership = dealerships.find(d => d.id === dealershipId && d.isActive);
-    if (!dealership) {
-      throw new Error('Dealership not found');
+      if (signUpError) {
+        console.error('Error creating user in Supabase Auth:', signUpError);
+        throw new Error(signUpError.message);
+      }
+
+      if (!signUpData.user) {
+        throw new Error('Failed to create user');
+      }
+
+      // The trigger should create the profile automatically, but let's verify
+      // and create it manually if needed
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', signUpData.user.id)
+        .single();
+
+      if (profileError || !profile) {
+        // Profile wasn't created by trigger, create it manually
+        const profileData = {
+          id: signUpData.user.id,
+          first_name: data.firstName,
+          last_name: data.lastName,
+          initials: `${data.firstName.charAt(0)}${data.lastName.charAt(0)}`.toUpperCase(),
+          role: data.role || 'technician',
+          dealership_id: dealershipId,
+          is_active: true
+        };
+
+        const { data: newProfile, error: createProfileError } = await supabase
+          .from('profiles')
+          .insert([profileData])
+          .select()
+          .single();
+
+        if (createProfileError) {
+          console.error('Error creating profile manually:', createProfileError);
+          // Clean up the auth user if profile creation fails
+          // Note: We can't delete auth users from client, but we can mark them as inactive
+          throw new Error(createProfileError.message);
+        }
+
+        return {
+          id: newProfile.id,
+          email: data.email,
+          firstName: newProfile.first_name,
+          lastName: newProfile.last_name,
+          initials: newProfile.initials,
+          role: newProfile.role,
+          dealershipId: newProfile.dealership_id,
+          isActive: newProfile.is_active,
+          createdAt: newProfile.created_at,
+          updatedAt: newProfile.updated_at
+        } as User;
+      }
+
+      // Profile was created by trigger, return it
+      return {
+        id: profile.id,
+        email: data.email,
+        firstName: profile.first_name,
+        lastName: profile.last_name,
+        initials: profile.initials,
+        role: profile.role,
+        dealershipId: profile.dealership_id,
+        isActive: profile.is_active,
+        createdAt: profile.created_at,
+        updatedAt: profile.updated_at
+      } as User;
+    } catch (error) {
+      console.error('Error in registerUser:', error);
+      throw error;
     }
-
-    // Check user limits
-    const dealershipUsers = users.filter(u => u.dealershipId === dealershipId && u.isActive);
-    if (dealershipUsers.length >= dealership.settings.maxUsers) {
-      throw new Error('Maximum number of users reached for this dealership');
-    }
-
-    // Check if user email already exists
-    if (users.some(u => u.email.toLowerCase() === data.email.toLowerCase())) {
-      throw new Error('A user with this email already exists');
-    }
-
-    // Validate passwords match
-    if (data.password !== data.confirmPassword) {
-      throw new Error('Passwords do not match');
-    }
-
-    // Create user
-    const user: User = {
-      id: `user-${Date.now()}`,
-      email: data.email,
-      firstName: data.firstName,
-      lastName: data.lastName,
-      initials: `${data.firstName.charAt(0)}${data.lastName.charAt(0)}`.toUpperCase(),
-      role: data.role,
-      dealershipId: dealershipId,
-      isActive: true,
-      createdAt: new Date().toISOString()
-    };
-
-    users.push(user);
-    localStorage.setItem(this.STORAGE_KEYS.USERS, JSON.stringify(users));
-
-    return user;
   }
 
-  static getDealerships(): Dealership[] {
-    const data = localStorage.getItem(this.STORAGE_KEYS.DEALERSHIPS);
-    return data ? JSON.parse(data) : [];
+  static async getDealershipUsers(dealershipId: string): Promise<User[]> {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('dealership_id', dealershipId)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching dealership users:', error);
+      return [];
+    }
+    
+    // Map database fields to frontend User interface
+    return (data || []).map(profile => ({
+      id: profile.id,
+      email: '', // Email is not stored in profiles table, would need to join with auth.users
+      firstName: profile.first_name,
+      lastName: profile.last_name,
+      initials: profile.initials,
+      role: profile.role,
+      dealershipId: profile.dealership_id,
+      isActive: profile.is_active,
+      createdAt: profile.created_at,
+      updatedAt: profile.updated_at,
+      lastLogin: profile.last_login
+    })) as User[];
   }
 
-  static getUsers(): User[] {
-    const data = localStorage.getItem(this.STORAGE_KEYS.USERS);
-    return data ? JSON.parse(data) : [];
-  }
-
-  static getDealershipUsers(dealershipId: string): User[] {
-    return this.getUsers().filter(u => u.dealershipId === dealershipId && u.isActive);
-  }
-
-  static updateUser(user: User): void {
-    const users = this.getUsers();
-    const index = users.findIndex(u => u.id === user.id);
-    if (index !== -1) {
-      users[index] = user;
-      localStorage.setItem(this.STORAGE_KEYS.USERS, JSON.stringify(users));
+  static async updateUser(user: User): Promise<void> {
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        first_name: user.firstName,
+        last_name: user.lastName,
+        initials: user.initials,
+        role: user.role,
+        is_active: user.isActive,
+        last_login: user.lastLogin,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', user.id);
+    
+    if (error) {
+      console.error('Error updating user:', error);
+      throw error;
     }
   }
 
-  static updateDealership(dealership: Dealership): void {
-    const dealerships = this.getDealerships();
-    const index = dealerships.findIndex(d => d.id === dealership.id);
-    if (index !== -1) {
-      dealerships[index] = dealership;
-      localStorage.setItem(this.STORAGE_KEYS.DEALERSHIPS, JSON.stringify(dealerships));
+  static async updateDealership(dealership: Dealership): Promise<void> {
+    const { error } = await supabase
+      .from('dealerships')
+      .update({
+        name: dealership.name,
+        address: dealership.address,
+        city: dealership.city,
+        state: dealership.state,
+        zip_code: dealership.zipCode,
+        phone: dealership.phone,
+        email: dealership.email,
+        website: dealership.website,
+        is_active: dealership.isActive,
+        subscription_plan: dealership.subscriptionPlan,
+        status: dealership.status,
+        last_activity: dealership.lastActivity,
+        total_users: dealership.totalUsers,
+        total_vehicles: dealership.totalVehicles,
+        monthly_revenue: dealership.monthlyRevenue,
+        settings: dealership.settings,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', dealership.id);
+    
+    if (error) {
+      console.error('Error updating dealership:', error);
+      throw error;
     }
   }
 
-  static deactivateUser(userId: string): void {
-    const users = this.getUsers();
-    const user = users.find(u => u.id === userId);
-    if (user) {
-      user.isActive = false;
-      this.updateUser(user);
+  static async deactivateUser(userId: string): Promise<void> {
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        is_active: false,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId);
+    
+    if (error) {
+      console.error('Error deactivating user:', error);
+      throw error;
+    }
+  }
+
+  static async deleteUser(userId: string): Promise<void> {
+    try {
+      // Call the server-side function to delete the user
+      const { data, error } = await supabase
+        .rpc('delete_user', { user_id: userId });
+      
+      if (error) {
+        console.error('Error deleting user:', error);
+        throw error;
+      }
+      
+      if (!data) {
+        throw new Error('Failed to delete user');
+      }
+    } catch (error) {
+      console.error('Error in deleteUser:', error);
+      throw error;
     }
   }
 
   // Super Admin Methods
   static isSuperAdmin(user: User): boolean {
-    return user.dealershipId === 'platform-admin';
+    return user.role === 'super-admin';
   }
 
-  static getAllDealershipsForSuperAdmin(): Dealership[] {
-    return this.getDealerships().filter(d => d.id !== 'platform-admin');
+  static async getAllDealershipsForSuperAdmin(): Promise<Dealership[]> {
+    const { data, error } = await supabase
+      .from('dealerships')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching all dealerships:', error);
+      return [];
+    }
+    
+    return data as Dealership[];
   }
 
-  static getAllUsersForSuperAdmin(): User[] {
-    return this.getUsers().filter(u => u.dealershipId !== 'platform-admin');
+  static async getAllUsersForSuperAdmin(): Promise<User[]> {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching all users:', error);
+      return [];
+    }
+    
+    return data as User[];
   }
 
   // Vehicle data isolation per dealership
   static getDealershipVehicleStorageKey(dealershipId: string): string {
-    return `${this.STORAGE_KEYS.VEHICLE_DATA_PREFIX}${dealershipId}`;
+    return `dealership_vehicles_${dealershipId}`;
   }
 }

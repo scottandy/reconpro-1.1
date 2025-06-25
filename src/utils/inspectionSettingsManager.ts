@@ -1,10 +1,11 @@
 import { InspectionSettings, InspectionSection, InspectionItem, RatingLabel, DEFAULT_INSPECTION_SETTINGS } from '../types/inspectionSettings';
+import { supabase } from './supabaseClient';
 
 export class InspectionSettingsManager {
   private static readonly STORAGE_KEY = 'dealership_inspection_settings';
 
-  static initializeDefaultSettings(dealershipId: string): void {
-    const existingSettings = this.getSettings(dealershipId);
+  static async initializeDefaultSettings(dealershipId: string): Promise<void> {
+    const existingSettings = await this.getSettings(dealershipId);
     if (existingSettings) return;
 
     const defaultSettings: InspectionSettings = {
@@ -15,10 +16,53 @@ export class InspectionSettingsManager {
       updatedAt: new Date().toISOString()
     };
 
-    this.saveSettings(dealershipId, defaultSettings);
+    await this.saveSettings(dealershipId, defaultSettings);
   }
 
-  static getSettings(dealershipId: string): InspectionSettings | null {
+  static async getSettings(dealershipId: string): Promise<InspectionSettings | null> {
+    try {
+      // First try to get from Supabase
+      const { data, error } = await supabase
+        .from('inspection_settings')
+        .select('settings')
+        .eq('dealership_id', dealershipId)
+        .single();
+
+      if (!error && data && data.settings) {
+        const storedSettings = data.settings;
+        
+        // Deep merge with default settings to ensure all properties exist
+        const mergedSettings: InspectionSettings = {
+          ...DEFAULT_INSPECTION_SETTINGS,
+          ...storedSettings,
+          // Ensure nested objects are properly merged
+          customerPdfSettings: {
+            ...DEFAULT_INSPECTION_SETTINGS.customerPdfSettings,
+            ...(storedSettings.customerPdfSettings || {})
+          },
+          globalSettings: {
+            ...DEFAULT_INSPECTION_SETTINGS.globalSettings,
+            ...(storedSettings.globalSettings || {})
+          },
+          ratingLabels: storedSettings.ratingLabels && storedSettings.ratingLabels.length > 0 
+            ? storedSettings.ratingLabels 
+            : DEFAULT_INSPECTION_SETTINGS.ratingLabels,
+          sections: storedSettings.sections || DEFAULT_INSPECTION_SETTINGS.sections
+        };
+        
+        // Also save to localStorage as backup
+        this.saveToLocalStorage(dealershipId, mergedSettings);
+        return mergedSettings;
+      }
+    } catch (error) {
+      console.error('Error fetching settings from Supabase:', error);
+    }
+
+    // Fallback to localStorage
+    return this.getFromLocalStorage(dealershipId);
+  }
+
+  private static getFromLocalStorage(dealershipId: string): InspectionSettings | null {
     const key = `${this.STORAGE_KEY}_${dealershipId}`;
     const data = localStorage.getItem(key);
     
@@ -48,12 +92,12 @@ export class InspectionSettingsManager {
       
       return mergedSettings;
     } catch (error) {
-      console.error('Error parsing inspection settings:', error);
+      console.error('Error parsing inspection settings from localStorage:', error);
       return null;
     }
   }
 
-  static saveSettings(dealershipId: string, settings: InspectionSettings): void {
+  private static saveToLocalStorage(dealershipId: string, settings: InspectionSettings): void {
     const key = `${this.STORAGE_KEY}_${dealershipId}`;
     const updatedSettings = {
       ...settings,
@@ -68,9 +112,40 @@ export class InspectionSettingsManager {
     }));
   }
 
+  static async saveSettings(dealershipId: string, settings: InspectionSettings): Promise<void> {
+    const updatedSettings = {
+      ...settings,
+      updatedAt: new Date().toISOString()
+    };
+
+    try {
+      // Save to Supabase
+      const { error } = await supabase
+        .from('inspection_settings')
+        .upsert({
+          dealership_id: dealershipId,
+          settings: updatedSettings,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'dealership_id'
+        });
+
+      if (error) {
+        console.error('Error saving settings to Supabase:', error);
+        throw error;
+      }
+    } catch (error) {
+      console.error('Error saving settings to Supabase:', error);
+      // Continue to save to localStorage as backup
+    }
+
+    // Always save to localStorage as backup
+    this.saveToLocalStorage(dealershipId, updatedSettings);
+  }
+
   // Section Management
-  static addSection(dealershipId: string, sectionData: Omit<InspectionSection, 'id' | 'createdAt' | 'updatedAt'>): InspectionSection {
-    const settings = this.getSettings(dealershipId);
+  static async addSection(dealershipId: string, sectionData: Omit<InspectionSection, 'id' | 'createdAt' | 'updatedAt'>): Promise<InspectionSection> {
+    const settings = await this.getSettings(dealershipId);
     if (!settings) throw new Error('Settings not found');
 
     const newSection: InspectionSection = {
@@ -83,12 +158,12 @@ export class InspectionSettingsManager {
     settings.sections.push(newSection);
     settings.sections.sort((a, b) => a.order - b.order);
     
-    this.saveSettings(dealershipId, settings);
+    await this.saveSettings(dealershipId, settings);
     return newSection;
   }
 
-  static updateSection(dealershipId: string, sectionId: string, updates: Partial<InspectionSection>): InspectionSection | null {
-    const settings = this.getSettings(dealershipId);
+  static async updateSection(dealershipId: string, sectionId: string, updates: Partial<InspectionSection>): Promise<InspectionSection | null> {
+    const settings = await this.getSettings(dealershipId);
     if (!settings) return null;
 
     const sectionIndex = settings.sections.findIndex(s => s.id === sectionId);
@@ -105,26 +180,26 @@ export class InspectionSettingsManager {
       settings.sections.sort((a, b) => a.order - b.order);
     }
 
-    this.saveSettings(dealershipId, settings);
+    await this.saveSettings(dealershipId, settings);
     return settings.sections[sectionIndex];
   }
 
-  static deleteSection(dealershipId: string, sectionId: string): boolean {
-    const settings = this.getSettings(dealershipId);
+  static async deleteSection(dealershipId: string, sectionId: string): Promise<boolean> {
+    const settings = await this.getSettings(dealershipId);
     if (!settings) return false;
 
     const initialLength = settings.sections.length;
     settings.sections = settings.sections.filter(s => s.id !== sectionId);
     
     if (settings.sections.length < initialLength) {
-      this.saveSettings(dealershipId, settings);
+      await this.saveSettings(dealershipId, settings);
       return true;
     }
     return false;
   }
 
-  static reorderSections(dealershipId: string, sectionIds: string[]): boolean {
-    const settings = this.getSettings(dealershipId);
+  static async reorderSections(dealershipId: string, sectionIds: string[]): Promise<boolean> {
+    const settings = await this.getSettings(dealershipId);
     if (!settings) return false;
 
     // Update order based on array position
@@ -137,13 +212,13 @@ export class InspectionSettingsManager {
     });
 
     settings.sections.sort((a, b) => a.order - b.order);
-    this.saveSettings(dealershipId, settings);
+    await this.saveSettings(dealershipId, settings);
     return true;
   }
 
   // Item Management
-  static addItem(dealershipId: string, sectionId: string, itemData: Omit<InspectionItem, 'id' | 'createdAt' | 'updatedAt'>): InspectionItem | null {
-    const settings = this.getSettings(dealershipId);
+  static async addItem(dealershipId: string, sectionId: string, itemData: Omit<InspectionItem, 'id' | 'createdAt' | 'updatedAt'>): Promise<InspectionItem | null> {
+    const settings = await this.getSettings(dealershipId);
     if (!settings) return null;
 
     const section = settings.sections.find(s => s.id === sectionId);
@@ -160,12 +235,12 @@ export class InspectionSettingsManager {
     section.items.sort((a, b) => a.order - b.order);
     section.updatedAt = new Date().toISOString();
     
-    this.saveSettings(dealershipId, settings);
+    await this.saveSettings(dealershipId, settings);
     return newItem;
   }
 
-  static updateItem(dealershipId: string, sectionId: string, itemId: string, updates: Partial<InspectionItem>): InspectionItem | null {
-    const settings = this.getSettings(dealershipId);
+  static async updateItem(dealershipId: string, sectionId: string, itemId: string, updates: Partial<InspectionItem>): Promise<InspectionItem | null> {
+    const settings = await this.getSettings(dealershipId);
     if (!settings) return null;
 
     const section = settings.sections.find(s => s.id === sectionId);
@@ -186,12 +261,12 @@ export class InspectionSettingsManager {
     }
 
     section.updatedAt = new Date().toISOString();
-    this.saveSettings(dealershipId, settings);
+    await this.saveSettings(dealershipId, settings);
     return section.items[itemIndex];
   }
 
-  static deleteItem(dealershipId: string, sectionId: string, itemId: string): boolean {
-    const settings = this.getSettings(dealershipId);
+  static async deleteItem(dealershipId: string, sectionId: string, itemId: string): Promise<boolean> {
+    const settings = await this.getSettings(dealershipId);
     if (!settings) return false;
 
     const section = settings.sections.find(s => s.id === sectionId);
@@ -202,14 +277,14 @@ export class InspectionSettingsManager {
     
     if (section.items.length < initialLength) {
       section.updatedAt = new Date().toISOString();
-      this.saveSettings(dealershipId, settings);
+      await this.saveSettings(dealershipId, settings);
       return true;
     }
     return false;
   }
 
-  static reorderItems(dealershipId: string, sectionId: string, itemIds: string[]): boolean {
-    const settings = this.getSettings(dealershipId);
+  static async reorderItems(dealershipId: string, sectionId: string, itemIds: string[]): Promise<boolean> {
+    const settings = await this.getSettings(dealershipId);
     if (!settings) return false;
 
     const section = settings.sections.find(s => s.id === sectionId);
@@ -226,13 +301,13 @@ export class InspectionSettingsManager {
 
     section.items.sort((a, b) => a.order - b.order);
     section.updatedAt = new Date().toISOString();
-    this.saveSettings(dealershipId, settings);
+    await this.saveSettings(dealershipId, settings);
     return true;
   }
 
   // Rating Labels Management
-  static updateRatingLabel(dealershipId: string, labelKey: 'great' | 'fair' | 'needs-attention' | 'not-checked', updates: Partial<RatingLabel>): RatingLabel | null {
-    const settings = this.getSettings(dealershipId);
+  static async updateRatingLabel(dealershipId: string, labelKey: 'great' | 'fair' | 'needs-attention' | 'not-checked', updates: Partial<RatingLabel>): Promise<RatingLabel | null> {
+    const settings = await this.getSettings(dealershipId);
     if (!settings) return null;
 
     const labelIndex = settings.ratingLabels.findIndex(l => l.key === labelKey);
@@ -243,13 +318,13 @@ export class InspectionSettingsManager {
       ...updates
     };
 
-    this.saveSettings(dealershipId, settings);
+    await this.saveSettings(dealershipId, settings);
     return settings.ratingLabels[labelIndex];
   }
 
   // Customer PDF Settings Management
-  static updateCustomerPdfSettings(dealershipId: string, updates: Partial<InspectionSettings['customerPdfSettings']>): boolean {
-    const settings = this.getSettings(dealershipId);
+  static async updateCustomerPdfSettings(dealershipId: string, updates: Partial<InspectionSettings['customerPdfSettings']>): Promise<boolean> {
+    const settings = await this.getSettings(dealershipId);
     if (!settings) return false;
 
     settings.customerPdfSettings = {
@@ -257,13 +332,13 @@ export class InspectionSettingsManager {
       ...updates
     };
 
-    this.saveSettings(dealershipId, settings);
+    await this.saveSettings(dealershipId, settings);
     return true;
   }
 
   // Global Settings Management
-  static updateGlobalSettings(dealershipId: string, updates: Partial<InspectionSettings['globalSettings']>): boolean {
-    const settings = this.getSettings(dealershipId);
+  static async updateGlobalSettings(dealershipId: string, updates: Partial<InspectionSettings['globalSettings']>): Promise<boolean> {
+    const settings = await this.getSettings(dealershipId);
     if (!settings) return false;
 
     settings.globalSettings = {
@@ -271,13 +346,13 @@ export class InspectionSettingsManager {
       ...updates
     };
 
-    this.saveSettings(dealershipId, settings);
+    await this.saveSettings(dealershipId, settings);
     return true;
   }
 
   // Utility Methods
-  static getActiveSection(dealershipId: string): InspectionSection[] {
-    const settings = this.getSettings(dealershipId);
+  static async getActiveSection(dealershipId: string): Promise<InspectionSection[]> {
+    const settings = await this.getSettings(dealershipId);
     if (!settings) return [];
 
     return settings.sections
@@ -285,52 +360,57 @@ export class InspectionSettingsManager {
       .sort((a, b) => a.order - b.order);
   }
 
-  static getActiveSectionItems(dealershipId: string, sectionId: string): InspectionItem[] {
-    const settings = this.getSettings(dealershipId);
+  static async getActiveSectionItems(dealershipId: string, sectionId: string): Promise<InspectionItem[]> {
+    const settings = await this.getSettings(dealershipId);
     if (!settings) return [];
 
     const section = settings.sections.find(s => s.id === sectionId);
-    if (!section) return [];
+    if (!section || !section.isActive) return [];
 
     return section.items
       .filter(item => item.isActive)
       .sort((a, b) => a.order - b.order);
   }
 
-  static getRatingLabel(dealershipId: string, labelKey: 'great' | 'fair' | 'needs-attention' | 'not-checked'): RatingLabel | null {
-    const settings = this.getSettings(dealershipId);
+  static async getRatingLabel(dealershipId: string, labelKey: 'great' | 'fair' | 'needs-attention' | 'not-checked'): Promise<RatingLabel | null> {
+    const settings = await this.getSettings(dealershipId);
     if (!settings) return null;
 
     return settings.ratingLabels.find(l => l.key === labelKey) || null;
   }
 
-  static resetToDefaults(dealershipId: string): boolean {
-    const defaultSettings: InspectionSettings = {
-      ...DEFAULT_INSPECTION_SETTINGS,
-      id: `settings-${Date.now()}`,
-      dealershipId,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
+  // Reset and Import/Export
+  static async resetToDefaults(dealershipId: string): Promise<boolean> {
+    try {
+      const defaultSettings: InspectionSettings = {
+        ...DEFAULT_INSPECTION_SETTINGS,
+        id: `settings-${Date.now()}`,
+        dealershipId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
 
-    this.saveSettings(dealershipId, defaultSettings);
-    return true;
+      await this.saveSettings(dealershipId, defaultSettings);
+      return true;
+    } catch (error) {
+      console.error('Error resetting settings to defaults:', error);
+      return false;
+    }
   }
 
-  // Export/Import Settings
-  static exportSettings(dealershipId: string): string | null {
-    const settings = this.getSettings(dealershipId);
+  static async exportSettings(dealershipId: string): Promise<string | null> {
+    const settings = await this.getSettings(dealershipId);
     if (!settings) return null;
 
     return JSON.stringify(settings, null, 2);
   }
 
-  static importSettings(dealershipId: string, settingsJson: string): boolean {
+  static async importSettings(dealershipId: string, settingsJson: string): Promise<boolean> {
     try {
       const importedSettings = JSON.parse(settingsJson);
       
-      // Validate structure (basic validation)
-      if (!importedSettings.sections || !importedSettings.ratingLabels || !importedSettings.globalSettings) {
+      // Validate the imported settings structure
+      if (!importedSettings.sections || !importedSettings.ratingLabels) {
         throw new Error('Invalid settings format');
       }
 
@@ -338,11 +418,10 @@ export class InspectionSettingsManager {
         ...importedSettings,
         id: `settings-${Date.now()}`,
         dealershipId,
-        createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
 
-      this.saveSettings(dealershipId, settings);
+      await this.saveSettings(dealershipId, settings);
       return true;
     } catch (error) {
       console.error('Error importing settings:', error);

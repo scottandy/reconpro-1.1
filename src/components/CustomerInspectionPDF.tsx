@@ -58,7 +58,6 @@ const CustomerInspectionPDF: React.FC<CustomerInspectionPDFProps> = ({
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'vehicleInspections') {
-        console.log('🔄 Inspection data changed, refreshing PDF...');
         setLastRefreshed(new Date());
       }
     };

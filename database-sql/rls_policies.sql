@@ -530,4 +530,288 @@ CREATE POLICY "Admins can update location settings in their dealership" ON publi
       AND p.role IN ('admin', 'super-admin')
       AND p.dealership_id = location_settings.dealership_id
     )
-  ); 
+  );
+
+-- ========================================
+-- ROW LEVEL SECURITY POLICIES
+-- ========================================
+
+-- Dealerships policies
+CREATE POLICY "Users can view their own dealership" ON public.dealerships
+  FOR SELECT USING (id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+CREATE POLICY "Users can update their own dealership" ON public.dealerships
+  FOR UPDATE USING (id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+-- Profiles policies
+CREATE POLICY "Users can view profiles in their dealership" ON public.profiles
+  FOR SELECT USING (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+CREATE POLICY "Users can update their own profile" ON public.profiles
+  FOR UPDATE USING (id = auth.uid());
+
+CREATE POLICY "Users can insert their own profile" ON public.profiles
+  FOR INSERT WITH CHECK (id = auth.uid());
+
+-- Sessions policies
+CREATE POLICY "Users can view sessions in their dealership" ON public.sessions
+  FOR SELECT USING (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+CREATE POLICY "Users can insert sessions in their dealership" ON public.sessions
+  FOR INSERT WITH CHECK (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+CREATE POLICY "Users can update sessions in their dealership" ON public.sessions
+  FOR UPDATE USING (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+CREATE POLICY "Users can delete sessions in their dealership" ON public.sessions
+  FOR DELETE USING (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+-- Vehicles policies
+CREATE POLICY "Users can view vehicles in their dealership" ON public.vehicles
+  FOR SELECT USING (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+CREATE POLICY "Users can insert vehicles in their dealership" ON public.vehicles
+  FOR INSERT WITH CHECK (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+CREATE POLICY "Users can update vehicles in their dealership" ON public.vehicles
+  FOR UPDATE USING (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+CREATE POLICY "Users can delete vehicles in their dealership" ON public.vehicles
+  FOR DELETE USING (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+-- Locations policies
+CREATE POLICY "Users can view locations in their dealership" ON public.locations
+  FOR SELECT USING (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+CREATE POLICY "Users can insert locations in their dealership" ON public.locations
+  FOR INSERT WITH CHECK (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+CREATE POLICY "Users can update locations in their dealership" ON public.locations
+  FOR UPDATE USING (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+CREATE POLICY "Users can delete locations in their dealership" ON public.locations
+  FOR DELETE USING (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+-- Inspection checklists policies
+CREATE POLICY "Users can view inspection checklists in their dealership" ON public.inspection_checklists
+  FOR SELECT USING (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+CREATE POLICY "Users can insert inspection checklists in their dealership" ON public.inspection_checklists
+  FOR INSERT WITH CHECK (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+CREATE POLICY "Users can update inspection checklists in their dealership" ON public.inspection_checklists
+  FOR UPDATE USING (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+CREATE POLICY "Users can delete inspection checklists in their dealership" ON public.inspection_checklists
+  FOR DELETE USING (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+-- Inspection settings policies
+CREATE POLICY "Users can view inspection settings in their dealership" ON public.inspection_settings
+  FOR SELECT USING (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+CREATE POLICY "Users can insert inspection settings in their dealership" ON public.inspection_settings
+  FOR INSERT WITH CHECK (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+CREATE POLICY "Users can update inspection settings in their dealership" ON public.inspection_settings
+  FOR UPDATE USING (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+CREATE POLICY "Users can delete inspection settings in their dealership" ON public.inspection_settings
+  FOR DELETE USING (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+-- Contacts policies
+CREATE POLICY "Users can view contacts in their dealership" ON public.contacts
+  FOR SELECT USING (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+CREATE POLICY "Users can insert contacts in their dealership" ON public.contacts
+  FOR INSERT WITH CHECK (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+CREATE POLICY "Users can update contacts in their dealership" ON public.contacts
+  FOR UPDATE USING (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+CREATE POLICY "Users can delete contacts in their dealership" ON public.contacts
+  FOR DELETE USING (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+-- Call logs policies
+CREATE POLICY "Users can view call logs in their dealership" ON public.call_logs
+  FOR SELECT USING (contact_id IN (
+    SELECT id FROM public.contacts WHERE dealership_id IN (
+      SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+    )
+  ));
+
+CREATE POLICY "Users can insert call logs in their dealership" ON public.call_logs
+  FOR INSERT WITH CHECK (contact_id IN (
+    SELECT id FROM public.contacts WHERE dealership_id IN (
+      SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+    )
+  ));
+
+-- Contact settings policies
+CREATE POLICY "Users can view contact settings in their dealership" ON public.contact_settings
+  FOR SELECT USING (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+CREATE POLICY "Users can insert contact settings in their dealership" ON public.contact_settings
+  FOR INSERT WITH CHECK (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+CREATE POLICY "Users can update contact settings in their dealership" ON public.contact_settings
+  FOR UPDATE USING (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+-- TODOS POLICIES (This is the main issue)
+CREATE POLICY "Users can view todos in their dealership" ON public.todos
+  FOR SELECT USING (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+CREATE POLICY "Users can insert todos in their dealership" ON public.todos
+  FOR INSERT WITH CHECK (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+CREATE POLICY "Users can update todos in their dealership" ON public.todos
+  FOR UPDATE USING (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+CREATE POLICY "Users can delete todos in their dealership" ON public.todos
+  FOR DELETE USING (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+-- Calendar events policies
+CREATE POLICY "Users can view calendar events in their dealership" ON public.calendar_events
+  FOR SELECT USING (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+CREATE POLICY "Users can insert calendar events in their dealership" ON public.calendar_events
+  FOR INSERT WITH CHECK (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+CREATE POLICY "Users can update calendar events in their dealership" ON public.calendar_events
+  FOR UPDATE USING (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+CREATE POLICY "Users can delete calendar events in their dealership" ON public.calendar_events
+  FOR DELETE USING (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+-- Todo settings policies
+CREATE POLICY "Users can view todo settings in their dealership" ON public.todo_settings
+  FOR SELECT USING (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+CREATE POLICY "Users can insert todo settings in their dealership" ON public.todo_settings
+  FOR INSERT WITH CHECK (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+CREATE POLICY "Users can update todo settings in their dealership" ON public.todo_settings
+  FOR UPDATE USING (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+-- Analytics policies
+CREATE POLICY "Users can view analytics in their dealership" ON public.analytics
+  FOR SELECT USING (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+CREATE POLICY "Users can insert analytics in their dealership" ON public.analytics
+  FOR INSERT WITH CHECK (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+-- Vehicle updates policies
+CREATE POLICY "Users can view vehicle updates in their dealership" ON public.vehicle_updates
+  FOR SELECT USING (vehicle_id IN (
+    SELECT id FROM public.vehicles WHERE dealership_id IN (
+      SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+    )
+  ));
+
+CREATE POLICY "Users can insert vehicle updates in their dealership" ON public.vehicle_updates
+  FOR INSERT WITH CHECK (vehicle_id IN (
+    SELECT id FROM public.vehicles WHERE dealership_id IN (
+      SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+    )
+  ));
+
+-- Location settings policies
+CREATE POLICY "Users can view location settings in their dealership" ON public.location_settings
+  FOR SELECT USING (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+CREATE POLICY "Users can insert location settings in their dealership" ON public.location_settings
+  FOR INSERT WITH CHECK (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  ));
+
+CREATE POLICY "Users can update location settings in their dealership" ON public.location_settings
+  FOR UPDATE USING (dealership_id IN (
+    SELECT dealership_id FROM public.profiles WHERE id = auth.uid()
+  )); 

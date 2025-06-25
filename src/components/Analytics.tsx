@@ -49,7 +49,6 @@ const Analytics: React.FC = () => {
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'vehicleAnalytics') {
-        console.log('📊 Analytics data changed, refreshing...');
         loadAnalyticsData();
         loadUserData();
       }
@@ -69,12 +68,10 @@ const Analytics: React.FC = () => {
   const loadUserData = () => {
     const users = AnalyticsManager.getAllUsers();
     setAllUsers(users);
-    console.log('📊 Available users for analytics:', users);
   };
 
   // 🎯 SIMPLIFIED: Manual refresh function
   const handleRefresh = () => {
-    console.log('🔄 Manual refresh triggered');
     loadAnalyticsData();
     loadUserData();
   };
@@ -247,14 +244,6 @@ const Analytics: React.FC = () => {
     const todayCompletions = todayData?.totalCompletions || 0;
     const weekCompletions = userWeeklyData?.totalCompletions || 0;
     const monthCompletions = userMonthlyData?.totalCompletions || 0;
-    
-    console.log(`📊 User ${user} analytics:`, {
-      today: todayCompletions,
-      week: weekCompletions,
-      month: monthCompletions,
-      todayData,
-      userDailyData
-    });
     
     return (
       <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 p-4 sm:p-6 transition-colors duration-300">

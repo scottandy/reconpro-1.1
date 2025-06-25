@@ -62,49 +62,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [state, dispatch] = useReducer(authReducer, initialState);
 
   useEffect(() => {
-    // Check for existing Supabase session
-    const checkSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (session?.user) {
-          const user = await DatabaseService.getCurrentUser();
-          if (user && user.dealershipId) {
-            const dealership = await DatabaseService.getDealership(user.dealershipId);
-            if (dealership) {
-              dispatch({ type: 'LOGIN_SUCCESS', payload: { user, dealership } });
-              return;
-            }
-          }
-        }
-        
-        dispatch({ type: 'SET_LOADING', payload: false });
-      } catch (error) {
-        console.error('Error checking session:', error);
-        dispatch({ type: 'SET_LOADING', payload: false });
-      }
-    };
-
-    checkSession();
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === 'SIGNED_IN' && session?.user) {
-          const user = await DatabaseService.getCurrentUser();
-          if (user && user.dealershipId) {
-            const dealership = await DatabaseService.getDealership(user.dealershipId);
-            if (dealership) {
-              dispatch({ type: 'LOGIN_SUCCESS', payload: { user, dealership } });
-            }
-          }
-        } else if (event === 'SIGNED_OUT') {
-          dispatch({ type: 'LOGOUT' });
-        }
-      }
-    );
-
-    return () => subscription.unsubscribe();
+    // Check for existing session
+    const session = AuthManager.getCurrentSession();
+    if (session) {
+      dispatch({ type: 'LOGIN_SUCCESS', payload: session });
+    } else {
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
   }, []);
 
   const login = async (credentials: LoginCredentials) => {
@@ -130,6 +94,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       throw new Error('Invalid credentials');
     } catch (error) {
+      console.error('LOGIN ERROR:', error);
       dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Login failed' });
     }
   };

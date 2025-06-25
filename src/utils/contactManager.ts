@@ -1,4 +1,5 @@
 import { Contact, ContactCategory, ContactSettings, CONTACT_CATEGORY_CONFIGS } from '../types/contact';
+import { supabase } from './supabaseClient';
 
 export class ContactManager {
   private static readonly STORAGE_KEYS = {
@@ -6,6 +7,51 @@ export class ContactManager {
     CONTACT_SETTINGS: 'dealership_contact_settings',
     CALL_LOG: 'contact_call_log'
   };
+
+  // Helper function to convert frontend Contact to database format
+  private static toDatabaseFormat(contact: Omit<Contact, 'id' | 'createdAt' | 'updatedAt'>): any {
+    return {
+      name: contact.name,
+      company: contact.company || null,
+      title: contact.title || null,
+      phone: contact.phone,
+      email: contact.email || null,
+      address: contact.address || null,
+      city: contact.city || null,
+      state: contact.state || null,
+      zip_code: contact.zipCode || null,
+      category: contact.category,
+      specialties: contact.specialties || [],
+      notes: contact.notes || null,
+      is_favorite: contact.isFavorite || false,
+      is_active: contact.isActive,
+      last_contacted: contact.lastContacted || null
+    };
+  }
+
+  // Helper function to convert database format to frontend Contact
+  private static fromDatabaseFormat(data: any): Contact {
+    return {
+      id: data.id,
+      name: data.name,
+      company: data.company,
+      title: data.title,
+      phone: data.phone,
+      email: data.email,
+      address: data.address,
+      city: data.city,
+      state: data.state,
+      zipCode: data.zip_code,
+      category: data.category,
+      specialties: data.specialties || [],
+      notes: data.notes,
+      isFavorite: data.is_favorite || false,
+      isActive: data.is_active,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+      lastContacted: data.last_contacted
+    };
+  }
 
   static initializeDefaultContacts(dealershipId: string): void {
     const existingContacts = this.getContacts(dealershipId);
@@ -93,81 +139,99 @@ export class ContactManager {
     this.saveContacts(dealershipId, contacts);
   }
 
-  static getContacts(dealershipId: string): Contact[] {
-    const key = `${this.STORAGE_KEYS.CONTACTS}_${dealershipId}`;
-    const data = localStorage.getItem(key);
-    return data ? JSON.parse(data) : [];
+  static async getContacts(dealershipId: string): Promise<Contact[]> {
+    const { data, error } = await supabase
+      .from('contacts')
+      .select('*')
+      .eq('dealership_id', dealershipId)
+      .order('created_at', { ascending: false });
+    if (error) return [];
+    return (data || []).map(this.fromDatabaseFormat);
   }
 
-  static saveContacts(dealershipId: string, contacts: Contact[]): void {
-    const key = `${this.STORAGE_KEYS.CONTACTS}_${dealershipId}`;
-    localStorage.setItem(key, JSON.stringify(contacts));
+  static async saveContacts(dealershipId: string, contacts: Contact[]): Promise<void> {
+    const { error } = await supabase
+      .from('contacts')
+      .delete()
+      .eq('dealership_id', dealershipId);
+    if (error) throw error;
+
+    const { data, error: insertError } = await supabase
+      .from('contacts')
+      .insert(contacts.map(contact => ({ ...this.toDatabaseFormat(contact), dealership_id: dealershipId })))
+      .select();
+    if (insertError) throw insertError;
   }
 
-  static addContact(dealershipId: string, contactData: Omit<Contact, 'id' | 'createdAt' | 'updatedAt'>): Contact {
-    const contacts = this.getContacts(dealershipId);
-    const newContact: Contact = {
-      ...contactData,
-      id: `contact-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    contacts.unshift(newContact);
-    this.saveContacts(dealershipId, contacts);
-    return newContact;
-  }
-
-  static updateContact(dealershipId: string, contactId: string, updates: Partial<Contact>): Contact | null {
-    const contacts = this.getContacts(dealershipId);
-    const index = contacts.findIndex(contact => contact.id === contactId);
+  static async addContact(dealershipId: string, contactData: Omit<Contact, 'id' | 'createdAt' | 'updatedAt'>): Promise<Contact | null> {
+    const dbData = this.toDatabaseFormat(contactData);
+    dbData.dealership_id = dealershipId;
     
-    if (index === -1) return null;
-
-    contacts[index] = {
-      ...contacts[index],
-      ...updates,
-      updatedAt: new Date().toISOString()
-    };
-
-    this.saveContacts(dealershipId, contacts);
-    return contacts[index];
+    const { data, error } = await supabase
+      .from('contacts')
+      .insert([dbData])
+      .select()
+      .single();
+    if (error) {
+      console.error('Error adding contact to Supabase:', error);
+      return null;
+    }
+    return this.fromDatabaseFormat(data);
   }
 
-  static deleteContact(dealershipId: string, contactId: string): boolean {
-    const contacts = this.getContacts(dealershipId);
-    const filteredContacts = contacts.filter(contact => contact.id !== contactId);
+  static async updateContact(dealershipId: string, contactId: string, updates: Partial<Contact>): Promise<Contact | null> {
+    const dbUpdates = this.toDatabaseFormat(updates as any);
+    dbUpdates.updated_at = new Date().toISOString();
     
-    if (filteredContacts.length === contacts.length) return false;
-
-    this.saveContacts(dealershipId, filteredContacts);
-    return true;
+    const { data, error } = await supabase
+      .from('contacts')
+      .update(dbUpdates)
+      .eq('id', contactId)
+      .eq('dealership_id', dealershipId)
+      .select()
+      .single();
+    if (error) {
+      console.error('Error updating contact in Supabase:', error);
+      return null;
+    }
+    return this.fromDatabaseFormat(data);
   }
 
-  static toggleFavorite(dealershipId: string, contactId: string): boolean {
-    const contacts = this.getContacts(dealershipId);
+  static async deleteContact(dealershipId: string, contactId: string): Promise<boolean> {
+    const { error } = await supabase
+      .from('contacts')
+      .delete()
+      .eq('id', contactId)
+      .eq('dealership_id', dealershipId);
+    return !error;
+  }
+
+  static async toggleFavorite(dealershipId: string, contactId: string): Promise<boolean> {
+    const contacts = await this.getContacts(dealershipId);
     const contact = contacts.find(c => c.id === contactId);
     
     if (!contact) return false;
 
-    contact.isFavorite = !contact.isFavorite;
-    contact.updatedAt = new Date().toISOString();
+    const newFavoriteStatus = !contact.isFavorite;
     
-    this.saveContacts(dealershipId, contacts);
-    return contact.isFavorite;
+    const result = await this.updateContact(dealershipId, contactId, {
+      isFavorite: newFavoriteStatus
+    });
+    
+    return result ? newFavoriteStatus : contact.isFavorite;
   }
 
-  static logCall(dealershipId: string, contactId: string): void {
-    const contacts = this.getContacts(dealershipId);
+  static async logCall(dealershipId: string, contactId: string): Promise<void> {
+    const contacts = await this.getContacts(dealershipId);
     const contact = contacts.find(c => c.id === contactId);
     
     if (contact) {
-      contact.lastContacted = new Date().toISOString();
-      contact.updatedAt = new Date().toISOString();
-      this.saveContacts(dealershipId, contacts);
+      await this.updateContact(dealershipId, contactId, {
+        lastContacted: new Date().toISOString()
+      });
     }
 
-    // Log the call
+    // Log the call (keeping localStorage for call log as it's not in Supabase yet)
     const callLog = this.getCallLog(dealershipId);
     callLog.unshift({
       id: `call-${Date.now()}`,
@@ -191,60 +255,112 @@ export class ContactManager {
     return data ? JSON.parse(data) : [];
   }
 
-  static getContactsByCategory(dealershipId: string, category: ContactCategory): Contact[] {
-    return this.getContacts(dealershipId).filter(contact => contact.category === category && contact.isActive);
+  static async getContactsByCategory(dealershipId: string, category: ContactCategory): Promise<Contact[]> {
+    const { data, error } = await supabase
+      .from('contacts')
+      .select('*')
+      .eq('dealership_id', dealershipId)
+      .eq('category', category)
+      .order('created_at', { ascending: false });
+    if (error) return [];
+    return (data || []).map(this.fromDatabaseFormat);
   }
 
-  static getFavoriteContacts(dealershipId: string): Contact[] {
-    return this.getContacts(dealershipId).filter(contact => contact.isFavorite && contact.isActive);
+  static async getFavoriteContacts(dealershipId: string): Promise<Contact[]> {
+    const { data, error } = await supabase
+      .from('contacts')
+      .select('*')
+      .eq('dealership_id', dealershipId)
+      .eq('is_favorite', true)
+      .order('created_at', { ascending: false });
+    if (error) return [];
+    return (data || []).map(this.fromDatabaseFormat);
   }
 
-  static searchContacts(dealershipId: string, query: string): Contact[] {
-    const contacts = this.getContacts(dealershipId);
-    const searchTerm = query.toLowerCase();
-    
-    return contacts.filter(contact => 
-      contact.isActive && (
-        contact.name.toLowerCase().includes(searchTerm) ||
-        contact.company?.toLowerCase().includes(searchTerm) ||
-        contact.phone.includes(searchTerm) ||
-        contact.email?.toLowerCase().includes(searchTerm) ||
-        contact.specialties?.some(specialty => specialty.toLowerCase().includes(searchTerm))
-      )
-    );
+  static async searchContacts(dealershipId: string, query: string): Promise<Contact[]> {
+    const { data, error } = await supabase
+      .from('contacts')
+      .select('*')
+      .eq('dealership_id', dealershipId)
+      .or(`name.ilike.%${query}%,company.ilike.%${query}%,phone.ilike.%${query}%,email.ilike.%${query}%`)
+      .order('created_at', { ascending: false });
+    if (error) return [];
+    return (data || []).map(this.fromDatabaseFormat);
   }
 
-  static getContactStats(dealershipId: string): {
+  static async getContactStats(dealershipId: string): Promise<{
     total: number;
     active: number;
     favorites: number;
     byCategory: Record<ContactCategory, number>;
-  } {
-    const contacts = this.getContacts(dealershipId);
-    const active = contacts.filter(contact => contact.isActive);
-    const favorites = contacts.filter(contact => contact.isFavorite && contact.isActive);
+  }> {
+    const contacts = await this.getContacts(dealershipId);
     
-    const byCategory = Object.keys(CONTACT_CATEGORY_CONFIGS).reduce((acc, category) => {
-      acc[category as ContactCategory] = contacts.filter(contact => 
-        contact.category === category && contact.isActive
-      ).length;
-      return acc;
-    }, {} as Record<ContactCategory, number>);
-
-    return {
+    const stats = {
       total: contacts.length,
-      active: active.length,
-      favorites: favorites.length,
-      byCategory
+      active: contacts.filter(c => c.isActive).length,
+      favorites: contacts.filter(c => c.isFavorite).length,
+      byCategory: {} as Record<ContactCategory, number>
     };
+
+    // Initialize category counts
+    Object.keys(CONTACT_CATEGORY_CONFIGS).forEach(category => {
+      stats.byCategory[category as ContactCategory] = 0;
+    });
+
+    // Count by category
+    contacts.forEach(contact => {
+      if (stats.byCategory[contact.category] !== undefined) {
+        stats.byCategory[contact.category]++;
+      }
+    });
+
+    return stats;
   }
 
-  static getContactSettings(dealershipId: string): ContactSettings {
+  static async getContactSettings(dealershipId: string): Promise<ContactSettings> {
+    try {
+      // First try to get from Supabase
+      const { data, error } = await supabase
+        .from('contact_settings')
+        .select('settings')
+        .eq('dealership_id', dealershipId)
+        .single();
+
+      if (!error && data && data.settings) {
+        const storedSettings = data.settings;
+        
+        // Merge with default settings
+        const mergedSettings: ContactSettings = {
+          defaultCategory: 'other',
+          autoSaveContacts: true,
+          showFavoritesFirst: true,
+          enableCallLogging: true,
+          ...storedSettings
+        };
+        
+        // Also save to localStorage as backup
+        this.saveContactSettingsToLocalStorage(dealershipId, mergedSettings);
+        return mergedSettings;
+      }
+    } catch (error) {
+      console.error('Error fetching contact settings from Supabase:', error);
+    }
+
+    // Fallback to localStorage
+    return this.getContactSettingsFromLocalStorage(dealershipId);
+  }
+
+  private static getContactSettingsFromLocalStorage(dealershipId: string): ContactSettings {
     const key = `${this.STORAGE_KEYS.CONTACT_SETTINGS}_${dealershipId}`;
     const data = localStorage.getItem(key);
     
     if (data) {
-      return JSON.parse(data);
+      try {
+        return JSON.parse(data);
+      } catch (error) {
+        console.error('Error parsing contact settings from localStorage:', error);
+      }
     }
 
     // Default settings
@@ -255,13 +371,39 @@ export class ContactManager {
       enableCallLogging: true
     };
 
-    this.saveContactSettings(dealershipId, defaultSettings);
+    this.saveContactSettingsToLocalStorage(dealershipId, defaultSettings);
     return defaultSettings;
   }
 
-  static saveContactSettings(dealershipId: string, settings: ContactSettings): void {
+  private static saveContactSettingsToLocalStorage(dealershipId: string, settings: ContactSettings): void {
     const key = `${this.STORAGE_KEYS.CONTACT_SETTINGS}_${dealershipId}`;
     localStorage.setItem(key, JSON.stringify(settings));
+  }
+
+  static async saveContactSettings(dealershipId: string, settings: ContactSettings): Promise<void> {
+    try {
+      // Save to Supabase
+      const { error } = await supabase
+        .from('contact_settings')
+        .upsert({
+          dealership_id: dealershipId,
+          settings,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'dealership_id'
+        });
+
+      if (error) {
+        console.error('Error saving contact settings to Supabase:', error);
+        throw error;
+      }
+    } catch (error) {
+      console.error('Error saving contact settings to Supabase:', error);
+      // Continue to save to localStorage as backup
+    }
+
+    // Always save to localStorage as backup
+    this.saveContactSettingsToLocalStorage(dealershipId, settings);
   }
 
   static getCategoryConfig(category: ContactCategory) {

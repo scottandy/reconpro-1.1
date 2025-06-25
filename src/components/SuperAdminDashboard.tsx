@@ -36,9 +36,9 @@ const SuperAdminDashboard: React.FC = () => {
     loadData();
   }, []);
 
-  const loadData = () => {
-    const allDealerships = AuthManager.getAllDealershipsForSuperAdmin();
-    const users = AuthManager.getAllUsersForSuperAdmin();
+  const loadData = async () => {
+    const allDealerships = await AuthManager.getAllDealershipsForSuperAdmin();
+    const users = await AuthManager.getAllUsersForSuperAdmin();
     setDealerships(allDealerships);
     setAllUsers(users);
   };
@@ -55,6 +55,17 @@ const SuperAdminDashboard: React.FC = () => {
       const updatedDealership = { ...dealership, isActive: !dealership.isActive };
       AuthManager.updateDealership(updatedDealership);
       loadData();
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    if (window.confirm('Are you sure you want to delete this user? This action cannot be undone and will permanently remove the user.')) {
+      try {
+        await AuthManager.deleteUser(userId);
+        loadData();
+      } catch (error) {
+        console.error('Error deleting user:', error);
+      }
     }
   };
 
@@ -430,6 +441,13 @@ const SuperAdminDashboard: React.FC = () => {
                             <div>Last login: {formatDate(user.lastLogin)}</div>
                           )}
                         </div>
+                        
+                        <button
+                          onClick={() => handleDeleteUser(user.id)}
+                          className="px-3 py-1 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm font-medium"
+                        >
+                          Deactivate
+                        </button>
                       </div>
                     </div>
                   </div>

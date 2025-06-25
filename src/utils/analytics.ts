@@ -28,7 +28,6 @@ export class AnalyticsManager {
       newRating
     };
 
-    console.log(`📊 Recording task update:`, event);
     this.addTaskEvent(event);
   }
 
@@ -72,7 +71,6 @@ export class AnalyticsManager {
     analytics.lastUpdated = new Date().toISOString();
     this.saveAnalyticsData(analytics);
 
-    console.log(`✅ Analytics updated for ${userInitials} on ${dateKey}`);
   }
 
   // 🎯 SIMPLIFIED: Update overall daily analytics
@@ -133,8 +131,6 @@ export class AnalyticsManager {
     if (!userDailyData.vehiclesWorkedOn.includes(event.vehicleId)) {
       userDailyData.vehiclesWorkedOn.push(event.vehicleId);
     }
-
-    console.log(`📊 User ${userInitials} daily data updated:`, userDailyData);
   }
 
   // 🎯 SIMPLIFIED: Get analytics data with proper initialization
@@ -190,7 +186,6 @@ export class AnalyticsManager {
     Object.keys(analytics.userDailyAnalytics).forEach(user => users.add(user));
 
     const result = Array.from(users).sort();
-    console.log('📊 All users found:', result);
     return result;
   }
 
@@ -200,7 +195,6 @@ export class AnalyticsManager {
     const result: UserDailyAnalytics[] = [];
     const today = new Date();
 
-    console.log(`📊 Getting ${days} days of data for user: ${userInitials}`);
 
     for (let i = days - 1; i >= 0; i--) {
       const date = new Date(today);
@@ -210,7 +204,6 @@ export class AnalyticsManager {
       const dayData = analytics.userDailyAnalytics[userInitials]?.[dateKey];
       if (dayData) {
         result.push(dayData);
-        console.log(`📊 Found data for ${dateKey}:`, dayData);
       } else {
         // Create empty day data for consistency
         const emptyDay: UserDailyAnalytics = {
@@ -228,11 +221,9 @@ export class AnalyticsManager {
           events: []
         };
         result.push(emptyDay);
-        console.log(`📊 Created empty data for ${dateKey}`);
       }
     }
 
-    console.log(`📊 Final result for ${userInitials}:`, result);
     return result;
   }
 

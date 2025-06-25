@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Vehicle, getStockNumber } from '../types/vehicle';
 import StatusBadge from './StatusBadge';
@@ -6,6 +6,7 @@ import { MapPin, Gauge, Clock, FileText, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { InspectionSettingsManager } from '../utils/inspectionSettingsManager';
 import { ProgressCalculator } from '../utils/progressCalculator';
+import { InspectionSection } from '../types/inspectionSettings';
 
 interface VehicleCardProps {
   vehicle: Vehicle;
@@ -13,7 +14,40 @@ interface VehicleCardProps {
 
 const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
   const { dealership } = useAuth();
+  const [customSections, setCustomSections] = useState<InspectionSection[]>([]);
+  const [isLoadingSettings, setIsLoadingSettings] = useState(true);
   
+  // Load custom sections asynchronously
+  useEffect(() => {
+    const loadCustomSections = async () => {
+      if (!dealership) {
+        setCustomSections([]);
+        setIsLoadingSettings(false);
+        return;
+      }
+
+      try {
+        const settings = await InspectionSettingsManager.getSettings(dealership.id);
+        if (settings) {
+          const sections = settings.sections
+            .filter(section => section.isActive && section.key !== 'emissions' && section.key !== 'cosmetic' && 
+                    section.key !== 'mechanical' && section.key !== 'cleaning' && section.key !== 'photos')
+            .sort((a, b) => a.order - b.order);
+          setCustomSections(sections);
+        } else {
+          setCustomSections([]);
+        }
+      } catch (error) {
+        console.error('Error loading custom sections:', error);
+        setCustomSections([]);
+      } finally {
+        setIsLoadingSettings(false);
+      }
+    };
+
+    loadCustomSections();
+  }, [dealership]);
+
   const getOverallProgress = () => {
     // Use the new detailed progress calculator
     return ProgressCalculator.calculateDetailedProgress(vehicle.id, vehicle);
@@ -29,7 +63,7 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
 
   // Enhanced location type detection and color coding
   const getLocationStyle = (location: string) => {
-    const locationLower = location.toLowerCase();
+    const locationLower = (location || '').toLowerCase();
     
     // Check for RED indicators (Transit/Transport)
     if (locationLower.includes('transit') ||
@@ -81,25 +115,11 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
     return text.substring(0, maxLength).trim() + '...';
   };
 
-  // 🎯 NEW: Get custom sections from settings
-  const getCustomSections = () => {
-    if (!dealership) return [];
-    
-    const settings = InspectionSettingsManager.getSettings(dealership.id);
-    if (!settings) return [];
-    
-    return settings.sections
-      .filter(section => section.isActive && section.key !== 'emissions' && section.key !== 'cosmetic' && 
-              section.key !== 'mechanical' && section.key !== 'cleaning' && section.key !== 'photos')
-      .sort((a, b) => a.order - b.order);
-  };
-
   const stockNumber = getStockNumber(vehicle.vin);
   const daysInInventory = getDaysInInventory();
   const isReadyForSale = Object.values(vehicle.status).every(status => status === 'completed');
   const locationStyle = getLocationStyle(vehicle.location);
   const truncatedNotes = getTruncatedNotes(vehicle.notes || '');
-  const customSections = getCustomSections();
 
   return (
     <Link 

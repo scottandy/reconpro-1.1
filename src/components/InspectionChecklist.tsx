@@ -591,7 +591,6 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
         newValue: JSON.stringify(inspections)
       }));
       
-      console.log(`✅ Inspection data auto-saved for vehicle ${vehicle.id}`);
     } catch (error) {
       console.error('Error saving inspection data:', error);
     }
@@ -670,7 +669,6 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
         rating
       );
       
-      console.log(`✅ Team note and analytics recorded: ${userInitials} updated ${itemLabel} in ${section} from ${oldRating} to ${rating}`);
     }
   };
 

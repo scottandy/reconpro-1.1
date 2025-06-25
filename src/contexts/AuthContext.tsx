@@ -62,13 +62,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [state, dispatch] = useReducer(authReducer, initialState);
 
   useEffect(() => {
-    // Check for existing session
-    const session = AuthManager.getCurrentSession();
-    if (session) {
-      dispatch({ type: 'LOGIN_SUCCESS', payload: session });
-    } else {
-      dispatch({ type: 'SET_LOADING', payload: false });
-    }
+    // Check for existing session using Supabase
+    const checkSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const user = await DatabaseService.getCurrentUser();
+          if (user && user.dealershipId) {
+            const dealership = await DatabaseService.getDealership(user.dealershipId);
+            if (dealership) {
+              dispatch({ type: 'LOGIN_SUCCESS', payload: { user, dealership } });
+              return;
+            }
+          }
+        }
+        dispatch({ type: 'SET_LOADING', payload: false });
+      } catch (error) {
+        console.error('Error checking session:', error);
+        dispatch({ type: 'SET_LOADING', payload: false });
+      }
+    };
+
+    checkSession();
   }, []);
 
   const login = async (credentials: LoginCredentials) => {

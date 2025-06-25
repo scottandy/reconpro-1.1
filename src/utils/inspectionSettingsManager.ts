@@ -21,7 +21,7 @@ export class InspectionSettingsManager {
 
   static async getSettings(dealershipId: string): Promise<InspectionSettings | null> {
     try {
-      // First try to get from Supabase
+      // First try to get from Supabase (database priority)
       const { data, error } = await supabase
         .from('inspection_settings')
         .select('settings')
@@ -118,8 +118,11 @@ export class InspectionSettingsManager {
       updatedAt: new Date().toISOString()
     };
 
+    // Always save to localStorage first (as default)
+    this.saveToLocalStorage(dealershipId, updatedSettings);
+
     try {
-      // Save to Supabase
+      // Then try to save to Supabase (database priority)
       const { error } = await supabase
         .from('inspection_settings')
         .upsert({
@@ -132,15 +135,12 @@ export class InspectionSettingsManager {
 
       if (error) {
         console.error('Error saving settings to Supabase:', error);
-        throw error;
+        // Don't throw error, localStorage is the fallback
       }
     } catch (error) {
       console.error('Error saving settings to Supabase:', error);
-      // Continue to save to localStorage as backup
+      // Continue with localStorage as backup
     }
-
-    // Always save to localStorage as backup
-    this.saveToLocalStorage(dealershipId, updatedSettings);
   }
 
   // Section Management
@@ -198,31 +198,13 @@ export class InspectionSettingsManager {
     return false;
   }
 
-  static async reorderSections(dealershipId: string, sectionIds: string[]): Promise<boolean> {
-    const settings = await this.getSettings(dealershipId);
-    if (!settings) return false;
-
-    // Update order based on array position
-    sectionIds.forEach((sectionId, index) => {
-      const section = settings.sections.find(s => s.id === sectionId);
-      if (section) {
-        section.order = index + 1;
-        section.updatedAt = new Date().toISOString();
-      }
-    });
-
-    settings.sections.sort((a, b) => a.order - b.order);
-    await this.saveSettings(dealershipId, settings);
-    return true;
-  }
-
   // Item Management
   static async addItem(dealershipId: string, sectionId: string, itemData: Omit<InspectionItem, 'id' | 'createdAt' | 'updatedAt'>): Promise<InspectionItem | null> {
     const settings = await this.getSettings(dealershipId);
     if (!settings) return null;
 
-    const section = settings.sections.find(s => s.id === sectionId);
-    if (!section) return null;
+    const sectionIndex = settings.sections.findIndex(s => s.id === sectionId);
+    if (sectionIndex === -1) return null;
 
     const newItem: InspectionItem = {
       ...itemData,
@@ -231,9 +213,8 @@ export class InspectionSettingsManager {
       updatedAt: new Date().toISOString()
     };
 
-    section.items.push(newItem);
-    section.items.sort((a, b) => a.order - b.order);
-    section.updatedAt = new Date().toISOString();
+    settings.sections[sectionIndex].items.push(newItem);
+    settings.sections[sectionIndex].items.sort((a, b) => a.order - b.order);
     
     await this.saveSettings(dealershipId, settings);
     return newItem;
@@ -243,40 +224,38 @@ export class InspectionSettingsManager {
     const settings = await this.getSettings(dealershipId);
     if (!settings) return null;
 
-    const section = settings.sections.find(s => s.id === sectionId);
-    if (!section) return null;
+    const sectionIndex = settings.sections.findIndex(s => s.id === sectionId);
+    if (sectionIndex === -1) return null;
 
-    const itemIndex = section.items.findIndex(i => i.id === itemId);
+    const itemIndex = settings.sections[sectionIndex].items.findIndex(i => i.id === itemId);
     if (itemIndex === -1) return null;
 
-    section.items[itemIndex] = {
-      ...section.items[itemIndex],
+    settings.sections[sectionIndex].items[itemIndex] = {
+      ...settings.sections[sectionIndex].items[itemIndex],
       ...updates,
       updatedAt: new Date().toISOString()
     };
 
     // Re-sort if order changed
     if (updates.order !== undefined) {
-      section.items.sort((a, b) => a.order - b.order);
+      settings.sections[sectionIndex].items.sort((a, b) => a.order - b.order);
     }
 
-    section.updatedAt = new Date().toISOString();
     await this.saveSettings(dealershipId, settings);
-    return section.items[itemIndex];
+    return settings.sections[sectionIndex].items[itemIndex];
   }
 
   static async deleteItem(dealershipId: string, sectionId: string, itemId: string): Promise<boolean> {
     const settings = await this.getSettings(dealershipId);
     if (!settings) return false;
 
-    const section = settings.sections.find(s => s.id === sectionId);
-    if (!section) return false;
+    const sectionIndex = settings.sections.findIndex(s => s.id === sectionId);
+    if (sectionIndex === -1) return false;
 
-    const initialLength = section.items.length;
-    section.items = section.items.filter(i => i.id !== itemId);
+    const initialLength = settings.sections[sectionIndex].items.length;
+    settings.sections[sectionIndex].items = settings.sections[sectionIndex].items.filter(i => i.id !== itemId);
     
-    if (section.items.length < initialLength) {
-      section.updatedAt = new Date().toISOString();
+    if (settings.sections[sectionIndex].items.length < initialLength) {
       await this.saveSettings(dealershipId, settings);
       return true;
     }
@@ -287,20 +266,21 @@ export class InspectionSettingsManager {
     const settings = await this.getSettings(dealershipId);
     if (!settings) return false;
 
-    const section = settings.sections.find(s => s.id === sectionId);
-    if (!section) return false;
+    const sectionIndex = settings.sections.findIndex(s => s.id === sectionId);
+    if (sectionIndex === -1) return false;
 
-    // Update order based on array position
+    // Update order based on the provided array
     itemIds.forEach((itemId, index) => {
-      const item = section.items.find(i => i.id === itemId);
+      const item = settings.sections[sectionIndex].items.find(i => i.id === itemId);
       if (item) {
         item.order = index + 1;
         item.updatedAt = new Date().toISOString();
       }
     });
 
-    section.items.sort((a, b) => a.order - b.order);
-    section.updatedAt = new Date().toISOString();
+    // Re-sort items
+    settings.sections[sectionIndex].items.sort((a, b) => a.order - b.order);
+    
     await this.saveSettings(dealershipId, settings);
     return true;
   }
@@ -356,7 +336,7 @@ export class InspectionSettingsManager {
     if (!settings) return [];
 
     return settings.sections
-      .filter(section => section.isActive)
+      .filter(s => s.isActive)
       .sort((a, b) => a.order - b.order);
   }
 
@@ -365,10 +345,10 @@ export class InspectionSettingsManager {
     if (!settings) return [];
 
     const section = settings.sections.find(s => s.id === sectionId);
-    if (!section || !section.isActive) return [];
+    if (!section) return [];
 
     return section.items
-      .filter(item => item.isActive)
+      .filter(i => i.isActive)
       .sort((a, b) => a.order - b.order);
   }
 
@@ -379,7 +359,7 @@ export class InspectionSettingsManager {
     return settings.ratingLabels.find(l => l.key === labelKey) || null;
   }
 
-  // Reset and Import/Export
+  // Reset to Defaults
   static async resetToDefaults(dealershipId: string): Promise<boolean> {
     try {
       const defaultSettings: InspectionSettings = {
@@ -393,16 +373,22 @@ export class InspectionSettingsManager {
       await this.saveSettings(dealershipId, defaultSettings);
       return true;
     } catch (error) {
-      console.error('Error resetting settings to defaults:', error);
+      console.error('Error resetting to defaults:', error);
       return false;
     }
   }
 
+  // Export/Import
   static async exportSettings(dealershipId: string): Promise<string | null> {
     const settings = await this.getSettings(dealershipId);
     if (!settings) return null;
 
-    return JSON.stringify(settings, null, 2);
+    try {
+      return JSON.stringify(settings, null, 2);
+    } catch (error) {
+      console.error('Error exporting settings:', error);
+      return null;
+    }
   }
 
   static async importSettings(dealershipId: string, settingsJson: string): Promise<boolean> {
@@ -410,18 +396,34 @@ export class InspectionSettingsManager {
       const importedSettings = JSON.parse(settingsJson);
       
       // Validate the imported settings structure
-      if (!importedSettings.sections || !importedSettings.ratingLabels) {
+      if (!importedSettings.sections || !importedSettings.ratingLabels || !importedSettings.globalSettings || !importedSettings.customerPdfSettings) {
         throw new Error('Invalid settings format');
       }
 
-      const settings: InspectionSettings = {
+      // Merge with defaults to ensure all properties exist
+      const mergedSettings: InspectionSettings = {
+        ...DEFAULT_INSPECTION_SETTINGS,
         ...importedSettings,
         id: `settings-${Date.now()}`,
         dealershipId,
-        updatedAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        // Ensure nested objects are properly merged
+        customerPdfSettings: {
+          ...DEFAULT_INSPECTION_SETTINGS.customerPdfSettings,
+          ...(importedSettings.customerPdfSettings || {})
+        },
+        globalSettings: {
+          ...DEFAULT_INSPECTION_SETTINGS.globalSettings,
+          ...(importedSettings.globalSettings || {})
+        },
+        ratingLabels: importedSettings.ratingLabels && importedSettings.ratingLabels.length > 0 
+          ? importedSettings.ratingLabels 
+          : DEFAULT_INSPECTION_SETTINGS.ratingLabels,
+        sections: importedSettings.sections || DEFAULT_INSPECTION_SETTINGS.sections
       };
 
-      await this.saveSettings(dealershipId, settings);
+      await this.saveSettings(dealershipId, mergedSettings);
       return true;
     } catch (error) {
       console.error('Error importing settings:', error);

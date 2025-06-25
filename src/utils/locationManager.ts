@@ -191,8 +191,11 @@ export class LocationManager {
   }
 
   static async saveLocationSettings(dealershipId: string, settings: LocationSettings): Promise<void> {
+    // Always save to localStorage first (as default)
+    this.saveLocationSettingsToLocalStorage(dealershipId, settings);
+
     try {
-      // Save to Supabase
+      // Then try to save to Supabase (database priority)
       const { error } = await supabase
         .from('location_settings')
         .upsert({
@@ -205,15 +208,12 @@ export class LocationManager {
 
       if (error) {
         console.error('Error saving location settings to Supabase:', error);
-        throw error;
+        // Don't throw error, localStorage is the fallback
       }
     } catch (error) {
       console.error('Error saving location settings to Supabase:', error);
-      // Continue to save to localStorage as backup
+      // Continue with localStorage as backup
     }
-
-    // Always save to localStorage as backup
-    this.saveLocationSettingsToLocalStorage(dealershipId, settings);
   }
 
   static getLocationTypeConfig(type: LocationType) {
@@ -314,8 +314,11 @@ export class LocationManager {
   }
 
   static async saveLocationColorSettings(dealershipId: string, settings: LocationColorSettings): Promise<void> {
+    // Always save to localStorage first (as default)
+    this.saveLocationColorSettingsToLocalStorage(dealershipId, settings);
+
     try {
-      // Save to Supabase
+      // Then try to save to Supabase (database priority)
       const { error } = await supabase
         .from('location_color_settings')
         .upsert({
@@ -328,18 +331,12 @@ export class LocationManager {
 
       if (error) {
         console.error('Error saving location color settings to Supabase:', error);
-        throw error;
+        // Don't throw error, localStorage is the fallback
       }
-      // On successful save, remove localStorage fallback for this dealership
-      this.removeLocationColorSettingsFromLocalStorage(dealershipId);
     } catch (error) {
       console.error('Error saving location color settings to Supabase:', error);
-      // Continue to save to localStorage as backup
-      this.saveLocationColorSettingsToLocalStorage(dealershipId, settings);
+      // Continue with localStorage as backup
     }
-
-    // Always save to localStorage as backup (for offline/legacy)
-    // this.saveLocationColorSettingsToLocalStorage(dealershipId, settings); // <-- REMOVE this line
   }
 
   private static removeLocationColorSettingsFromLocalStorage(dealershipId: string): void {

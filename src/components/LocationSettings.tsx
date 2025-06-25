@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import React, { useState, useEffect, useContext } from 'react';
 import { LocationManager } from '../utils/locationManager';
 import { LocationSettings as LocationSettingsType, LocationType, LOCATION_TYPE_CONFIGS } from '../types/location';
 import { Settings, Save, RotateCcw } from 'lucide-react';
+import { AuthContext } from '../contexts/AuthContext';
 
 const LocationSettings: React.FC = () => {
-  const { dealership } = useAuth();
+  const authContext = useContext(AuthContext);
+  const dealership = authContext?.dealership;
   const [settings, setSettings] = useState<LocationSettingsType>({
     defaultLocationType: 'on-site',
     allowCustomLocations: true,
@@ -14,12 +15,20 @@ const LocationSettings: React.FC = () => {
     locationCapacityTracking: true
   });
   const [hasChanges, setHasChanges] = useState(false);
+  const [loading, setLoading] = useState(true);
 
+  // Load settings on mount and when dealership changes
   useEffect(() => {
-    if (dealership) {
-      const currentSettings = LocationManager.getLocationSettings(dealership.id);
-      setSettings(currentSettings);
-    }
+    const loadSettings = async () => {
+      if (dealership) {
+        console.log('Loading location settings for dealership:', dealership.id);
+        const currentSettings = await LocationManager.getLocationSettings(dealership.id);
+        setSettings(currentSettings);
+        setHasChanges(false);
+        setLoading(false);
+      }
+    };
+    loadSettings();
   }, [dealership]);
 
   const handleSettingChange = (key: keyof LocationSettingsType, value: any) => {
@@ -27,21 +36,29 @@ const LocationSettings: React.FC = () => {
     setHasChanges(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (dealership) {
-      LocationManager.saveLocationSettings(dealership.id, settings);
+      console.log('Saving location settings for dealership:', dealership.id, settings);
+      await LocationManager.saveLocationSettings(dealership.id, settings);
+      // Reload to ensure we have the latest from DB/localStorage
+      const updatedSettings = await LocationManager.getLocationSettings(dealership.id);
+      setSettings(updatedSettings);
       setHasChanges(false);
       alert('Location settings saved successfully!');
     }
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
     if (dealership) {
-      const currentSettings = LocationManager.getLocationSettings(dealership.id);
+      const currentSettings = await LocationManager.getLocationSettings(dealership.id);
       setSettings(currentSettings);
       setHasChanges(false);
     }
   };
+
+  if (loading) {
+    return <div className="p-6">Loading location settings...</div>;
+  }
 
   return (
     <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">

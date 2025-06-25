@@ -498,6 +498,9 @@ const InspectionSettings: React.FC = () => {
   const [editingItem, setEditingItem] = useState<InspectionItem | null>(null);
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [tempRatingLabels, setTempRatingLabels] = useState<RatingLabel[]>([]);
+  const [tempPdfSettings, setTempPdfSettings] = useState<InspectionSettingsType['customerPdfSettings'] | null>(null);
 
   useEffect(() => {
     if (dealership) {
@@ -523,6 +526,11 @@ const InspectionSettings: React.FC = () => {
     try {
       const currentSettings = await InspectionSettingsManager.getSettings(dealership.id);
       setSettings(currentSettings);
+      if (currentSettings) {
+        setTempRatingLabels([...currentSettings.ratingLabels]);
+        setTempPdfSettings({ ...currentSettings.customerPdfSettings });
+        setHasUnsavedChanges(false);
+      }
     } catch (error) {
       console.error('Error loading settings:', error);
     } finally {
@@ -683,6 +691,101 @@ const InspectionSettings: React.FC = () => {
       console.error('Error updating customer PDF settings:', error);
     }
   };
+
+  const handleUpdateGlobalSettings = async (updates: Partial<InspectionSettingsType['globalSettings']>) => {
+    if (!dealership) return;
+    
+    try {
+      await InspectionSettingsManager.updateGlobalSettings(dealership.id, updates);
+      await loadSettings();
+    } catch (error) {
+      console.error('Error updating global settings:', error);
+    }
+  };
+
+  const handleSaveRatingLabels = async () => {
+    if (!dealership || !settings) return;
+    
+    try {
+      // Update each rating label
+      for (const label of tempRatingLabels) {
+        await InspectionSettingsManager.updateRatingLabel(dealership.id, label.key, {
+          label: label.label,
+          description: label.description
+        });
+      }
+      
+      await loadSettings();
+      setHasUnsavedChanges(false);
+      alert('Rating labels saved successfully!');
+    } catch (error) {
+      console.error('Error saving rating labels:', error);
+      alert('Error saving rating labels. Please try again.');
+    }
+  };
+
+  const handleSavePdfSettings = async () => {
+    if (!dealership || !tempPdfSettings) return;
+    
+    try {
+      await InspectionSettingsManager.updateCustomerPdfSettings(dealership.id, tempPdfSettings);
+      await loadSettings();
+      setHasUnsavedChanges(false);
+      alert('PDF settings saved successfully!');
+    } catch (error) {
+      console.error('Error saving PDF settings:', error);
+      alert('Error saving PDF settings. Please try again.');
+    }
+  };
+
+  const handleRatingLabelChange = (labelKey: 'great' | 'fair' | 'needs-attention' | 'not-checked', field: 'label' | 'description', value: string) => {
+    setTempRatingLabels(prev => 
+      prev.map(label => 
+        label.key === labelKey 
+          ? { ...label, [field]: value }
+          : label
+      )
+    );
+    setHasUnsavedChanges(true);
+  };
+
+  const handlePdfSettingChange = (field: keyof InspectionSettingsType['customerPdfSettings'], value: any) => {
+    setTempPdfSettings(prev => prev ? { ...prev, [field]: value } : null);
+    setHasUnsavedChanges(true);
+  };
+
+  const handleResetChanges = () => {
+    if (settings) {
+      setTempRatingLabels([...settings.ratingLabels]);
+      setTempPdfSettings({ ...settings.customerPdfSettings });
+      setHasUnsavedChanges(false);
+    }
+  };
+
+  const checkForChanges = () => {
+    if (!settings) return false;
+    
+    // Check rating labels changes
+    const ratingLabelsChanged = tempRatingLabels.some((tempLabel, index) => {
+      const originalLabel = settings.ratingLabels[index];
+      return tempLabel.label !== originalLabel.label || tempLabel.description !== originalLabel.description;
+    });
+    
+    // Check PDF settings changes
+    const pdfSettingsChanged = tempPdfSettings && (
+      tempPdfSettings.includeVehiclePhotos !== settings.customerPdfSettings.includeVehiclePhotos ||
+      tempPdfSettings.includeCustomerComments !== settings.customerPdfSettings.includeCustomerComments ||
+      tempPdfSettings.showDetailedRatings !== settings.customerPdfSettings.showDetailedRatings ||
+      tempPdfSettings.footerText !== settings.customerPdfSettings.footerText
+    );
+    
+    return ratingLabelsChanged || pdfSettingsChanged;
+  };
+
+  // Update hasUnsavedChanges whenever temp states change
+  useEffect(() => {
+    setHasUnsavedChanges(checkForChanges());
+  }, [tempRatingLabels, tempPdfSettings, settings]);
 
   const handleResetToDefaults = async () => {
     if (!dealership) return;
@@ -1087,7 +1190,7 @@ const InspectionSettings: React.FC = () => {
           <p className="text-gray-600 mb-6">Customize the labels and descriptions for inspection ratings.</p>
           
           <div className="space-y-6">
-            {settings.ratingLabels.map((label) => {
+            {tempRatingLabels.map((label) => {
               const IconComponent = label.key === 'great' ? Star :
                                  label.key === 'fair' ? CheckCircle :
                                  label.key === 'needs-attention' ? AlertTriangle : Circle;
@@ -1110,7 +1213,7 @@ const InspectionSettings: React.FC = () => {
                       <input
                         type="text"
                         value={label.label}
-                        onChange={(e) => handleUpdateRatingLabel(label.key, { label: e.target.value })}
+                        onChange={(e) => handleRatingLabelChange(label.key, 'label', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     </div>
@@ -1122,7 +1225,7 @@ const InspectionSettings: React.FC = () => {
                       <input
                         type="text"
                         value={label.description || ''}
-                        onChange={(e) => handleUpdateRatingLabel(label.key, { description: e.target.value })}
+                        onChange={(e) => handleRatingLabelChange(label.key, 'description', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         placeholder="Brief description..."
                       />
@@ -1131,6 +1234,30 @@ const InspectionSettings: React.FC = () => {
                 </div>
               );
             })}
+            
+            <div className="flex justify-end pt-4 border-t border-gray-200 gap-2">
+              {hasUnsavedChanges && (
+                <button
+                  onClick={handleResetChanges}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Reset Changes
+                </button>
+              )}
+              <button
+                onClick={handleSaveRatingLabels}
+                disabled={!hasUnsavedChanges}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg transition-colors font-medium ${
+                  hasUnsavedChanges 
+                    ? 'bg-green-600 text-white hover:bg-green-700' 
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                <Check className="w-4 h-4" />
+                Save Changes
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1153,12 +1280,9 @@ const InspectionSettings: React.FC = () => {
                     type="checkbox"
                     checked={settings.globalSettings.requireUserInitials}
                     onChange={(e) => {
-                      if (dealership) {
-                        InspectionSettingsManager.updateGlobalSettings(dealership.id, {
-                          requireUserInitials: e.target.checked
-                        });
-                        loadSettings();
-                      }
+                      handleUpdateGlobalSettings({
+                        requireUserInitials: e.target.checked
+                      });
                     }}
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
@@ -1173,12 +1297,9 @@ const InspectionSettings: React.FC = () => {
                     type="checkbox"
                     checked={settings.globalSettings.allowSkipItems}
                     onChange={(e) => {
-                      if (dealership) {
-                        InspectionSettingsManager.updateGlobalSettings(dealership.id, {
-                          allowSkipItems: e.target.checked
-                        });
-                        loadSettings();
-                      }
+                      handleUpdateGlobalSettings({
+                        allowSkipItems: e.target.checked
+                      });
                     }}
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
@@ -1197,12 +1318,9 @@ const InspectionSettings: React.FC = () => {
                     type="checkbox"
                     checked={settings.globalSettings.autoSaveProgress}
                     onChange={(e) => {
-                      if (dealership) {
-                        InspectionSettingsManager.updateGlobalSettings(dealership.id, {
-                          autoSaveProgress: e.target.checked
-                        });
-                        loadSettings();
-                      }
+                      handleUpdateGlobalSettings({
+                        autoSaveProgress: e.target.checked
+                      });
                     }}
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
@@ -1217,12 +1335,9 @@ const InspectionSettings: React.FC = () => {
                     type="checkbox"
                     checked={settings.globalSettings.showProgressPercentage}
                     onChange={(e) => {
-                      if (dealership) {
-                        InspectionSettingsManager.updateGlobalSettings(dealership.id, {
-                          showProgressPercentage: e.target.checked
-                        });
-                        loadSettings();
-                      }
+                      handleUpdateGlobalSettings({
+                        showProgressPercentage: e.target.checked
+                      });
                     }}
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
@@ -1237,12 +1352,9 @@ const InspectionSettings: React.FC = () => {
                     type="checkbox"
                     checked={settings.globalSettings.enableTeamNotes}
                     onChange={(e) => {
-                      if (dealership) {
-                        InspectionSettingsManager.updateGlobalSettings(dealership.id, {
-                          enableTeamNotes: e.target.checked
-                        });
-                        loadSettings();
-                      }
+                      handleUpdateGlobalSettings({
+                        enableTeamNotes: e.target.checked
+                      });
                     }}
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
@@ -1269,11 +1381,9 @@ const InspectionSettings: React.FC = () => {
                   </div>
                   <input
                     type="checkbox"
-                    checked={settings.customerPdfSettings?.includeVehiclePhotos}
+                    checked={tempPdfSettings?.includeVehiclePhotos || false}
                     onChange={(e) => {
-                      handleUpdateCustomerPdfSettings({
-                        includeVehiclePhotos: e.target.checked
-                      });
+                      handlePdfSettingChange('includeVehiclePhotos', e.target.checked);
                     }}
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
@@ -1286,11 +1396,9 @@ const InspectionSettings: React.FC = () => {
                   </div>
                   <input
                     type="checkbox"
-                    checked={settings.customerPdfSettings?.includeCustomerComments}
+                    checked={tempPdfSettings?.includeCustomerComments || false}
                     onChange={(e) => {
-                      handleUpdateCustomerPdfSettings({
-                        includeCustomerComments: e.target.checked
-                      });
+                      handlePdfSettingChange('includeCustomerComments', e.target.checked);
                     }}
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
@@ -1303,11 +1411,9 @@ const InspectionSettings: React.FC = () => {
                   </div>
                   <input
                     type="checkbox"
-                    checked={settings.customerPdfSettings?.showDetailedRatings}
+                    checked={tempPdfSettings?.showDetailedRatings || false}
                     onChange={(e) => {
-                      handleUpdateCustomerPdfSettings({
-                        showDetailedRatings: e.target.checked
-                      });
+                      handlePdfSettingChange('showDetailedRatings', e.target.checked);
                     }}
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
@@ -1322,11 +1428,9 @@ const InspectionSettings: React.FC = () => {
                     Footer Text
                   </label>
                   <textarea
-                    value={settings.customerPdfSettings?.footerText || ''}
+                    value={tempPdfSettings?.footerText || ''}
                     onChange={(e) => {
-                      handleUpdateCustomerPdfSettings({
-                        footerText: e.target.value
-                      });
+                      handlePdfSettingChange('footerText', e.target.value);
                     }}
                     rows={3}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
@@ -1335,6 +1439,30 @@ const InspectionSettings: React.FC = () => {
                   <p className="text-xs text-gray-500 mt-1">
                     This text will appear at the bottom of all customer PDF reports
                   </p>
+                </div>
+                
+                <div className="flex justify-end pt-2 gap-2">
+                  {hasUnsavedChanges && (
+                    <button
+                      onClick={handleResetChanges}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium text-sm"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      Reset Changes
+                    </button>
+                  )}
+                  <button
+                    onClick={handleSavePdfSettings}
+                    disabled={!hasUnsavedChanges}
+                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg transition-colors font-medium text-sm ${
+                      hasUnsavedChanges 
+                        ? 'bg-green-600 text-white hover:bg-green-700' 
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    <Check className="w-4 h-4" />
+                    Save Changes
+                  </button>
                 </div>
               </div>
             </div>

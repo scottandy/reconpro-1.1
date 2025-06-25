@@ -69,11 +69,11 @@ function themeReducer(state: ThemeState, action: ThemeAction): ThemeState {
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(themeReducer, initialState);
   const authContext = useContext(AuthContext);
-  const dealership = authContext?.dealership;
+  const user = authContext?.user;
 
   useEffect(() => {
     const loadThemeSettings = async () => {
-      if (!dealership) {
+      if (!user) {
         // Fallback to localStorage for non-authenticated users
         const savedTheme = localStorage.getItem('darkMode');
         const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -84,7 +84,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
 
       try {
-        const settings = await ThemeSettingsManager.getThemeSettings(dealership.id);
+        const settings = await ThemeSettingsManager.getThemeSettings(user.id);
         dispatch({ type: 'SET_SETTINGS', payload: settings });
       } catch (error) {
         console.error('Error loading theme settings:', error);
@@ -98,7 +98,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     loadThemeSettings();
-  }, [dealership]);
+  }, [user]);
 
   useEffect(() => {
     // Apply theme changes to document
@@ -109,10 +109,10 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
     
     // Save to localStorage for non-authenticated users
-    if (!dealership) {
+    if (!user) {
       localStorage.setItem('darkMode', JSON.stringify(state.isDarkMode));
     }
-  }, [state.isDarkMode, dealership]);
+  }, [state.isDarkMode, user]);
 
   const toggleDarkMode = () => {
     dispatch({ type: 'TOGGLE_DARK_MODE' });
@@ -123,14 +123,14 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const updateSettings = async (updates: Partial<ThemeSettings>) => {
-    if (!dealership) {
+    if (!user) {
       // For non-authenticated users, just update local state
       dispatch({ type: 'UPDATE_SETTINGS', payload: updates });
       return;
     }
 
     try {
-      await ThemeSettingsManager.updateThemeSettings(dealership.id, updates);
+      await ThemeSettingsManager.updateThemeSettings(user.id, updates);
       dispatch({ type: 'UPDATE_SETTINGS', payload: updates });
     } catch (error) {
       console.error('Error updating theme settings:', error);
@@ -138,14 +138,14 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const resetToDefaults = async () => {
-    if (!dealership) {
+    if (!user) {
       // For non-authenticated users, just reset local state
       dispatch({ type: 'SET_SETTINGS', payload: DEFAULT_THEME_SETTINGS });
       return;
     }
 
     try {
-      await ThemeSettingsManager.resetToDefaults(dealership.id);
+      await ThemeSettingsManager.resetToDefaults(user.id);
       dispatch({ type: 'SET_SETTINGS', payload: DEFAULT_THEME_SETTINGS });
     } catch (error) {
       console.error('Error resetting theme settings:', error);

@@ -57,31 +57,31 @@ const LocationSettings: React.FC = () => {
   };
 
   if (loading) {
-    return <div className="p-6">Loading location settings...</div>;
+    return <div className="p-6 text-gray-900 dark:text-white">Loading location settings...</div>;
   }
 
   return (
-    <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">
+    <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/20 p-6">
       <div className="flex items-center gap-3 mb-6">
         <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
           <Settings className="w-5 h-5 text-white" />
         </div>
         <div>
-          <h3 className="text-lg font-bold text-gray-900">Location Settings</h3>
-          <p className="text-gray-600">Configure location management preferences</p>
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white">Location Settings</h3>
+          <p className="text-gray-600 dark:text-gray-400">Configure location management preferences</p>
         </div>
       </div>
 
       <div className="space-y-6">
         {/* Default Location Type */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
             Default Location Type
           </label>
           <select
             value={settings.defaultLocationType}
             onChange={(e) => handleSettingChange('defaultLocationType', e.target.value as LocationType)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
           >
             {Object.entries(LOCATION_TYPE_CONFIGS).map(([type, config]) => (
               <option key={type} value={type}>
@@ -89,17 +89,17 @@ const LocationSettings: React.FC = () => {
               </option>
             ))}
           </select>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
             Default type when creating new locations
           </p>
         </div>
 
         {/* Settings Toggles */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-gray-50/80 rounded-lg border border-gray-200/60">
+          <div className="flex items-center justify-between p-4 bg-gray-50/80 dark:bg-gray-800/80 rounded-lg border border-gray-200/60 dark:border-gray-700/60">
             <div>
-              <h4 className="font-medium text-gray-900">Allow Custom Locations</h4>
-              <p className="text-sm text-gray-600">Users can create custom location types</p>
+              <h4 className="font-medium text-gray-900 dark:text-white">Allow Custom Locations</h4>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Users can create custom location types</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input
@@ -112,10 +112,10 @@ const LocationSettings: React.FC = () => {
             </label>
           </div>
 
-          <div className="flex items-center justify-between p-4 bg-gray-50/80 rounded-lg border border-gray-200/60">
+          <div className="flex items-center justify-between p-4 bg-gray-50/80 dark:bg-gray-800/80 rounded-lg border border-gray-200/60 dark:border-gray-700/60">
             <div>
-              <h4 className="font-medium text-gray-900">Require Location for Vehicles</h4>
-              <p className="text-sm text-gray-600">All vehicles must have an assigned location</p>
+              <h4 className="font-medium text-gray-900 dark:text-white">Require Location for Vehicles</h4>
+              <p className="text-sm text-gray-600 dark:text-gray-400">All vehicles must have an assigned location</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input
@@ -128,10 +128,10 @@ const LocationSettings: React.FC = () => {
             </label>
           </div>
 
-          <div className="flex items-center justify-between p-4 bg-gray-50/80 rounded-lg border border-gray-200/60">
+          <div className="flex items-center justify-between p-4 bg-gray-50/80 dark:bg-gray-800/80 rounded-lg border border-gray-200/60 dark:border-gray-700/60">
             <div>
-              <h4 className="font-medium text-gray-900">Auto-Assign Location</h4>
-              <p className="text-sm text-gray-600">Automatically assign default location to new vehicles</p>
+              <h4 className="font-medium text-gray-900 dark:text-white">Auto-Assign Location</h4>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Automatically assign default location to new vehicles</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input
@@ -144,10 +144,10 @@ const LocationSettings: React.FC = () => {
             </label>
           </div>
 
-          <div className="flex items-center justify-between p-4 bg-gray-50/80 rounded-lg border border-gray-200/60">
+          <div className="flex items-center justify-between p-4 bg-gray-50/80 dark:bg-gray-800/80 rounded-lg border border-gray-200/60 dark:border-gray-700/60">
             <div>
-              <h4 className="font-medium text-gray-900">Location Capacity Tracking</h4>
-              <p className="text-sm text-gray-600">Track and warn when locations reach capacity</p>
+              <h4 className="font-medium text-gray-900 dark:text-white">Location Capacity Tracking</h4>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Track and warn when locations reach capacity</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input
@@ -163,7 +163,7 @@ const LocationSettings: React.FC = () => {
 
         {/* Action Buttons */}
         {hasChanges && (
-          <div className="flex gap-3 pt-4 border-t border-gray-200/60">
+          <div className="flex gap-3 pt-4 border-t border-gray-200/60 dark:border-gray-700/60">
             <button
               onClick={handleSave}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
@@ -173,7 +173,7 @@ const LocationSettings: React.FC = () => {
             </button>
             <button
               onClick={handleReset}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors font-medium"
+              className="flex items-center gap-2 px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors font-medium"
             >
               <RotateCcw className="w-4 h-4" />
               Reset

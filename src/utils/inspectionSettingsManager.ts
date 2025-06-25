@@ -21,45 +21,45 @@ export class InspectionSettingsManager {
 
   static async getSettings(dealershipId: string): Promise<InspectionSettings | null> {
     try {
-      // First try to get from Supabase (database priority)
       const { data, error } = await supabase
         .from('inspection_settings')
         .select('settings')
         .eq('dealership_id', dealershipId)
-        .single();
+        .maybeSingle();
 
-      if (!error && data && data.settings) {
-        const storedSettings = data.settings;
-        
-        // Deep merge with default settings to ensure all properties exist
-        const mergedSettings: InspectionSettings = {
-          ...DEFAULT_INSPECTION_SETTINGS,
-          ...storedSettings,
-          // Ensure nested objects are properly merged
-          customerPdfSettings: {
-            ...DEFAULT_INSPECTION_SETTINGS.customerPdfSettings,
-            ...(storedSettings.customerPdfSettings || {})
-          },
-          globalSettings: {
-            ...DEFAULT_INSPECTION_SETTINGS.globalSettings,
-            ...(storedSettings.globalSettings || {})
-          },
-          ratingLabels: storedSettings.ratingLabels && storedSettings.ratingLabels.length > 0 
-            ? storedSettings.ratingLabels 
-            : DEFAULT_INSPECTION_SETTINGS.ratingLabels,
-          sections: storedSettings.sections || DEFAULT_INSPECTION_SETTINGS.sections
-        };
-        
-        // Also save to localStorage as backup
-        this.saveToLocalStorage(dealershipId, mergedSettings);
-        return mergedSettings;
+      // Only log real errors
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching inspection settings from Supabase:', error);
       }
-    } catch (error) {
-      console.error('Error fetching settings from Supabase:', error);
-    }
 
-    // Fallback to localStorage
-    return this.getFromLocalStorage(dealershipId);
+      if (!data) {
+        // No row found, use defaults
+        return { ...DEFAULT_INSPECTION_SETTINGS };
+      }
+
+      const storedSettings = data.settings;
+      // Deep merge with default settings to ensure all properties exist
+      const mergedSettings: InspectionSettings = {
+        ...DEFAULT_INSPECTION_SETTINGS,
+        ...storedSettings,
+        customerPdfSettings: {
+          ...DEFAULT_INSPECTION_SETTINGS.customerPdfSettings,
+          ...(storedSettings.customerPdfSettings || {})
+        },
+        globalSettings: {
+          ...DEFAULT_INSPECTION_SETTINGS.globalSettings,
+          ...(storedSettings.globalSettings || {})
+        },
+        ratingLabels: storedSettings.ratingLabels && storedSettings.ratingLabels.length > 0 
+          ? storedSettings.ratingLabels 
+          : DEFAULT_INSPECTION_SETTINGS.ratingLabels,
+        sections: storedSettings.sections || DEFAULT_INSPECTION_SETTINGS.sections
+      };
+      return mergedSettings;
+    } catch (error) {
+      // Fallback to defaults
+      return { ...DEFAULT_INSPECTION_SETTINGS };
+    }
   }
 
   private static getFromLocalStorage(dealershipId: string): InspectionSettings | null {

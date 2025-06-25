@@ -20,38 +20,34 @@ export const DEFAULT_THEME_SETTINGS: ThemeSettings = {
 export class ThemeSettingsManager {
   private static readonly STORAGE_KEY = 'theme_settings';
 
-  static async getThemeSettings(dealershipId: string): Promise<ThemeSettings> {
+  static async getThemeSettings(userId: string): Promise<ThemeSettings> {
     try {
-      // First try to get from Supabase (database priority)
       const { data, error } = await supabase
         .from('theme_settings')
         .select('settings')
-        .eq('dealership_id', dealershipId)
-        .single();
+        .eq('user_id', userId)
+        .maybeSingle();
 
-      if (!error && data && data.settings) {
-        const storedSettings = data.settings;
-        
-        // Deep merge with default settings
-        const mergedSettings: ThemeSettings = {
-          ...DEFAULT_THEME_SETTINGS,
-          ...storedSettings
-        };
-        
-        // Also save to localStorage as backup
-        this.saveToLocalStorage(dealershipId, mergedSettings);
-        return mergedSettings;
+      // Only log real errors
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching theme settings from Supabase:', error);
       }
-    } catch (error) {
-      console.error('Error fetching theme settings from Supabase:', error);
-    }
 
-    // Fallback to localStorage
-    return this.getFromLocalStorage(dealershipId);
+      if (!data) {
+        // No row found, use defaults
+        return { ...DEFAULT_THEME_SETTINGS };
+      }
+
+      // Merge with defaults
+      return { ...DEFAULT_THEME_SETTINGS, ...data.settings };
+    } catch (error) {
+      // Fallback to defaults
+      return { ...DEFAULT_THEME_SETTINGS };
+    }
   }
 
-  private static getFromLocalStorage(dealershipId: string): ThemeSettings {
-    const key = `${this.STORAGE_KEY}_${dealershipId}`;
+  private static getFromLocalStorage(userId: string): ThemeSettings {
+    const key = `${this.STORAGE_KEY}_${userId}`;
     const data = localStorage.getItem(key);
     
     if (data) {
@@ -67,29 +63,29 @@ export class ThemeSettingsManager {
     }
 
     // Return default settings and save to localStorage
-    this.saveToLocalStorage(dealershipId, DEFAULT_THEME_SETTINGS);
+    this.saveToLocalStorage(userId, DEFAULT_THEME_SETTINGS);
     return DEFAULT_THEME_SETTINGS;
   }
 
-  private static saveToLocalStorage(dealershipId: string, settings: ThemeSettings): void {
-    const key = `${this.STORAGE_KEY}_${dealershipId}`;
+  private static saveToLocalStorage(userId: string, settings: ThemeSettings): void {
+    const key = `${this.STORAGE_KEY}_${userId}`;
     localStorage.setItem(key, JSON.stringify(settings));
   }
 
-  static async saveThemeSettings(dealershipId: string, settings: ThemeSettings): Promise<void> {
+  static async saveThemeSettings(userId: string, settings: ThemeSettings): Promise<void> {
     // Always save to localStorage first (as default)
-    this.saveToLocalStorage(dealershipId, settings);
+    this.saveToLocalStorage(userId, settings);
 
     try {
       // Then try to save to Supabase (database priority)
       const { error } = await supabase
         .from('theme_settings')
         .upsert({
-          dealership_id: dealershipId,
+          user_id: userId,
           settings,
           updated_at: new Date().toISOString()
         }, {
-          onConflict: 'dealership_id'
+          onConflict: 'user_id'
         });
 
       if (error) {
@@ -102,12 +98,12 @@ export class ThemeSettingsManager {
     }
   }
 
-  static async updateThemeSettings(dealershipId: string, updates: Partial<ThemeSettings>): Promise<boolean> {
+  static async updateThemeSettings(userId: string, updates: Partial<ThemeSettings>): Promise<boolean> {
     try {
-      const currentSettings = await this.getThemeSettings(dealershipId);
+      const currentSettings = await this.getThemeSettings(userId);
       const updatedSettings = { ...currentSettings, ...updates };
       
-      await this.saveThemeSettings(dealershipId, updatedSettings);
+      await this.saveThemeSettings(userId, updatedSettings);
       return true;
     } catch (error) {
       console.error('Error updating theme settings:', error);
@@ -115,9 +111,9 @@ export class ThemeSettingsManager {
     }
   }
 
-  static async resetToDefaults(dealershipId: string): Promise<boolean> {
+  static async resetToDefaults(userId: string): Promise<boolean> {
     try {
-      await this.saveThemeSettings(dealershipId, DEFAULT_THEME_SETTINGS);
+      await this.saveThemeSettings(userId, DEFAULT_THEME_SETTINGS);
       return true;
     } catch (error) {
       console.error('Error resetting theme settings to defaults:', error);

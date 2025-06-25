@@ -69,9 +69,9 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({ location, veh
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden border border-white/20">
+      <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden border border-white/20 dark:border-gray-700/40">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200/60 px-6 py-4">
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-900 dark:to-gray-800 border-b border-gray-200/60 dark:border-gray-700/60 px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center text-2xl">
@@ -102,7 +102,7 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({ location, veh
         </div>
 
         {/* Summary Stats */}
-        <div className="px-6 py-4 bg-gray-50/80 border-b border-gray-200/60">
+        <div className="px-6 py-4 bg-gray-50/80 dark:bg-gray-800/80 border-b border-gray-200/60 dark:border-gray-700/60">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-blue-600">{vehicles.length}</div>
@@ -145,20 +145,20 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({ location, veh
                   <Link
                     key={vehicle.id}
                     to={`/vehicle/${vehicle.id}`}
-                    className="block bg-white rounded-xl border border-gray-200 p-6 hover:shadow-xl hover:border-blue-300 transition-all duration-300 hover:scale-[1.02] group"
+                    className="block bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-6 hover:shadow-xl hover:border-blue-300 dark:hover:border-blue-400 transition-all duration-300 hover:scale-[1.02] group"
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         {/* Vehicle Header */}
                         <div className="flex items-center gap-3 mb-3">
-                          <h3 className="text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+                          <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-300 transition-colors">
                             {vehicle.year} {vehicle.make} {vehicle.model}
                           </h3>
                           {vehicle.trim && (
-                            <span className="text-gray-600 font-medium">{vehicle.trim}</span>
+                            <span className="text-gray-600 dark:text-gray-300 font-medium">{vehicle.trim}</span>
                           )}
                           {isReadyForSale && (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-semibold border border-emerald-200">
+                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-200 rounded-full text-xs font-semibold border border-emerald-200 dark:border-emerald-800">
                               <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
                               Ready
                             </span>
@@ -170,32 +170,32 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({ location, veh
                           <div className="flex items-center gap-2">
                             <Hash className="w-4 h-4 text-gray-400" />
                             <div>
-                              <p className="text-xs text-gray-500">Stock #</p>
-                              <p className="font-semibold text-gray-900">{getStockNumber(vehicle.vin)}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">Stock #</p>
+                              <p className="font-semibold text-gray-900 dark:text-gray-100">{getStockNumber(vehicle.vin)}</p>
                             </div>
                           </div>
                           
                           <div className="flex items-center gap-2">
                             <Gauge className="w-4 h-4 text-gray-400" />
                             <div>
-                              <p className="text-xs text-gray-500">Mileage</p>
-                              <p className="font-semibold text-gray-900">{vehicle.mileage.toLocaleString()}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">Mileage</p>
+                              <p className="font-semibold text-gray-900 dark:text-gray-100">{vehicle.mileage.toLocaleString()}</p>
                             </div>
                           </div>
                           
                           <div className="flex items-center gap-2">
                             <Palette className="w-4 h-4 text-gray-400" />
                             <div>
-                              <p className="text-xs text-gray-500">Color</p>
-                              <p className="font-semibold text-gray-900">{vehicle.color}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">Color</p>
+                              <p className="font-semibold text-gray-900 dark:text-gray-100">{vehicle.color}</p>
                             </div>
                           </div>
                           
                           <div className="flex items-center gap-2">
                             <DollarSign className="w-4 h-4 text-gray-400" />
                             <div>
-                              <p className="text-xs text-gray-500">Price</p>
-                              <p className="font-semibold text-gray-900">{formatPrice(vehicle.price)}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">Price</p>
+                              <p className="font-semibold text-gray-900 dark:text-gray-100">{formatPrice(vehicle.price)}</p>
                             </div>
                           </div>
                         </div>
@@ -203,15 +203,15 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({ location, veh
                         {/* Progress Bar */}
                         <div className="mb-3">
                           <div className="flex justify-between items-center mb-2">
-                            <span className="text-sm font-medium text-gray-700">Reconditioning Progress</span>
-                            <span className="text-sm font-bold text-gray-900">{Math.round(progress)}%</span>
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Reconditioning Progress</span>
+                            <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{Math.round(progress)}%</span>
                           </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                             <div 
                               className={`h-2 rounded-full transition-all duration-500 ${
                                 progress === 100 
-                                  ? 'bg-gradient-to-r from-emerald-500 to-green-600' 
-                                  : 'bg-gradient-to-r from-blue-500 to-indigo-600'
+                                  ? 'bg-gradient-to-r from-emerald-500 to-green-600 dark:from-emerald-400 dark:to-green-700' 
+                                  : 'bg-gradient-to-r from-blue-500 to-indigo-600 dark:from-blue-400 dark:to-indigo-700'
                               }`}
                               style={{ width: `${progress}%` }}
                             ></div>
@@ -248,7 +248,7 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({ location, veh
                             return (
                               <span
                                 key={section}
-                                className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(status)}`}
+                                className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(status)} dark:bg-gray-800/60 dark:text-gray-200 dark:border-gray-700`}
                               >
                                 {getSectionLabel(section)}
                               </span>
@@ -258,20 +258,20 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({ location, veh
 
                         {/* Notes */}
                         {vehicle.notes && (
-                          <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 mb-3">
-                            <p className="text-sm text-amber-800 font-medium">{vehicle.notes}</p>
+                          <div className="p-3 bg-amber-50 dark:bg-amber-900 rounded-lg border border-amber-200 dark:border-amber-800 mb-3">
+                            <p className="text-sm text-amber-800 dark:text-amber-100 font-medium">{vehicle.notes}</p>
                           </div>
                         )}
 
                         {/* Click to view indicator */}
-                        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center gap-2 text-blue-600 font-medium text-sm">
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center gap-2 text-blue-600 dark:text-blue-300 font-medium text-sm">
                           <span>Click to view details and start working</span>
                           <ArrowRight className="w-4 h-4" />
                         </div>
                       </div>
 
                       {/* Right side info */}
-                      <div className="text-right text-sm text-gray-500 ml-4 flex-shrink-0">
+                      <div className="text-right text-sm text-gray-500 dark:text-gray-400 ml-4 flex-shrink-0">
                         <div className="flex items-center gap-1 mb-2">
                           <Calendar className="w-3 h-3" />
                           <span>Acquired {formatDate(vehicle.dateAcquired)}</span>
@@ -281,10 +281,10 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({ location, veh
                         <div className="text-right">
                           <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
                             progress === 100 
-                              ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                              ? 'bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800'
                               : progress > 50
-                                ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                                : 'bg-gray-100 text-gray-700 border border-gray-200'
+                                ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 border border-blue-200 dark:border-blue-800'
+                                : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700'
                           }`}>
                             {progress === 100 ? '✓ Complete' : `${Math.round(progress)}% Done`}
                           </div>
@@ -299,9 +299,9 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({ location, veh
         </div>
 
         {/* Footer */}
-        <div className="border-t border-gray-200/60 px-6 py-4 bg-gray-50/80">
+        <div className="border-t border-gray-200/60 dark:border-gray-700/60 px-6 py-4 bg-gray-50/80 dark:bg-gray-800/80">
           <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-gray-600 dark:text-gray-300">
               {location.description && (
                 <span>{location.description} • </span>
               )}
@@ -309,7 +309,7 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({ location, veh
             </div>
             <button
               onClick={onClose}
-              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium"
+              className="px-4 py-2 bg-gray-600 dark:bg-gray-800 text-white rounded-lg hover:bg-gray-700 dark:hover:bg-gray-900 transition-colors font-medium"
             >
               Close
             </button>
@@ -391,7 +391,7 @@ const LocationColorSettings: React.FC = () => {
     const [newKeyword, setNewKeyword] = useState('');
 
     return (
-      <div className={`p-4 rounded-lg border ${color}`}>
+      <div className={`p-4 rounded-lg border ${color} dark:bg-gray-800/70 dark:border-gray-700/60`}>
         <h4 className="font-semibold mb-3">{title}</h4>
         <div className="flex flex-wrap gap-2 mb-3">
           {keywords.map((keyword) => (
@@ -415,7 +415,7 @@ const LocationColorSettings: React.FC = () => {
             value={newKeyword}
             onChange={(e) => setNewKeyword(e.target.value)}
             placeholder="Add keyword..."
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
             onKeyPress={(e) => {
               if (e.key === 'Enter') {
                 onAdd(newKeyword);
@@ -446,7 +446,7 @@ const LocationColorSettings: React.FC = () => {
   }
 
   return (
-    <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">
+    <div className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/20 p-6">
       <div className="flex items-center gap-3 mb-6">
         <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
           <Palette className="w-5 h-5 text-white" />
@@ -483,9 +483,9 @@ const LocationColorSettings: React.FC = () => {
         />
       </div>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-        <h4 className="font-semibold text-blue-900 mb-2">How it works:</h4>
-        <ul className="text-sm text-blue-800 space-y-1">
+      <div className="bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+        <h4 className="font-semibold text-blue-900 dark:text-blue-200 mb-2">How it works:</h4>
+        <ul className="text-sm text-blue-800 dark:text-blue-100 space-y-1">
           <li>• Location names are checked against these keywords (case-insensitive)</li>
           <li>• <strong>Red</strong> takes priority over yellow and green</li>
           <li>• <strong>Yellow</strong> takes priority over green</li>
@@ -746,7 +746,7 @@ const LocationManagement: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">
+      <div className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/20 p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
@@ -784,7 +784,7 @@ const LocationManagement: React.FC = () => {
       )}
 
       {/* Filters */}
-      <div className="bg-white/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 p-6">
+      <div className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 p-6">
         <div className="flex flex-col lg:flex-row gap-4">
           <div className="flex-1">
             <div className="relative">
@@ -794,7 +794,7 @@ const LocationManagement: React.FC = () => {
                 placeholder="Search locations..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
               />
             </div>
           </div>
@@ -802,7 +802,7 @@ const LocationManagement: React.FC = () => {
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value as LocationType | 'all')}
-              className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-3 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
             >
               <option value="all">All Types</option>
               {Object.entries(LOCATION_TYPE_CONFIGS).map(([type, config]) => (
@@ -820,10 +820,10 @@ const LocationManagement: React.FC = () => {
         {loading ? (
           <div className="text-center py-8 text-gray-500">Loading locations...</div>
         ) : filteredLocations.length === 0 ? (
-          <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-12 text-center">
-            <MapPin className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">No Locations Found</h3>
-            <p className="text-gray-600 mb-6">
+          <div className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/20 p-12 text-center">
+            <MapPin className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">No Locations Found</h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
               {searchTerm || typeFilter !== 'all' 
                 ? 'Try adjusting your search or filter criteria.'
                 : 'Add your first location to get started organizing your vehicle inventory.'
@@ -849,17 +849,17 @@ const LocationManagement: React.FC = () => {
               <div 
                 key={location.id} 
                 onClick={() => handleLocationClick(location)}
-                className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/30 hover:shadow-xl hover:bg-white/90 transition-all duration-300 hover:scale-[1.02] group cursor-pointer"
+                className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/30 dark:border-gray-700/50 hover:shadow-xl hover:bg-white/90 dark:hover:bg-gray-900 transition-all duration-300 hover:scale-[1.02] group cursor-pointer"
               >
                 <div className="p-6">
                   {/* Location Header */}
                   <div className="flex items-center justify-between mb-4">
-                    <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center text-2xl flex-shrink-0">
+                    <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-xl flex items-center justify-center text-2xl flex-shrink-0">
                       {typeConfig.icon}
                     </div>
                     <div className="flex items-center gap-2">
                       {!location.isActive && (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-800">
                           Inactive
                         </span>
                       )}
@@ -869,11 +869,7 @@ const LocationManagement: React.FC = () => {
                             e.stopPropagation();
                             handleToggleActive(location);
                           }}
-                          className={`p-1.5 rounded-lg transition-colors ${
-                            location.isActive
-                              ? 'text-green-600 hover:bg-green-50'
-                              : 'text-gray-400 hover:bg-gray-50'
-                          }`}
+                          className={`p-1.5 rounded-lg transition-colors ${location.isActive ? 'text-green-600 hover:bg-green-50 dark:hover:bg-green-900' : 'text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
                           title={location.isActive ? 'Deactivate' : 'Activate'}
                         >
                           {location.isActive ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
@@ -883,7 +879,7 @@ const LocationManagement: React.FC = () => {
                             e.stopPropagation();
                             openEditModal(location);
                           }}
-                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900 rounded-lg transition-colors"
                           title="Edit"
                         >
                           <Edit3 className="w-4 h-4" />
@@ -893,7 +889,7 @@ const LocationManagement: React.FC = () => {
                             e.stopPropagation();
                             handleDeleteLocation(location);
                           }}
-                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900 rounded-lg transition-colors"
                           title="Delete"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -904,7 +900,7 @@ const LocationManagement: React.FC = () => {
 
                   {/* Location Name */}
                   <div className="mb-3">
-                    <h3 className="text-lg font-bold text-gray-900 mb-1">{location.name}</h3>
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-1">{location.name}</h3>
                     <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${typeConfig.color}`}>
                       {typeConfig.label}
                     </span>
@@ -912,17 +908,17 @@ const LocationManagement: React.FC = () => {
 
                   {/* Description */}
                   {location.description && (
-                    <p className="text-sm text-gray-600 mb-4 line-clamp-2">{location.description}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300 mb-4 line-clamp-2">{location.description}</p>
                   )}
 
                   {/* Vehicle Count - Main Focus */}
-                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-200/60 mb-4">
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900 p-4 rounded-xl border border-blue-200/60 dark:border-blue-800/60 mb-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-1">Vehicles</p>
-                        <p className="text-2xl font-bold text-blue-900">{vehicleCount}</p>
+                        <p className="text-xs font-semibold text-blue-600 dark:text-blue-300 uppercase tracking-wide mb-1">Vehicles</p>
+                        <p className="text-2xl font-bold text-blue-900 dark:text-blue-200">{vehicleCount}</p>
                       </div>
-                      <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
+                      <div className="w-10 h-10 bg-blue-600 dark:bg-blue-800 rounded-xl flex items-center justify-center">
                         <Car className="w-5 h-5 text-white" />
                       </div>
                     </div>
@@ -932,12 +928,12 @@ const LocationManagement: React.FC = () => {
                   {location.capacity && (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-600">Capacity</span>
+                        <span className="text-gray-600 dark:text-gray-300">Capacity</span>
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${getCapacityColor(capacityStatus)}`}>
                           {Math.round((vehicleCount / location.capacity) * 100)}%
                         </span>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                         <div 
                           className={`h-2 rounded-full transition-all duration-300 ${
                             capacityStatus === 'full' ? 'bg-red-500' :
@@ -947,7 +943,7 @@ const LocationManagement: React.FC = () => {
                           style={{ width: `${Math.min((vehicleCount / location.capacity) * 100, 100)}%` }}
                         ></div>
                       </div>
-                      <div className="flex justify-between text-xs text-gray-500">
+                      <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
                         <span>{vehicleCount} vehicles</span>
                         <span>{location.capacity} max</span>
                       </div>
@@ -957,20 +953,20 @@ const LocationManagement: React.FC = () => {
                   {/* No Capacity Set */}
                   {!location.capacity && (
                     <div className="text-center py-2">
-                      <p className="text-xs text-gray-500">No capacity limit set</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">No capacity limit set</p>
                     </div>
                   )}
 
                   {/* Created Date */}
-                  <div className="mt-4 pt-4 border-t border-gray-200/60">
-                    <p className="text-xs text-gray-500">
+                  <div className="mt-4 pt-4 border-t border-gray-200/60 dark:border-gray-700/60">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
                       Created: {new Date(location.createdAt).toLocaleDateString()}
                     </p>
                   </div>
 
                   {/* Click indicator */}
-                  <div className="mt-3 pt-3 border-t border-gray-200/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                    <p className="text-center text-sm text-blue-600 font-medium">Click to view vehicles →</p>
+                  <div className="mt-3 pt-3 border-t border-gray-200/60 dark:border-gray-700/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <p className="text-center text-sm text-blue-600 dark:text-blue-300 font-medium">Click to view vehicles →</p>
                   </div>
                 </div>
               </div>
@@ -981,20 +977,20 @@ const LocationManagement: React.FC = () => {
         {/* Add New Location Card */}
         <div 
           onClick={() => setShowAddModal(true)}
-          className="bg-white/60 backdrop-blur-sm rounded-2xl shadow-lg border-2 border-dashed border-gray-300 hover:border-blue-400 hover:bg-white/80 transition-all duration-300 hover:scale-[1.02] cursor-pointer group"
+          className="bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm rounded-2xl shadow-lg border-2 border-dashed border-gray-300 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-400 hover:bg-white/80 dark:hover:bg-gray-900 transition-all duration-300 hover:scale-[1.02] cursor-pointer group"
         >
           <div className="p-6 flex flex-col items-center justify-center h-full min-h-[280px]">
-            <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-4 group-hover:bg-blue-200 transition-colors">
-              <Plus className="w-6 h-6 text-blue-600" />
+            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-xl flex items-center justify-center mb-4 group-hover:bg-blue-200 dark:group-hover:bg-blue-800 transition-colors">
+              <Plus className="w-6 h-6 text-blue-600 dark:text-blue-300" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-700 mb-2">Add New Location</h3>
-            <p className="text-sm text-gray-500 text-center">Create a new location to organize your vehicle inventory</p>
+            <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-2">Add New Location</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center">Create a new location to organize your vehicle inventory</p>
           </div>
         </div>
       </div>
 
       {/* Summary Stats Footer */}
-      <div className="bg-white/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 p-6">
+      <div className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 p-6">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
           <div>
             <p className="text-2xl font-bold text-gray-900">{locations.length}</p>

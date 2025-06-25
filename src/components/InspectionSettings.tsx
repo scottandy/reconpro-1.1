@@ -863,33 +863,33 @@ const InspectionSettings: React.FC = () => {
 
   if (!user || user.role !== 'admin') {
     return (
-      <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-8 text-center">
-        <AlertTriangle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">Access Restricted</h3>
-        <p className="text-gray-600">Only administrators can manage inspection settings.</p>
+      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/20 p-8 text-center">
+        <AlertTriangle className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Access Restricted</h3>
+        <p className="text-gray-600 dark:text-gray-400">Only administrators can manage inspection settings.</p>
       </div>
     );
   }
 
   if (isLoading) {
     return (
-      <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-8 text-center">
+      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/20 p-8 text-center">
         <div className="animate-pulse">
-          <div className="w-12 h-12 bg-blue-200 rounded-xl mx-auto mb-4"></div>
-          <div className="h-4 bg-gray-200 rounded w-1/2 mx-auto mb-2"></div>
-          <div className="h-3 bg-gray-200 rounded w-1/3 mx-auto"></div>
+          <div className="w-12 h-12 bg-blue-200 dark:bg-blue-700 rounded-xl mx-auto mb-4"></div>
+          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mx-auto mb-2"></div>
+          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mx-auto"></div>
         </div>
-        <p className="text-sm text-gray-600 mt-4">Loading inspection settings...</p>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mt-4">Loading inspection settings...</p>
       </div>
     );
   }
 
   if (!settings) {
     return (
-      <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-8 text-center">
-        <AlertTriangle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">Settings Not Found</h3>
-        <p className="text-gray-600 mb-4">Unable to load inspection settings.</p>
+      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/20 p-8 text-center">
+        <AlertTriangle className="w-12 h-12 text-red-400 dark:text-red-500 mx-auto mb-4" />
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Settings Not Found</h3>
+        <p className="text-gray-600 dark:text-gray-400 mb-4">Unable to load inspection settings.</p>
         <button
           onClick={loadSettings}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -903,15 +903,15 @@ const InspectionSettings: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">
+      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/20 p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
               <Settings className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-900">Inspection Settings</h2>
-              <p className="text-gray-600">Customize inspection sections, items, and rating labels</p>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Inspection Settings</h2>
+              <p className="text-gray-600 dark:text-gray-400">Customize inspection sections, items, and rating labels</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -948,14 +948,14 @@ const InspectionSettings: React.FC = () => {
       </div>
 
       {/* Tab Navigation */}
-      <div className="bg-white/60 backdrop-blur-sm rounded-xl p-1.5 shadow-lg border border-white/20">
+      <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-xl p-1.5 shadow-lg border border-white/20 dark:border-gray-700/20">
         <div className="flex flex-wrap">
           <button
             onClick={() => setActiveTab('sections')}
             className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold transition-all duration-200 ${
               activeTab === 'sections'
-                ? 'bg-white text-blue-600 shadow-md border border-blue-100'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
+                ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-md border border-blue-100 dark:border-blue-800'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-gray-700/50'
             }`}
           >
             <List className="w-5 h-5" />
@@ -965,8 +965,8 @@ const InspectionSettings: React.FC = () => {
             onClick={() => setActiveTab('ratings')}
             className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold transition-all duration-200 ${
               activeTab === 'ratings'
-                ? 'bg-white text-blue-600 shadow-md border border-blue-100'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
+                ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-md border border-blue-100 dark:border-blue-800'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-gray-700/50'
             }`}
           >
             <Star className="w-5 h-5" />
@@ -976,8 +976,8 @@ const InspectionSettings: React.FC = () => {
             onClick={() => setActiveTab('global')}
             className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold transition-all duration-200 ${
               activeTab === 'global'
-                ? 'bg-white text-blue-600 shadow-md border border-blue-100'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
+                ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-md border border-blue-100 dark:border-blue-800'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-gray-700/50'
             }`}
           >
             <Settings className="w-5 h-5" />
@@ -987,8 +987,8 @@ const InspectionSettings: React.FC = () => {
             onClick={() => setActiveTab('pdf')}
             className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold transition-all duration-200 ${
               activeTab === 'pdf'
-                ? 'bg-white text-blue-600 shadow-md border border-blue-100'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
+                ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-md border border-blue-100 dark:border-blue-800'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-gray-700/50'
             }`}
           >
             <FileText className="w-5 h-5" />
@@ -1001,7 +1001,7 @@ const InspectionSettings: React.FC = () => {
       {activeTab === 'sections' && (
         <div className="space-y-6">
           {/* Add Section Button */}
-          <div className="bg-white/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 p-4">
+          <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 p-4">
             <button
               onClick={() => setShowSectionModal(true)}
               className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
@@ -1016,36 +1016,36 @@ const InspectionSettings: React.FC = () => {
             {settings.sections
               .sort((a, b) => a.order - b.order)
               .map((section) => (
-                <div key={section.id} className="bg-white/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 overflow-hidden">
+                <div key={section.id} className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 overflow-hidden">
                   {/* Section Header */}
-                  <div className="p-4 border-b border-gray-200/60">
+                  <div className="p-4 border-b border-gray-200/60 dark:border-gray-700/60">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <button
                           onClick={() => toggleSectionExpanded(section.id)}
-                          className="p-1 hover:bg-gray-100 rounded transition-colors"
+                          className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
                         >
                           {expandedSections.has(section.id) ? (
-                            <ChevronUp className="w-4 h-4 text-gray-500" />
+                            <ChevronUp className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                           ) : (
-                            <ChevronDown className="w-4 h-4 text-gray-500" />
+                            <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                           )}
                         </button>
                         <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium border ${section.color}`}>
                           <span>{section.icon}</span>
                           <span>{section.label}</span>
                         </div>
-                        <span className="text-sm text-gray-600">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
                           {section.items.filter(i => i.isActive).length} items
                         </span>
                         {!section.isActive && (
-                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium">
+                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 dark:bg-red-900/60 text-red-700 dark:text-red-300 rounded-full text-xs font-medium">
                             <EyeOff className="w-3 h-3" />
                             Inactive
                           </span>
                         )}
                         {!section.isCustomerVisible && (
-                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">
+                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full text-xs font-medium">
                             <EyeOff className="w-3 h-3" />
                             Hidden from PDF
                           </span>
@@ -1056,8 +1056,8 @@ const InspectionSettings: React.FC = () => {
                           onClick={() => handleToggleSectionActive(section.id)}
                           className={`p-2 rounded-lg transition-colors ${
                             section.isActive
-                              ? 'text-green-600 hover:bg-green-50'
-                              : 'text-gray-400 hover:bg-gray-50'
+                              ? 'text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20'
+                              : 'text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'
                           }`}
                           title={section.isActive ? 'Deactivate section' : 'Activate section'}
                         >
@@ -1067,8 +1067,8 @@ const InspectionSettings: React.FC = () => {
                           onClick={() => handleToggleSectionCustomerVisible(section.id)}
                           className={`p-2 rounded-lg transition-colors ${
                             section.isCustomerVisible
-                              ? 'text-blue-600 hover:bg-blue-50'
-                              : 'text-gray-400 hover:bg-gray-50'
+                              ? 'text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+                              : 'text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'
                           }`}
                           title={section.isCustomerVisible ? 'Hide from customer PDF' : 'Show in customer PDF'}
                         >
@@ -1076,14 +1076,14 @@ const InspectionSettings: React.FC = () => {
                         </button>
                         <button
                           onClick={() => setEditingSection(section)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                           title="Edit section"
                         >
                           <Edit3 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDeleteSection(section.id)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                           title="Delete section"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -1091,7 +1091,7 @@ const InspectionSettings: React.FC = () => {
                       </div>
                     </div>
                     {section.description && (
-                      <p className="text-sm text-gray-600 mt-2 ml-8">{section.description}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-2 ml-8">{section.description}</p>
                     )}
                   </div>
 
@@ -1099,7 +1099,7 @@ const InspectionSettings: React.FC = () => {
                   {expandedSections.has(section.id) && (
                     <div className="p-4 space-y-3">
                       <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-medium text-gray-700">Inspection Items</h4>
+                        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Inspection Items</h4>
                         <button
                           onClick={() => {
                             setSelectedSectionId(section.id);
@@ -1113,8 +1113,8 @@ const InspectionSettings: React.FC = () => {
                       </div>
 
                       {section.items.length === 0 ? (
-                        <div className="text-center py-6 text-gray-500">
-                          <List className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                        <div className="text-center py-6 text-gray-500 dark:text-gray-400">
+                          <List className="w-8 h-8 mx-auto mb-2 text-gray-400 dark:text-gray-500" />
                           <p className="text-sm">No items in this section yet</p>
                         </div>
                       ) : (
@@ -1122,24 +1122,24 @@ const InspectionSettings: React.FC = () => {
                           {section.items
                             .sort((a, b) => a.order - b.order)
                             .map((item) => (
-                              <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50/80 rounded-lg border border-gray-200/60">
+                              <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50/80 dark:bg-gray-800/80 rounded-lg border border-gray-200/60 dark:border-gray-700/60">
                                 <div className="flex items-center gap-3">
                                   <div className="flex items-center gap-2">
-                                    <span className="text-sm font-medium text-gray-900">{item.label}</span>
+                                    <span className="text-sm font-medium text-gray-900 dark:text-white">{item.label}</span>
                                     {item.isRequired && (
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-100 dark:bg-orange-900/60 text-orange-700 dark:text-orange-300 rounded-full text-xs font-medium">
                                         Required
                                       </span>
                                     )}
                                     {!item.isActive && (
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-medium">
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 dark:bg-red-900/60 text-red-700 dark:text-red-300 rounded-full text-xs font-medium">
                                         <EyeOff className="w-3 h-3" />
                                         Inactive
                                       </span>
                                     )}
                                   </div>
                                   {item.description && (
-                                    <span className="text-xs text-gray-500">- {item.description}</span>
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">- {item.description}</span>
                                   )}
                                 </div>
                                 <div className="flex items-center gap-1">
@@ -1147,8 +1147,8 @@ const InspectionSettings: React.FC = () => {
                                     onClick={() => handleToggleItemActive(section.id, item.id)}
                                     className={`p-1 rounded transition-colors ${
                                       item.isActive
-                                        ? 'text-green-600 hover:bg-green-50'
-                                        : 'text-gray-400 hover:bg-gray-50'
+                                        ? 'text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20'
+                                        : 'text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'
                                     }`}
                                     title={item.isActive ? 'Deactivate item' : 'Activate item'}
                                   >
@@ -1159,14 +1159,14 @@ const InspectionSettings: React.FC = () => {
                                       setSelectedSectionId(section.id);
                                       setEditingItem(item);
                                     }}
-                                    className="p-1 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                    className="p-1 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
                                     title="Edit item"
                                   >
                                     <Edit3 className="w-3 h-3" />
                                   </button>
                                   <button
                                     onClick={() => handleDeleteItem(section.id, item.id)}
-                                    className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+                                    className="p-1 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                                     title="Delete item"
                                   >
                                     <Trash2 className="w-3 h-3" />
@@ -1185,9 +1185,9 @@ const InspectionSettings: React.FC = () => {
       )}
 
       {activeTab === 'ratings' && (
-        <div className="bg-white/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 p-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-6">Rating Labels Configuration</h3>
-          <p className="text-gray-600 mb-6">Customize the labels and descriptions for inspection ratings.</p>
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 p-6">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">Rating Labels Configuration</h3>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">Customize the labels and descriptions for inspection ratings.</p>
           
           <div className="space-y-6">
             {tempRatingLabels.map((label) => {
@@ -1196,37 +1196,37 @@ const InspectionSettings: React.FC = () => {
                                  label.key === 'needs-attention' ? AlertTriangle : Circle;
               
               return (
-                <div key={label.key} className="p-4 border border-gray-200 rounded-lg">
+                <div key={label.key} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
                   <div className="flex items-center gap-4 mb-4">
                     <div className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg font-medium ${label.color.replace('ring-2 ring-emerald-300', '').replace('ring-2 ring-yellow-300', '').replace('ring-2 ring-red-300', '')}`}>
                       <IconComponent className="w-4 h-4" />
                       <span>{label.label}</span>
                     </div>
-                    <span className="text-sm text-gray-500 capitalize">({label.key.replace('-', ' ')})</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400 capitalize">({label.key.replace('-', ' ')})</span>
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Label Text
                       </label>
                       <input
                         type="text"
                         value={label.label}
                         onChange={(e) => handleRatingLabelChange(label.key, 'label', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       />
                     </div>
                     
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Description
                       </label>
                       <input
                         type="text"
                         value={label.description || ''}
                         onChange={(e) => handleRatingLabelChange(label.key, 'description', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         placeholder="Brief description..."
                       />
                     </div>
@@ -1235,7 +1235,7 @@ const InspectionSettings: React.FC = () => {
               );
             })}
             
-            <div className="flex justify-end pt-4 border-t border-gray-200 gap-2">
+            <div className="flex justify-end pt-4 border-t border-gray-200 dark:border-gray-700 gap-2">
               {hasUnsavedChanges && (
                 <button
                   onClick={handleResetChanges}
@@ -1251,7 +1251,7 @@ const InspectionSettings: React.FC = () => {
                 className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg transition-colors font-medium ${
                   hasUnsavedChanges 
                     ? 'bg-green-600 text-white hover:bg-green-700' 
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
                 }`}
               >
                 <Check className="w-4 h-4" />
@@ -1263,18 +1263,18 @@ const InspectionSettings: React.FC = () => {
       )}
 
       {activeTab === 'global' && (
-        <div className="bg-white/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 p-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-6">Global Inspection Settings</h3>
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 p-6">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">Global Inspection Settings</h3>
           
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
-                <h4 className="font-medium text-gray-900">User Requirements</h4>
+                <h4 className="font-medium text-gray-900 dark:text-white">User Requirements</h4>
                 
-                <label className="flex items-center justify-between p-4 bg-gray-50/80 rounded-lg border border-gray-200/60">
+                <label className="flex items-center justify-between p-4 bg-gray-50/80 dark:bg-gray-800/80 rounded-lg border border-gray-200/60 dark:border-gray-700/60">
                   <div>
-                    <span className="font-medium text-gray-900">Require User Initials</span>
-                    <p className="text-sm text-gray-600">Users must enter initials when making changes</p>
+                    <span className="font-medium text-gray-900 dark:text-white">Require User Initials</span>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Users must enter initials when making changes</p>
                   </div>
                   <input
                     type="checkbox"
@@ -1284,14 +1284,14 @@ const InspectionSettings: React.FC = () => {
                         requireUserInitials: e.target.checked
                       });
                     }}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
                   />
                 </label>
 
-                <label className="flex items-center justify-between p-4 bg-gray-50/80 rounded-lg border border-gray-200/60">
+                <label className="flex items-center justify-between p-4 bg-gray-50/80 dark:bg-gray-800/80 rounded-lg border border-gray-200/60 dark:border-gray-700/60">
                   <div>
-                    <span className="font-medium text-gray-900">Allow Skip Items</span>
-                    <p className="text-sm text-gray-600">Users can skip non-required inspection items</p>
+                    <span className="font-medium text-gray-900 dark:text-white">Allow Skip Items</span>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Users can skip non-required inspection items</p>
                   </div>
                   <input
                     type="checkbox"
@@ -1301,18 +1301,18 @@ const InspectionSettings: React.FC = () => {
                         allowSkipItems: e.target.checked
                       });
                     }}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
                   />
                 </label>
               </div>
 
               <div className="space-y-4">
-                <h4 className="font-medium text-gray-900">Interface Options</h4>
+                <h4 className="font-medium text-gray-900 dark:text-white">Interface Options</h4>
                 
-                <label className="flex items-center justify-between p-4 bg-gray-50/80 rounded-lg border border-gray-200/60">
+                <label className="flex items-center justify-between p-4 bg-gray-50/80 dark:bg-gray-800/80 rounded-lg border border-gray-200/60 dark:border-gray-700/60">
                   <div>
-                    <span className="font-medium text-gray-900">Auto-Save Progress</span>
-                    <p className="text-sm text-gray-600">Automatically save inspection progress</p>
+                    <span className="font-medium text-gray-900 dark:text-white">Auto-Save Progress</span>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Automatically save inspection progress</p>
                   </div>
                   <input
                     type="checkbox"
@@ -1322,14 +1322,14 @@ const InspectionSettings: React.FC = () => {
                         autoSaveProgress: e.target.checked
                       });
                     }}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
                   />
                 </label>
 
-                <label className="flex items-center justify-between p-4 bg-gray-50/80 rounded-lg border border-gray-200/60">
+                <label className="flex items-center justify-between p-4 bg-gray-50/80 dark:bg-gray-800/80 rounded-lg border border-gray-200/60 dark:border-gray-700/60">
                   <div>
-                    <span className="font-medium text-gray-900">Show Progress Percentage</span>
-                    <p className="text-sm text-gray-600">Display completion percentage in UI</p>
+                    <span className="font-medium text-gray-900 dark:text-white">Show Progress Percentage</span>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Display completion percentage in UI</p>
                   </div>
                   <input
                     type="checkbox"
@@ -1339,14 +1339,14 @@ const InspectionSettings: React.FC = () => {
                         showProgressPercentage: e.target.checked
                       });
                     }}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
                   />
                 </label>
 
-                <label className="flex items-center justify-between p-4 bg-gray-50/80 rounded-lg border border-gray-200/60">
+                <label className="flex items-center justify-between p-4 bg-gray-50/80 dark:bg-gray-800/80 rounded-lg border border-gray-200/60 dark:border-gray-700/60">
                   <div>
-                    <span className="font-medium text-gray-900">Enable Team Notes</span>
-                    <p className="text-sm text-gray-600">Allow team members to add notes during inspection</p>
+                    <span className="font-medium text-gray-900 dark:text-white">Enable Team Notes</span>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Allow team members to add notes during inspection</p>
                   </div>
                   <input
                     type="checkbox"
@@ -1356,7 +1356,7 @@ const InspectionSettings: React.FC = () => {
                         enableTeamNotes: e.target.checked
                       });
                     }}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
                   />
                 </label>
               </div>
@@ -1366,18 +1366,18 @@ const InspectionSettings: React.FC = () => {
       )}
 
       {activeTab === 'pdf' && (
-        <div className="bg-white/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 p-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-6">Customer PDF Settings</h3>
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 p-6">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">Customer PDF Settings</h3>
           
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
-                <h4 className="font-medium text-gray-900">Content Settings</h4>
+                <h4 className="font-medium text-gray-900 dark:text-white">Content Settings</h4>
                 
-                <label className="flex items-center justify-between p-4 bg-gray-50/80 rounded-lg border border-gray-200/60">
+                <label className="flex items-center justify-between p-4 bg-gray-50/80 dark:bg-gray-800/80 rounded-lg border border-gray-200/60 dark:border-gray-700/60">
                   <div>
-                    <span className="font-medium text-gray-900">Include Vehicle Photos</span>
-                    <p className="text-sm text-gray-600">Add vehicle photos to the PDF report</p>
+                    <span className="font-medium text-gray-900 dark:text-white">Include Vehicle Photos</span>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Add vehicle photos to the PDF report</p>
                   </div>
                   <input
                     type="checkbox"
@@ -1385,14 +1385,14 @@ const InspectionSettings: React.FC = () => {
                     onChange={(e) => {
                       handlePdfSettingChange('includeVehiclePhotos', e.target.checked);
                     }}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
                   />
                 </label>
 
-                <label className="flex items-center justify-between p-4 bg-gray-50/80 rounded-lg border border-gray-200/60">
+                <label className="flex items-center justify-between p-4 bg-gray-50/80 dark:bg-gray-800/80 rounded-lg border border-gray-200/60 dark:border-gray-700/60">
                   <div>
-                    <span className="font-medium text-gray-900">Include Customer Comments</span>
-                    <p className="text-sm text-gray-600">Show customer comments in the PDF</p>
+                    <span className="font-medium text-gray-900 dark:text-white">Include Customer Comments</span>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Show customer comments in the PDF</p>
                   </div>
                   <input
                     type="checkbox"
@@ -1400,14 +1400,14 @@ const InspectionSettings: React.FC = () => {
                     onChange={(e) => {
                       handlePdfSettingChange('includeCustomerComments', e.target.checked);
                     }}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
                   />
                 </label>
 
-                <label className="flex items-center justify-between p-4 bg-gray-50/80 rounded-lg border border-gray-200/60">
+                <label className="flex items-center justify-between p-4 bg-gray-50/80 dark:bg-gray-800/80 rounded-lg border border-gray-200/60 dark:border-gray-700/60">
                   <div>
-                    <span className="font-medium text-gray-900">Show Detailed Ratings</span>
-                    <p className="text-sm text-gray-600">Display detailed item ratings in the PDF</p>
+                    <span className="font-medium text-gray-900 dark:text-white">Show Detailed Ratings</span>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Display detailed item ratings in the PDF</p>
                   </div>
                   <input
                     type="checkbox"
@@ -1415,16 +1415,16 @@ const InspectionSettings: React.FC = () => {
                     onChange={(e) => {
                       handlePdfSettingChange('showDetailedRatings', e.target.checked);
                     }}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
                   />
                 </label>
               </div>
 
               <div className="space-y-4">
-                <h4 className="font-medium text-gray-900">PDF Customization</h4>
+                <h4 className="font-medium text-gray-900 dark:text-white">PDF Customization</h4>
                 
-                <div className="p-4 bg-gray-50/80 rounded-lg border border-gray-200/60">
-                  <label className="block font-medium text-gray-900 mb-2">
+                <div className="p-4 bg-gray-50/80 dark:bg-gray-800/80 rounded-lg border border-gray-200/60 dark:border-gray-700/60">
+                  <label className="block font-medium text-gray-900 dark:text-white mb-2">
                     Footer Text
                   </label>
                   <textarea
@@ -1433,10 +1433,10 @@ const InspectionSettings: React.FC = () => {
                       handlePdfSettingChange('footerText', e.target.value);
                     }}
                     rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     placeholder="Enter footer text for PDF reports..."
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     This text will appear at the bottom of all customer PDF reports
                   </p>
                 </div>
@@ -1457,7 +1457,7 @@ const InspectionSettings: React.FC = () => {
                     className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg transition-colors font-medium text-sm ${
                       hasUnsavedChanges 
                         ? 'bg-green-600 text-white hover:bg-green-700' 
-                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
                     }`}
                   >
                     <Check className="w-4 h-4" />
@@ -1468,14 +1468,14 @@ const InspectionSettings: React.FC = () => {
             </div>
 
             <div className="space-y-4">
-              <h4 className="font-medium text-gray-900">Section Visibility</h4>
-              <p className="text-sm text-gray-600 mb-4">
+              <h4 className="font-medium text-gray-900 dark:text-white">Section Visibility</h4>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                 Control which sections appear in the customer PDF report
               </p>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {settings.sections.map((section) => (
-                  <label key={section.id} className="flex items-center justify-between p-4 bg-gray-50/80 rounded-lg border border-gray-200/60">
+                  <label key={section.id} className="flex items-center justify-between p-4 bg-gray-50/80 dark:bg-gray-800/80 rounded-lg border border-gray-200/60 dark:border-gray-700/60">
                     <div className="flex items-center gap-3">
                       <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-sm font-medium ${section.color}`}>
                         <span>{section.icon}</span>
@@ -1486,7 +1486,7 @@ const InspectionSettings: React.FC = () => {
                       type="checkbox"
                       checked={section.isCustomerVisible}
                       onChange={() => handleToggleSectionCustomerVisible(section.id)}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
                     />
                   </label>
                 ))}

@@ -124,19 +124,19 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
   return (
     <Link 
       to={`/vehicle/${vehicle.id}`}
-      className="block bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/30 hover:shadow-xl hover:bg-white/90 transition-all duration-300 hover:scale-[1.02] group"
+      className="block bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/30 dark:border-gray-700/50 hover:shadow-xl hover:bg-white/90 dark:hover:bg-gray-900 transition-all duration-300 hover:scale-[1.02] group"
     >
       <div className="p-6">
         {/* Header Section - Vehicle Title */}
         <div className="mb-5">
           <div className="flex items-center gap-3 mb-2">
-            <h3 className="text-xl font-bold text-gray-900 leading-tight">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 leading-tight">
               {vehicle.year} {vehicle.make} {vehicle.model}
             </h3>
           </div>
           
           {/* Subtitle with Trim and Color */}
-          <div className="text-base text-gray-600 font-medium mb-3">
+          <div className="text-base text-gray-600 dark:text-gray-300 font-medium mb-3">
             {vehicle.trim && (
               <span>{vehicle.trim} - </span>
             )}
@@ -146,15 +146,15 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
           {/* Clean Info Row: Stock # - Mileage - Days */}
           <div className="flex items-center gap-6 text-sm mb-3">
             <div>
-              <span className="font-bold text-black">{stockNumber}</span>
+              <span className="font-bold text-black dark:text-gray-200">{stockNumber}</span>
             </div>
             <div className="flex items-center gap-1">
-              <Gauge className="w-4 h-4 text-gray-500" />
-              <span className="text-gray-600">{vehicle.mileage.toLocaleString()}</span>
+              <Gauge className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+              <span className="text-gray-600 dark:text-gray-300">{vehicle.mileage.toLocaleString()}</span>
             </div>
             <div className="flex items-center gap-1">
-              <Clock className="w-4 h-4 text-gray-500" />
-              <span className="text-gray-600">{daysInInventory} day{daysInInventory !== 1 ? 's' : ''}</span>
+              <Clock className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+              <span className="text-gray-600 dark:text-gray-300">{daysInInventory} day{daysInInventory !== 1 ? 's' : ''}</span>
             </div>
           </div>
           
@@ -162,14 +162,14 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
           <div className="flex items-center gap-3">
             {/* Ready for Sale Badge - LEFT */}
             {isReadyForSale && (
-              <div className="flex items-center gap-1 px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-sm font-semibold border border-emerald-200 flex-shrink-0">
-                <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
+              <div className="flex items-center gap-1 px-3 py-1 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-200 rounded-full text-sm font-semibold border border-emerald-200 dark:border-emerald-800 flex-shrink-0">
+                <span className="w-2 h-2 bg-emerald-500 dark:bg-emerald-400 rounded-full"></span>
                 Ready for Sale
               </div>
             )}
             
             {/* Location Box - RIGHT */}
-            <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg text-sm font-medium border ${locationStyle.bgColor} ${locationStyle.textColor} ${locationStyle.borderColor}`}>
+            <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg text-sm font-medium border ${locationStyle.bgColor} ${locationStyle.textColor} ${locationStyle.borderColor} dark:bg-gray-800/60 dark:text-gray-200 dark:border-gray-700`}> 
               <MapPin className="w-4 h-4" />
               <span>{vehicle.location}</span>
             </div>
@@ -178,20 +178,20 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
 
         {/* 🎯 NEW: Vehicle Notes Section - Shows first 60 characters */}
         {truncatedNotes && (
-          <div className="mb-5 p-3 bg-amber-50/80 backdrop-blur-sm rounded-lg border border-amber-200/60">
+          <div className="mb-5 p-3 bg-amber-50/80 dark:bg-amber-900/60 backdrop-blur-sm rounded-lg border border-amber-200/60 dark:border-amber-800/60">
             <div className="flex items-start gap-2">
-              <div className="w-4 h-4 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                <AlertTriangle className="w-2.5 h-2.5 text-amber-600" />
+              <div className="w-4 h-4 bg-amber-100 dark:bg-amber-800 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                <AlertTriangle className="w-2.5 h-2.5 text-amber-600 dark:text-amber-300" />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <FileText className="w-3 h-3 text-amber-600" />
-                  <span className="text-xs font-semibold text-amber-800 uppercase tracking-wide">Issues</span>
+                  <FileText className="w-3 h-3 text-amber-600 dark:text-amber-300" />
+                  <span className="text-xs font-semibold text-amber-800 dark:text-amber-200 uppercase tracking-wide">Issues</span>
                 </div>
-                <p className="text-sm text-amber-700 font-medium leading-relaxed">
+                <p className="text-sm text-amber-700 dark:text-amber-100 font-medium leading-relaxed">
                   {truncatedNotes}
                   {vehicle.notes && vehicle.notes.length > 60 && (
-                    <span className="text-amber-600 font-semibold ml-1">Click to read more</span>
+                    <span className="text-amber-600 dark:text-amber-200 font-semibold ml-1">Click to read more</span>
                   )}
                 </p>
               </div>
@@ -202,15 +202,15 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
         {/* Progress Section */}
         <div className="mb-5">
           <div className="flex justify-between items-center mb-3">
-            <span className="text-sm font-semibold text-gray-700">Reconditioning Progress</span>
-            <span className="text-sm font-bold text-gray-900">{Math.round(getOverallProgress())}%</span>
+            <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">Reconditioning Progress</span>
+            <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{Math.round(getOverallProgress())}%</span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-3 mb-4 shadow-inner">
+          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 mb-4 shadow-inner">
             <div 
               className={`h-3 rounded-full transition-all duration-500 shadow-sm ${
                 getOverallProgress() === 100 
-                  ? 'bg-gradient-to-r from-emerald-500 to-green-600' 
-                  : 'bg-gradient-to-r from-blue-500 to-indigo-600'
+                  ? 'bg-gradient-to-r from-emerald-500 to-green-600 dark:from-emerald-400 dark:to-green-700' 
+                  : 'bg-gradient-to-r from-blue-500 to-indigo-600 dark:from-blue-400 dark:to-indigo-700'
               }`}
               style={{ width: `${getOverallProgress()}%` }}
             ></div>
@@ -246,8 +246,8 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
         </div>
 
         {/* Hover Effect Indicator */}
-        <div className="mt-4 pt-4 border-t border-gray-200/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-          <p className="text-center text-sm text-blue-600 font-medium">Click to view details →</p>
+        <div className="mt-4 pt-4 border-t border-gray-200/60 dark:border-gray-700/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          <p className="text-center text-sm text-blue-600 dark:text-blue-300 font-medium">Click to view details →</p>
         </div>
       </div>
     </Link>

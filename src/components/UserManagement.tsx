@@ -128,10 +128,10 @@ const UserManagement: React.FC = () => {
 
   if (!currentUser || currentUser.role !== 'admin') {
     return (
-      <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-8 text-center">
-        <Shield className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">Access Restricted</h3>
-        <p className="text-gray-600">Only administrators can manage users.</p>
+      <div className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/20 p-8 text-center">
+        <Shield className="w-12 h-12 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Access Restricted</h3>
+        <p className="text-gray-600 dark:text-gray-400">Only administrators can manage users.</p>
       </div>
     );
   }
@@ -140,18 +140,18 @@ const UserManagement: React.FC = () => {
     <div className="space-y-6">
       {/* Success Message */}
       {successMessage && (
-        <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+        <div className="bg-green-50 dark:bg-green-900/70 border border-green-200 dark:border-green-800 rounded-xl p-4">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-              <Users className="w-4 h-4 text-green-600" />
+            <div className="w-8 h-8 bg-green-100 dark:bg-green-800 rounded-lg flex items-center justify-center">
+              <Users className="w-4 h-4 text-green-600 dark:text-green-300" />
             </div>
             <div className="flex-1">
-              <h3 className="font-semibold text-green-900">User Added Successfully</h3>
-              <p className="text-sm text-green-700">{successMessage}</p>
+              <h3 className="font-semibold text-green-900 dark:text-green-200">User Added Successfully</h3>
+              <p className="text-sm text-green-700 dark:text-green-100">{successMessage}</p>
             </div>
             <button
               onClick={() => setSuccessMessage('')}
-              className="text-green-400 hover:text-green-600"
+              className="text-green-400 hover:text-green-600 dark:hover:text-green-200"
             >
               <X className="w-4 h-4" />
             </button>
@@ -160,15 +160,15 @@ const UserManagement: React.FC = () => {
       )}
 
       {/* Header */}
-      <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">
+      <div className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/20 p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
               <Users className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-900">User Management</h2>
-              <p className="text-gray-600">Manage your dealership team members</p>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">User Management</h2>
+              <p className="text-gray-600 dark:text-gray-400">Manage your dealership team members</p>
             </div>
           </div>
           <button
@@ -183,21 +183,21 @@ const UserManagement: React.FC = () => {
 
       {/* User Limits Info */}
       {dealership && (
-        <div className="bg-blue-50/80 backdrop-blur-sm border border-blue-200 rounded-xl p-4">
+        <div className="bg-blue-50/80 dark:bg-blue-900/70 backdrop-blur-sm border border-blue-200 dark:border-blue-800 rounded-xl p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-blue-900">
+              <p className="text-sm font-medium text-blue-900 dark:text-blue-200">
                 User Limit: {users.length} / {dealership.settings.maxUsers}
               </p>
-              <p className="text-xs text-blue-700">
+              <p className="text-xs text-blue-700 dark:text-blue-100">
                 {dealership.subscriptionPlan === 'basic' ? 'Upgrade to Premium for more users' : 
                  dealership.subscriptionPlan === 'premium' ? 'Contact us for Enterprise features' : 
                  'Unlimited users available'}
               </p>
             </div>
-            <div className="w-full max-w-xs bg-blue-200 rounded-full h-2 ml-4">
+            <div className="w-full max-w-xs bg-blue-200 dark:bg-blue-800 rounded-full h-2 ml-4">
               <div 
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                className="bg-blue-600 dark:bg-blue-400 h-2 rounded-full transition-all duration-300"
                 style={{ width: `${(users.length / dealership.settings.maxUsers) * 100}%` }}
               ></div>
             </div>
@@ -206,27 +206,27 @@ const UserManagement: React.FC = () => {
       )}
 
       {/* Users List */}
-      <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 overflow-hidden">
-        <div className="p-6 border-b border-gray-200/60">
-          <h3 className="text-lg font-semibold text-gray-900">Team Members ({users.length})</h3>
+      <div className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/20 overflow-hidden">
+        <div className="p-6 border-b border-gray-200/60 dark:border-gray-700/60">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Team Members ({users.length})</h3>
         </div>
         
-        <div className="divide-y divide-gray-200/60">
+        <div className="divide-y divide-gray-200/60 dark:divide-gray-700/60">
           {users.map((user) => (
-            <div key={user.id} className="p-6 hover:bg-gray-50/50 transition-colors">
+            <div key={user.id} className="p-6 hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 bg-gradient-to-br from-gray-400 to-gray-600 rounded-full flex items-center justify-center">
                     <span className="text-white font-semibold text-sm">{user.initials}</span>
                   </div>
                   <div>
-                    <h4 className="font-semibold text-gray-900">
+                    <h4 className="font-semibold text-gray-900 dark:text-gray-100">
                       {user.firstName} {user.lastName}
                       {user.id === currentUser.id && (
-                        <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">You</span>
+                        <span className="ml-2 text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 px-2 py-1 rounded-full">You</span>
                       )}
                     </h4>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
                       <Mail className="w-3 h-3" />
                       <span>{user.email || 'Email not available'}</span>
                     </div>
@@ -239,7 +239,7 @@ const UserManagement: React.FC = () => {
                     {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
                   </span>
                   
-                  <div className="text-right text-xs text-gray-500">
+                  <div className="text-right text-xs text-gray-500 dark:text-gray-400">
                     <div className="flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
                       <span>Joined {formatDate(user.createdAt)}</span>
@@ -254,7 +254,7 @@ const UserManagement: React.FC = () => {
                   {user.id !== currentUser.id && (
                     <button
                       onClick={() => handleDeactivateUser(user.id)}
-                      className="px-3 py-1 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm font-medium"
+                      className="px-3 py-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900 rounded-lg transition-colors text-sm font-medium"
                     >
                       Deactivate
                     </button>
@@ -266,9 +266,9 @@ const UserManagement: React.FC = () => {
           
           {users.length === 0 && (
             <div className="p-12 text-center">
-              <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No Users Found</h3>
-              <p className="text-gray-600 mb-4">Add your first team member to get started.</p>
+              <Users className="w-12 h-12 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">No Users Found</h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">Add your first team member to get started.</p>
               <button
                 onClick={() => setShowAddUser(true)}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
@@ -284,10 +284,10 @@ const UserManagement: React.FC = () => {
       {/* Add User Modal */}
       {showAddUser && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl max-w-md w-full border border-white/20">
+          <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-2xl shadow-2xl max-w-md w-full border border-white/20 dark:border-gray-700/40">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-bold text-gray-900">Add New User</h3>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">Add New User</h3>
                 <button
                   onClick={() => {
                     setShowAddUser(false);
@@ -302,77 +302,71 @@ const UserManagement: React.FC = () => {
                     setFormErrors({});
                     clearError();
                   }}
-                  className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                  className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               {error && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-red-700 text-sm">{error}</p>
+                <div className="mb-4 p-3 bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-800 rounded-lg">
+                  <p className="text-red-700 dark:text-red-200 text-sm">{error}</p>
                 </div>
               )}
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
                       First Name *
                     </label>
                     <input
                       type="text"
                       value={formData.firstName}
                       onChange={(e) => handleInputChange('firstName', e.target.value)}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${
-                        formErrors.firstName ? 'border-red-300' : 'border-gray-300'
-                      }`}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 ${formErrors.firstName ? 'border-red-300 dark:border-red-500' : 'border-gray-300 dark:border-gray-700'}`}
                       placeholder="First name"
                     />
-                    {formErrors.firstName && <p className="text-red-600 text-xs mt-1">{formErrors.firstName}</p>}
+                    {formErrors.firstName && <p className="text-red-600 dark:text-red-300 text-xs mt-1">{formErrors.firstName}</p>}
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
                       Last Name *
                     </label>
                     <input
                       type="text"
                       value={formData.lastName}
                       onChange={(e) => handleInputChange('lastName', e.target.value)}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${
-                        formErrors.lastName ? 'border-red-300' : 'border-gray-300'
-                      }`}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 ${formErrors.lastName ? 'border-red-300 dark:border-red-500' : 'border-gray-300 dark:border-gray-700'}`}
                       placeholder="Last name"
                     />
-                    {formErrors.lastName && <p className="text-red-600 text-xs mt-1">{formErrors.lastName}</p>}
+                    {formErrors.lastName && <p className="text-red-600 dark:text-red-300 text-xs mt-1">{formErrors.lastName}</p>}
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
                     Email Address *
                   </label>
                   <input
                     type="email"
                     value={formData.email}
                     onChange={(e) => handleInputChange('email', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${
-                      formErrors.email ? 'border-red-300' : 'border-gray-300'
-                    }`}
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 ${formErrors.email ? 'border-red-300 dark:border-red-500' : 'border-gray-300 dark:border-gray-700'}`}
                     placeholder="user@dealership.com"
                   />
-                  {formErrors.email && <p className="text-red-600 text-xs mt-1">{formErrors.email}</p>}
+                  {formErrors.email && <p className="text-red-600 dark:text-red-300 text-xs mt-1">{formErrors.email}</p>}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
                     Role *
                   </label>
                   <select
                     value={formData.role}
                     onChange={(e) => handleInputChange('role', e.target.value as any)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                   >
                     <option value="technician">Technician</option>
                     <option value="sales">Sales</option>
@@ -381,7 +375,7 @@ const UserManagement: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
                     Password *
                   </label>
                   <div className="relative">
@@ -389,24 +383,22 @@ const UserManagement: React.FC = () => {
                       type={showPasswords.password ? 'text' : 'password'}
                       value={formData.password}
                       onChange={(e) => handleInputChange('password', e.target.value)}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm pr-10 ${
-                        formErrors.password ? 'border-red-300' : 'border-gray-300'
-                      }`}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm pr-10 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 ${formErrors.password ? 'border-red-300 dark:border-red-500' : 'border-gray-300 dark:border-gray-700'}`}
                       placeholder="Create password"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPasswords(prev => ({ ...prev, password: !prev.password }))}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
                     >
                       {showPasswords.password ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
-                  {formErrors.password && <p className="text-red-600 text-xs mt-1">{formErrors.password}</p>}
+                  {formErrors.password && <p className="text-red-600 dark:text-red-300 text-xs mt-1">{formErrors.password}</p>}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
                     Confirm Password *
                   </label>
                   <div className="relative">
@@ -414,20 +406,18 @@ const UserManagement: React.FC = () => {
                       type={showPasswords.confirmPassword ? 'text' : 'password'}
                       value={formData.confirmPassword}
                       onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm pr-10 ${
-                        formErrors.confirmPassword ? 'border-red-300' : 'border-gray-300'
-                      }`}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm pr-10 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 ${formErrors.confirmPassword ? 'border-red-300 dark:border-red-500' : 'border-gray-300 dark:border-gray-700'}`}
                       placeholder="Confirm password"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPasswords(prev => ({ ...prev, confirmPassword: !prev.confirmPassword }))}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
                     >
                       {showPasswords.confirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
-                  {formErrors.confirmPassword && <p className="text-red-600 text-xs mt-1">{formErrors.confirmPassword}</p>}
+                  {formErrors.confirmPassword && <p className="text-red-600 dark:text-red-300 text-xs mt-1">{formErrors.confirmPassword}</p>}
                 </div>
 
                 <div className="flex gap-3 pt-4">

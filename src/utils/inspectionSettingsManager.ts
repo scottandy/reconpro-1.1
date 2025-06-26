@@ -25,40 +25,31 @@ export class InspectionSettingsManager {
         .from('inspection_settings')
         .select('settings')
         .eq('dealership_id', dealershipId)
-        .maybeSingle();
-
-      // Only log real errors
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching inspection settings from Supabase:', error);
+        .single();
+      if (error || !data) {
+        // Return default settings if not found or error
+        return {
+          dealership_id: dealershipId,
+          settings: {
+            sections: [],
+            ratingLabels: [],
+            customerPdfSettings: {},
+            // Add any other default/zero values as needed
+          }
+        } as any;
       }
-
-      if (!data) {
-        // No row found, use defaults
-        return { ...DEFAULT_INSPECTION_SETTINGS };
-      }
-
-      const storedSettings = data.settings;
-      // Deep merge with default settings to ensure all properties exist
-      const mergedSettings: InspectionSettings = {
-        ...DEFAULT_INSPECTION_SETTINGS,
-        ...storedSettings,
-        customerPdfSettings: {
-          ...DEFAULT_INSPECTION_SETTINGS.customerPdfSettings,
-          ...(storedSettings.customerPdfSettings || {})
-        },
-        globalSettings: {
-          ...DEFAULT_INSPECTION_SETTINGS.globalSettings,
-          ...(storedSettings.globalSettings || {})
-        },
-        ratingLabels: storedSettings.ratingLabels && storedSettings.ratingLabels.length > 0 
-          ? storedSettings.ratingLabels 
-          : DEFAULT_INSPECTION_SETTINGS.ratingLabels,
-        sections: storedSettings.sections || DEFAULT_INSPECTION_SETTINGS.sections
-      };
-      return mergedSettings;
-    } catch (error) {
-      // Fallback to defaults
-      return { ...DEFAULT_INSPECTION_SETTINGS };
+      return data.settings;
+    } catch (err) {
+      // On fetch error, return default settings
+      return {
+        dealership_id: dealershipId,
+        settings: {
+          sections: [],
+          ratingLabels: [],
+          customerPdfSettings: {},
+          // Add any other default/zero values as needed
+        }
+      } as any;
     }
   }
 

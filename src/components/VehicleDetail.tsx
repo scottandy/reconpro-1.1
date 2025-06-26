@@ -9,6 +9,8 @@ import InspectionChecklist from './InspectionChecklist';
 import TeamNotes from './TeamNotes';
 import CustomerInspectionPDF from './CustomerInspectionPDF';
 import { ProgressCalculator } from '../utils/progressCalculator';
+import { supabase } from '../utils/supabaseClient';
+import { VehicleManager } from '../utils/vehicleManager';
 import { 
   ArrowLeft, 
   Car, 
@@ -55,44 +57,20 @@ const VehicleDetail: React.FC = () => {
     }
   }, [id]);
 
-  const loadVehicle = (vehicleId: string) => {
+  const loadVehicle = async (vehicleId: string) => {
     setIsLoading(true);
-    
-    // Start with mock vehicles
-    let allVehicles = [...mockVehicles];
-
-    // Load added vehicles from localStorage
-    const savedAddedVehicles = localStorage.getItem('addedVehicles');
-    if (savedAddedVehicles) {
-      try {
-        const addedVehicles = JSON.parse(savedAddedVehicles);
-        allVehicles = [...addedVehicles, ...allVehicles];
-      } catch (error) {
-        console.error('Error loading added vehicles:', error);
-      }
+    const { data, error } = await supabase
+      .from('vehicles')
+      .select('*')
+      .eq('id', vehicleId)
+      .single();
+    if (data) {
+      setVehicle(data);
+      setEditedNotes(data.notes || '');
+      setEditedLocation(data.location);
+    } else {
+      setVehicle(null);
     }
-
-    // Load vehicle updates from localStorage
-    const savedUpdates = localStorage.getItem('vehicleUpdates');
-    if (savedUpdates) {
-      try {
-        const updates = JSON.parse(savedUpdates);
-        allVehicles = allVehicles.map(v => 
-          updates[v.id] ? { ...v, ...updates[v.id] } : v
-        );
-      } catch (error) {
-        console.error('Error loading vehicle updates:', error);
-      }
-    }
-
-    const foundVehicle = allVehicles.find(v => v.id === vehicleId);
-    setVehicle(foundVehicle || null);
-    
-    if (foundVehicle) {
-      setEditedNotes(foundVehicle.notes || '');
-      setEditedLocation(foundVehicle.location);
-    }
-    
     setIsLoading(false);
   };
 
@@ -211,17 +189,18 @@ const VehicleDetail: React.FC = () => {
     setIsEditingLocation(false);
   };
 
-  const saveVehicleUpdate = (updatedVehicle: Vehicle) => {
-    const savedUpdates = localStorage.getItem('vehicleUpdates');
-    const updates = savedUpdates ? JSON.parse(savedUpdates) : {};
-    updates[updatedVehicle.id] = updatedVehicle;
-    localStorage.setItem('vehicleUpdates', JSON.stringify(updates));
-
-    // Trigger storage event for other components to listen to
-    window.dispatchEvent(new StorageEvent('storage', {
-      key: 'vehicleUpdates',
-      newValue: JSON.stringify(updates)
-    }));
+  const saveVehicleUpdate = async (updatedVehicle: Vehicle) => {
+    if (!user || !user.dealershipId) return;
+    setIsLoading(true);
+    const dealershipId = user.dealershipId;
+    const vehicleId = updatedVehicle.id;
+    const result = await VehicleManager.updateVehicle(dealershipId, vehicleId, updatedVehicle);
+    if (result) {
+      setVehicle(result);
+    } else {
+      console.error('Error updating vehicle');
+    }
+    setIsLoading(false);
   };
 
   // 🎯 NEW: Mobile scroll to section functionality
@@ -280,7 +259,14 @@ const VehicleDetail: React.FC = () => {
   };
 
   // NEW: Get location style for visual indication
-  const getLocationStyle = (location: string) => {
+  const getLocationStyle = (location: string | undefined | null) => {
+    if (!location) {
+      return {
+        bgColor: 'bg-green-100',
+        textColor: 'text-green-800',
+        borderColor: 'border-green-200'
+      };
+    }
     const locationLower = location.toLowerCase();
     
     // Check for RED indicators (Transit/Transport)
@@ -1016,11 +1002,6 @@ const VehicleDetail: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <MapPin className="w-4 h-4 text-gray-500" />
                     <p className="text-sm text-gray-900">{vehicle.location}</p>
-                    {vehicle.locationChangedBy && (
-                      <span className="text-xs text-gray-500">
-                        (Updated by {vehicle.locationChangedBy})
-                      </span>
-                    )}
                   </div>
                 </div>
                 

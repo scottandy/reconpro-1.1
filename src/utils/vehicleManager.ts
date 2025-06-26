@@ -181,9 +181,28 @@ export class VehicleManager {
   }
 
   static async updateVehicle(dealershipId: string, vehicleId: string, updates: Partial<Vehicle>): Promise<Vehicle | null> {
-    const dbUpdates = this.toDatabaseFormat(updates as any);
-    dbUpdates.updated_at = new Date().toISOString();
-    
+    // Build dbUpdates only from provided fields
+    const dbUpdates: any = { updated_at: new Date().toISOString() };
+    if (updates.vin !== undefined) dbUpdates.vin = updates.vin;
+    if (updates.year !== undefined) dbUpdates.year = updates.year;
+    if (updates.make !== undefined) dbUpdates.make = updates.make;
+    if (updates.model !== undefined) dbUpdates.model = updates.model;
+    if (updates.trim !== undefined) dbUpdates.trim = updates.trim;
+    if (updates.mileage !== undefined) dbUpdates.mileage = updates.mileage;
+    if (updates.color !== undefined) dbUpdates.color = updates.color;
+    if (updates.dateAcquired !== undefined) dbUpdates.date_acquired = updates.dateAcquired;
+    if (updates.targetSaleDate !== undefined) dbUpdates.target_sale_date = updates.targetSaleDate;
+    if (updates.price !== undefined) dbUpdates.price = updates.price;
+    if (updates.location !== undefined) dbUpdates.location_name = updates.location;
+    if (updates.status !== undefined) dbUpdates.status = updates.status;
+    if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
+    if (updates.teamNotes !== undefined) dbUpdates.team_notes = updates.teamNotes;
+    if (updates.customerComments !== undefined) dbUpdates.customer_comments = updates.customerComments;
+    if (updates.inspection !== undefined) dbUpdates.inspection_data = updates.inspection;
+    if (updates.isSold !== undefined) dbUpdates.is_sold = updates.isSold;
+    if (updates.isPending !== undefined) dbUpdates.is_pending = updates.isPending;
+    // Add any other fields as needed
+
     const { data, error } = await supabase
       .from('vehicles')
       .update(dbUpdates)

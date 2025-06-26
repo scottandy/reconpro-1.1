@@ -753,7 +753,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
 
   // Get sections from settings if available, otherwise use default
   const getSections = () => {
-    if (inspectionSettings) {
+    if (inspectionSettings && Array.isArray(inspectionSettings.sections)) {
       // Get all active sections from settings
       return inspectionSettings.sections
         .filter(section => section.isActive)
@@ -761,7 +761,6 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
         .map(section => {
           // Get the corresponding items from inspection data or initialize empty
           const sectionKey = section.key;
-          
           // Initialize section in inspectionData if it doesn't exist
           if (!inspectionData[sectionKey]) {
             setInspectionData(prev => ({
@@ -773,9 +772,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
               }
             }));
           }
-          
           const sectionItems = inspectionData[sectionKey] || [];
-          
           // If we have settings items but no inspection data items yet, initialize them
           if (section.items.length > 0 && sectionItems.length === 0) {
             const newItems = section.items
@@ -785,7 +782,6 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
                 label: item.label,
                 rating: 'not-checked' as ItemRating
               }));
-            
             // Update inspection data with these new items
             setInspectionData(prev => ({
               ...prev,
@@ -795,7 +791,6 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
                 [sectionKey]: prev.sectionNotes[sectionKey] || ''
               }
             }));
-            
             return {
               key: section.key,
               title: section.label,
@@ -803,7 +798,6 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
               notes: inspectionData.sectionNotes[sectionKey] || ''
             };
           }
-          
           return {
             key: section.key,
             title: section.label,
@@ -812,8 +806,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
           };
         });
     }
-    
-    // Default sections if no settings
+    // Default sections if no settings or sections
     return [
       { key: 'emissions', title: 'Emissions & Environmental', data: inspectionData.emissions, notes: inspectionData.sectionNotes.emissions },
       { key: 'cosmetic', title: 'Cosmetic Inspection', data: inspectionData.cosmetic, notes: inspectionData.sectionNotes.cosmetic },

@@ -4,10 +4,10 @@ import { useTheme } from '../contexts/ThemeContext';
 import { Vehicle } from '../types/vehicle';
 import { DatabaseService } from '../utils/database';
 import { 
-  Car, 
-  Users, 
-  MapPin, 
-  Phone, 
+  Car,
+  Users,
+  MapPin,
+  Phone,
   CheckSquare, 
   Settings, 
   BarChart3, 

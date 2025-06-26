@@ -212,6 +212,10 @@ export class VehicleManager {
       .single();
     if (error) {
       console.error('Error updating vehicle in Supabase:', error);
+      if (error.message) console.error('Supabase error message:', error.message);
+      if (error.details) console.error('Supabase error details:', error.details);
+      if (error.hint) console.error('Supabase error hint:', error.hint);
+      // Reminder: Prevent infinite update loops in frontend logic!
       return null;
     }
     return this.fromDatabaseFormat(data);

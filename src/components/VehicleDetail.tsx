@@ -51,6 +51,8 @@ const VehicleDetail: React.FC = () => {
   const [isEditingLocation, setIsEditingLocation] = useState(false);
   const [editedLocation, setEditedLocation] = useState('');
 
+  console.log('[VehicleDetail] Render', { vehicle });
+
   useEffect(() => {
     if (id) {
       loadVehicle(id);
@@ -75,8 +77,8 @@ const VehicleDetail: React.FC = () => {
   };
 
   const handleStatusUpdate = (section: keyof Vehicle['status'], status: InspectionStatus) => {
+    console.log('[VehicleDetail] handleStatusUpdate', { section, status });
     if (!vehicle) return;
-
     const updatedVehicle = {
       ...vehicle,
       status: {
@@ -84,14 +86,12 @@ const VehicleDetail: React.FC = () => {
         [section]: status
       }
     };
-
-    setVehicle(updatedVehicle);
     saveVehicleUpdate(updatedVehicle);
   };
 
   const handleSectionComplete = (section: keyof Vehicle['status'], userInitials: string) => {
+    console.log('[VehicleDetail] handleSectionComplete', { section, userInitials });
     if (!vehicle) return;
-
     const updatedVehicle = {
       ...vehicle,
       status: {
@@ -99,10 +99,7 @@ const VehicleDetail: React.FC = () => {
         [section]: 'completed' as InspectionStatus
       }
     };
-
-    setVehicle(updatedVehicle);
     saveVehicleUpdate(updatedVehicle);
-
     // Record analytics
     const vehicleName = `${vehicle.year} ${vehicle.make} ${vehicle.model}`;
     AnalyticsManager.recordCompletion(
@@ -114,32 +111,27 @@ const VehicleDetail: React.FC = () => {
   };
 
   const handleAddTeamNote = (note: Omit<TeamNote, 'id' | 'timestamp'>) => {
+    console.log('[VehicleDetail] handleAddTeamNote', note);
     if (!vehicle) return;
-
     const newNote: TeamNote = {
       ...note,
       id: Date.now().toString(),
       timestamp: new Date().toISOString()
     };
-
     const updatedVehicle = {
       ...vehicle,
       teamNotes: [newNote, ...(vehicle.teamNotes || [])]
     };
-
-    setVehicle(updatedVehicle);
     saveVehicleUpdate(updatedVehicle);
   };
 
   const handleSaveNotes = () => {
+    console.log('[VehicleDetail] handleSaveNotes');
     if (!vehicle) return;
-
     const updatedVehicle = {
       ...vehicle,
       notes: editedNotes.trim() || undefined
     };
-
-    setVehicle(updatedVehicle);
     saveVehicleUpdate(updatedVehicle);
     setIsEditingNotes(false);
   };
@@ -151,8 +143,8 @@ const VehicleDetail: React.FC = () => {
 
   // NEW: Location update handlers
   const handleSaveLocation = () => {
+    console.log('[VehicleDetail] handleSaveLocation');
     if (!vehicle || !user) return;
-
     const oldLocation = vehicle.location;
     const newLocation = editedLocation.trim();
     
@@ -179,7 +171,6 @@ const VehicleDetail: React.FC = () => {
 
     updatedVehicle.teamNotes = [locationNote, ...(vehicle.teamNotes || [])];
 
-    setVehicle(updatedVehicle);
     saveVehicleUpdate(updatedVehicle);
     setIsEditingLocation(false);
   };
@@ -190,6 +181,7 @@ const VehicleDetail: React.FC = () => {
   };
 
   const saveVehicleUpdate = async (updatedVehicle: Vehicle) => {
+    console.log('[VehicleDetail] saveVehicleUpdate', updatedVehicle);
     if (!user || !user.dealershipId) return;
     setIsLoading(true);
     const dealershipId = user.dealershipId;

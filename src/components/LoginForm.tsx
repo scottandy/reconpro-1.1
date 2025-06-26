@@ -18,15 +18,10 @@ const LoginForm: React.FC<LoginFormProps> = ({ onBack, onShowRegister, onShowSup
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Login form submitted');
     clearError();
     const success = await login(formData);
-    console.log('Login result:', success);
     if (success) {
-      console.log('Login successful, calling onBack');
       onBack();
-    } else {
-      console.log('Login failed, staying on login form');
     }
   };
 

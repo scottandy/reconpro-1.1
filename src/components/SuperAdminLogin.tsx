@@ -7,7 +7,7 @@ interface SuperAdminLoginProps {
 }
 
 const SuperAdminLogin: React.FC<SuperAdminLoginProps> = ({ onBack }) => {
-  const { login, isLoading, error, clearError } = useAuth();
+  const { superAdminLogin, isLoading, error, clearError } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -17,7 +17,11 @@ const SuperAdminLogin: React.FC<SuperAdminLoginProps> = ({ onBack }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     clearError();
-    await login(formData);
+    const success = await superAdminLogin(formData);
+    if (success) {
+      // The App component will automatically redirect to SuperAdminDashboard
+      // when isAuthenticated is true and user.role is 'super-admin'
+    }
   };
 
   return (

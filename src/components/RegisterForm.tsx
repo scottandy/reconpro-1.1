@@ -8,7 +8,7 @@ interface RegisterFormProps {
 }
 
 const RegisterForm: React.FC<RegisterFormProps> = ({ onBack, onShowLogin }) => {
-  const { registerDealership, isLoading, error, clearError } = useAuth();
+  const { createAdminForDealership, isLoading, error, clearError } = useAuth();
   const [showPasswords, setShowPasswords] = useState({ password: false, confirmPassword: false });
   const [formData, setFormData] = useState({
     // Dealership info
@@ -70,7 +70,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onBack, onShowLogin }) => {
     
     if (!validateForm()) return;
 
-    await registerDealership(formData);
+    await createAdminForDealership(formData);
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -105,7 +105,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onBack, onShowLogin }) => {
                 <Car className="w-8 h-8 text-white" />
               </div>
               <h2 className="text-2xl font-bold text-gray-900 mb-2">Register Your Dealership</h2>
-              <p className="text-gray-600">Create your enterprise account and get started</p>
+              <p className="text-gray-600">Create your admin account and get started</p>
             </div>
 
             {error && (
@@ -372,7 +372,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onBack, onShowLogin }) => {
                   disabled={isLoading}
                   className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isLoading ? 'Creating Account...' : 'Create Dealership Account'}
+                  {isLoading ? 'Creating Admin Account...' : 'Create Admin Account'}
                 </button>
               </div>
             </form>

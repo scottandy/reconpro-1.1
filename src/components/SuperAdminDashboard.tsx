@@ -31,16 +31,27 @@ const SuperAdminDashboard: React.FC = () => {
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [selectedDealership, setSelectedDealership] = useState<Dealership | null>(null);
   const [activeView, setActiveView] = useState<'overview' | 'dealerships' | 'users' | 'analytics'>('overview');
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     loadData();
   }, []);
 
   const loadData = async () => {
-    const allDealerships = await AuthManager.getAllDealershipsForSuperAdmin();
-    const users = await AuthManager.getAllUsersForSuperAdmin();
-    setDealerships(allDealerships);
-    setAllUsers(users);
+    try {
+      setIsLoading(true);
+      const allDealerships = await AuthManager.getAllDealershipsForSuperAdmin();
+      const users = await AuthManager.getAllUsersForSuperAdmin();
+      setDealerships(allDealerships);
+      setAllUsers(users);
+    } catch (error) {
+      console.error('Error loading super admin data:', error);
+      // Set empty arrays to prevent further errors
+      setDealerships([]);
+      setAllUsers([]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleLogout = () => {
@@ -69,7 +80,7 @@ const SuperAdminDashboard: React.FC = () => {
     }
   };
 
-  const getSubscriptionColor = (plan: string) => {
+  const getSubscriptionColor = (plan: string | undefined | null) => {
     switch (plan) {
       case 'enterprise':
         return 'bg-purple-100 text-purple-800 border-purple-200';
@@ -146,42 +157,56 @@ const SuperAdminDashboard: React.FC = () => {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+        {/* Loading State */}
+        {isLoading && (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 animate-pulse">
+                <Crown className="w-8 h-8 text-white" />
+              </div>
+              <p className="text-gray-600 font-medium">Loading platform data...</p>
+            </div>
+          </div>
+        )}
+
         {/* Navigation */}
-        <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6 mb-8">
-          <nav className="flex space-x-8">
-            {[
-              { id: 'overview', label: 'Platform Overview', icon: BarChart3 },
-              { id: 'dealerships', label: 'Dealerships', icon: Building2, count: dealerships.length },
-              { id: 'users', label: 'Users', icon: Users, count: allUsers.length },
-              { id: 'analytics', label: 'Analytics', icon: TrendingUp }
-            ].map((item) => (
-              <button
-                key={item.id}
-                onClick={() => setActiveView(item.id as any)}
-                className={`flex items-center gap-2 px-4 py-3 rounded-lg transition-all duration-200 font-medium ${
-                  activeView === item.id
-                    ? 'bg-purple-100 text-purple-700 shadow-md'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                }`}
-              >
-                <item.icon className="w-5 h-5" />
-                <span>{item.label}</span>
-                {'count' in item && item.count !== undefined && (
-                  <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
+        {!isLoading && (
+          <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6 mb-8">
+            <nav className="flex space-x-8">
+              {[
+                { id: 'overview', label: 'Platform Overview', icon: BarChart3 },
+                { id: 'dealerships', label: 'Dealerships', icon: Building2, count: dealerships.length },
+                { id: 'users', label: 'Users', icon: Users, count: allUsers.length },
+                { id: 'analytics', label: 'Analytics', icon: TrendingUp }
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveView(item.id as any)}
+                  className={`flex items-center gap-2 px-4 py-3 rounded-lg transition-all duration-200 font-medium ${
                     activeView === item.id
-                      ? 'bg-purple-200 text-purple-800'
-                      : 'bg-gray-200 text-gray-600'
-                  }`}>
-                    {item.count}
-                  </span>
-                )}
-              </button>
-            ))}
-          </nav>
-        </div>
+                      ? 'bg-purple-100 text-purple-700 shadow-md'
+                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  }`}
+                >
+                  <item.icon className="w-5 h-5" />
+                  <span>{item.label}</span>
+                  {'count' in item && item.count !== undefined && (
+                    <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
+                      activeView === item.id
+                        ? 'bg-purple-200 text-purple-800'
+                        : 'bg-gray-200 text-gray-600'
+                    }`}>
+                      {item.count}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </nav>
+          </div>
+        )}
 
         {/* Overview */}
-        {activeView === 'overview' && (
+        {!isLoading && activeView === 'overview' && (
           <div className="space-y-8">
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -256,7 +281,7 @@ const SuperAdminDashboard: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-3">
                       <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${getSubscriptionColor(dealership.subscriptionPlan)}`}>
-                        {dealership.subscriptionPlan.charAt(0).toUpperCase() + dealership.subscriptionPlan.slice(1)}
+                        {(dealership.subscriptionPlan?.charAt(0).toUpperCase() + (dealership.subscriptionPlan?.slice(1) || '')) || 'Basic'}
                       </span>
                       <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${
                         dealership.isActive 
@@ -284,7 +309,7 @@ const SuperAdminDashboard: React.FC = () => {
         )}
 
         {/* Dealerships */}
-        {activeView === 'dealerships' && (
+        {!isLoading && activeView === 'dealerships' && (
           <div className="space-y-6">
             <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 overflow-hidden">
               <div className="p-6 border-b border-gray-200/60">
@@ -306,7 +331,7 @@ const SuperAdminDashboard: React.FC = () => {
                             <div className="flex items-center gap-3 mb-2">
                               <h4 className="font-bold text-gray-900 text-lg">{dealership.name}</h4>
                               <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${getSubscriptionColor(dealership.subscriptionPlan)}`}>
-                                {dealership.subscriptionPlan.charAt(0).toUpperCase() + dealership.subscriptionPlan.slice(1)}
+                                {(dealership.subscriptionPlan?.charAt(0).toUpperCase() + (dealership.subscriptionPlan?.slice(1) || '')) || 'Basic'}
                               </span>
                               <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${
                                 dealership.isActive 
@@ -393,7 +418,7 @@ const SuperAdminDashboard: React.FC = () => {
         )}
 
         {/* Users */}
-        {activeView === 'users' && (
+        {!isLoading && activeView === 'users' && (
           <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 overflow-hidden">
             <div className="p-6 border-b border-gray-200/60">
               <h3 className="text-lg font-semibold text-gray-900">All Users ({allUsers.length})</h3>
@@ -408,7 +433,7 @@ const SuperAdminDashboard: React.FC = () => {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <div className="w-10 h-10 bg-gradient-to-br from-gray-400 to-gray-600 rounded-full flex items-center justify-center">
-                          <span className="text-white font-semibold text-sm">{user.initials}</span>
+                          <span className="text-white font-semibold text-sm">{user.initials || 'U'}</span>
                         </div>
                         <div>
                           <h4 className="font-semibold text-gray-900">{user.firstName} {user.lastName}</h4>
@@ -458,7 +483,7 @@ const SuperAdminDashboard: React.FC = () => {
         )}
 
         {/* Analytics */}
-        {activeView === 'analytics' && (
+        {!isLoading && activeView === 'analytics' && (
           <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-8 text-center">
             <TrendingUp className="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-900 mb-2">Platform Analytics</h3>

@@ -144,6 +144,86 @@ export class DatabaseService {
     });
   }
 
+  static async createAdminForDealership(data: RegisterDealershipData): Promise<{ data: { user: any | null }, error: any | null }> {
+    try {
+      // Step 1: Create the user in Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          data: {
+            first_name: data.firstName,
+            last_name: data.lastName,
+            role: 'admin'
+          }
+        }
+      });
+
+      if (authError || !authData.user) {
+        return { data: { user: null }, error: authError };
+      }
+
+      // Step 2: Create the dealership
+      const { data: dealershipData, error: dealershipError } = await supabase
+        .from('dealerships')
+        .insert({
+          name: data.dealershipName,
+          address: data.address,
+          city: data.city,
+          state: data.state,
+          zip_code: data.zipCode,
+          phone: data.phone,
+          email: data.dealershipEmail,
+          website: data.website
+        })
+        .select()
+        .single();
+
+      if (dealershipError) {
+        console.error('Dealership creation error:', dealershipError);
+        return { data: { user: null }, error: dealershipError };
+      }
+
+      // Step 3: Wait for trigger to create profile, then update it
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          role: 'admin',
+          dealership_id: dealershipData.id,
+          is_active: true
+        })
+        .eq('id', authData.user.id);
+
+      if (profileError) {
+        console.error('Profile update error:', profileError);
+        // If update fails, try to insert the profile manually
+        const { error: insertError } = await supabase
+          .from('profiles')
+          .insert({
+            id: authData.user.id,
+            first_name: data.firstName,
+            last_name: data.lastName,
+            initials: `${data.firstName[0]}${data.lastName[0]}`.toUpperCase(),
+            role: 'admin',
+            dealership_id: dealershipData.id,
+            is_active: true
+          });
+
+        if (insertError) {
+          console.error('Profile insert error:', insertError);
+          return { data: { user: null }, error: insertError };
+        }
+      }
+
+      return { data: { user: authData.user }, error: null };
+    } catch (error) {
+      console.error('createAdminForDealership error:', error);
+      return { data: { user: null }, error: error };
+    }
+  }
+
   // ========================================
   // VEHICLE MANAGEMENT
   // ========================================

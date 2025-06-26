@@ -323,7 +323,28 @@ export class AuthManager {
       return [];
     }
     
-    return data as Dealership[];
+    // Map database fields to frontend Dealership interface
+    return (data || []).map(dealership => ({
+      id: dealership.id,
+      name: dealership.name,
+      address: dealership.address,
+      city: dealership.city,
+      state: dealership.state,
+      zipCode: dealership.zip_code,
+      phone: dealership.phone,
+      email: dealership.email,
+      website: dealership.website,
+      isActive: dealership.is_active,
+      subscriptionPlan: dealership.subscription_plan || 'basic',
+      status: dealership.status || 'active',
+      lastActivity: dealership.last_activity,
+      totalUsers: dealership.total_users || 0,
+      totalVehicles: dealership.total_vehicles || 0,
+      monthlyRevenue: dealership.monthly_revenue || 0,
+      settings: dealership.settings || {},
+      createdAt: dealership.created_at,
+      updatedAt: dealership.updated_at
+    })) as Dealership[];
   }
 
   static async getAllUsersForSuperAdmin(): Promise<User[]> {
@@ -337,7 +358,20 @@ export class AuthManager {
       return [];
     }
     
-    return data as User[];
+    // Map database fields to frontend User interface
+    return (data || []).map(profile => ({
+      id: profile.id,
+      email: '', // Email is not stored in profiles table, would need to join with auth.users
+      firstName: profile.first_name,
+      lastName: profile.last_name,
+      initials: profile.initials,
+      role: profile.role,
+      dealershipId: profile.dealership_id,
+      isActive: profile.is_active,
+      createdAt: profile.created_at,
+      updatedAt: profile.updated_at,
+      lastLogin: profile.last_login
+    })) as User[];
   }
 
   // Vehicle data isolation per dealership

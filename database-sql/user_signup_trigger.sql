@@ -28,7 +28,9 @@ BEGIN
     RETURNING id INTO new_dealership_id; -- Store the new dealership's ID in a variable.
 
     -- Step 2: Create the user's profile.
-    -- All new signups are 'admin' of their new dealership.
+    -- Get the role from metadata, default to 'admin' if not specified
+    user_role := COALESCE(NEW.raw_user_meta_data->>'role', 'admin');
+    
     INSERT INTO public.profiles (id, first_name, last_name, initials, role, dealership_id)
     VALUES (
         NEW.id, -- The new user's ID from auth.users
@@ -38,7 +40,7 @@ BEGIN
             SUBSTRING(NEW.raw_user_meta_data->>'first_name' from 1 for 1) ||
             SUBSTRING(NEW.raw_user_meta_data->>'last_name' from 1 for 1)
         ),
-        'admin',
+        user_role,
         new_dealership_id -- The ID of the dealership created above.
     );
     

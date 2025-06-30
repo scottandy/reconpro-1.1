@@ -48,6 +48,17 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({
           border: 'border-gray-200',
           iconColor: 'text-gray-400'
         };
+      default:
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('StatusBadge: Unknown status value', status);
+        }
+        return {
+          icon: Circle,
+          bg: 'bg-gray-100',
+          text: 'text-gray-600',
+          border: 'border-gray-200',
+          iconColor: 'text-gray-400'
+        };
     }
   };
 

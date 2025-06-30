@@ -202,7 +202,7 @@ export class VehicleManager {
     if (updates.isSold !== undefined) dbUpdates.is_sold = updates.isSold;
     if (updates.isPending !== undefined) dbUpdates.is_pending = updates.isPending;
     // Add any other fields as needed
-
+    
     const { data, error } = await supabase
       .from('vehicles')
       .update(dbUpdates)

@@ -1,21 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Vehicle, getStockNumber } from '../types/vehicle';
+import { Vehicle, getStockNumber, InspectionStatus } from '../types/vehicle';
 import StatusBadge from './StatusBadge';
 import { MapPin, Gauge, Clock, FileText, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { InspectionSettingsManager } from '../utils/inspectionSettingsManager';
 import { ProgressCalculator } from '../utils/progressCalculator';
 import { InspectionSection } from '../types/inspectionSettings';
+import { InspectionDataManager } from '../utils/inspectionDataManager';
 
 interface VehicleCardProps {
   vehicle: Vehicle;
 }
 
 const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
-  const { dealership } = useAuth();
+  const { dealership, user } = useAuth();
   const [customSections, setCustomSections] = useState<InspectionSection[]>([]);
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
+  const [inspectionData, setInspectionData] = useState<any>(null);
+  const [inspectionLoaded, setInspectionLoaded] = useState(false);
   
   // Load custom sections asynchronously
   useEffect(() => {
@@ -48,10 +51,43 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
     loadCustomSections();
   }, [dealership]);
 
-  const getOverallProgress = () => {
-    // Use the new detailed progress calculator
-    return ProgressCalculator.calculateDetailedProgress(vehicle.id, vehicle);
+  // Load inspection data for this vehicle
+  useEffect(() => {
+    let cancelled = false;
+    if (!vehicle || !user) return;
+    setInspectionLoaded(false);
+    InspectionDataManager.loadInspectionData(vehicle.id, user.id)
+      .then(data => {
+        if (!cancelled) {
+          setInspectionData(data || {});
+          setInspectionLoaded(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setInspectionData({});
+          setInspectionLoaded(true);
+        }
+      });
+    return () => { cancelled = true; };
+  }, [vehicle?.id, user?.id]);
+
+  // Section status and progress logic (copied from VehicleDetail)
+  const sectionKeys = ['emissions', 'cosmetic', 'mechanical', 'cleaning', 'photos'];
+  const getSectionStatus = (sectionKey: string, inspectionData: any): InspectionStatus => {
+    const items = inspectionData?.[sectionKey] || [];
+    if (!Array.isArray(items) || items.length === 0) return 'not-started';
+    if (items.some((item: any) => item.rating === 'N')) return 'needs-attention';
+    if (items.some((item: any) => item.rating === 'F')) return 'pending';
+    if (items.every((item: any) => item.rating === 'G')) return 'completed';
+    return 'not-started';
   };
+  const sectionStatuses: Record<string, InspectionStatus> = sectionKeys.reduce((acc, key) => {
+    acc[key] = getSectionStatus(key, inspectionData);
+    return acc;
+  }, {} as Record<string, InspectionStatus>);
+  const completedSections = sectionKeys.filter(key => sectionStatuses[key] === 'completed').length;
+  const overallProgress = Math.round((completedSections / sectionKeys.length) * 100);
 
   const getDaysInInventory = () => {
     const acquiredDate = new Date(vehicle.dateAcquired);
@@ -203,29 +239,29 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
         <div className="mb-5">
           <div className="flex justify-between items-center mb-3">
             <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">Reconditioning Progress</span>
-            <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{Math.round(getOverallProgress())}%</span>
+            <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{inspectionLoaded ? overallProgress : 0}%</span>
           </div>
           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 mb-4 shadow-inner">
             <div 
               className={`h-3 rounded-full transition-all duration-500 shadow-sm ${
-                getOverallProgress() === 100 
+                inspectionLoaded && overallProgress === 100 
                   ? 'bg-gradient-to-r from-emerald-500 to-green-600 dark:from-emerald-400 dark:to-green-700' 
                   : 'bg-gradient-to-r from-blue-500 to-indigo-600 dark:from-blue-400 dark:to-indigo-700'
               }`}
-              style={{ width: `${getOverallProgress()}%` }}
+              style={{ width: `${inspectionLoaded ? overallProgress : 0}%` }}
             ></div>
           </div>
           
           {/* Status Badges - Now Read-Only */}
           <div className="space-y-2">
             <div className="flex flex-wrap gap-2">
-              <StatusBadge status={vehicle.status.emissions} label="Emissions" section="emissions" size="sm" />
-              <StatusBadge status={vehicle.status.cosmetic} label="Cosmetic" section="cosmetic" size="sm" />
-              <StatusBadge status={vehicle.status.mechanical} label="Mechanical" section="mechanical" size="sm" />
+              <StatusBadge status={sectionStatuses['emissions']} label="Emissions" section="emissions" size="sm" />
+              <StatusBadge status={sectionStatuses['cosmetic']} label="Cosmetic" section="cosmetic" size="sm" />
+              <StatusBadge status={sectionStatuses['mechanical']} label="Mechanical" section="mechanical" size="sm" />
             </div>
             <div className="flex flex-wrap gap-2">
-              <StatusBadge status={vehicle.status.cleaned} label="Cleaned" section="cleaned" size="sm" />
-              <StatusBadge status={vehicle.status.photos} label="Photos" section="photos" size="sm" />
+              <StatusBadge status={sectionStatuses['cleaning']} label="Cleaning" section="cleaning" size="sm" />
+              <StatusBadge status={sectionStatuses['photos']} label="Photos" section="photos" size="sm" />
               
               {/* 🎯 NEW: Custom sections from settings */}
               {customSections.map(section => {
@@ -234,7 +270,7 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
                 return (
                   <StatusBadge 
                     key={section.key} 
-                    status={status} 
+                    status={status as InspectionStatus} 
                     label={section.label} 
                     section={section.key as any} 
                     size="sm" 

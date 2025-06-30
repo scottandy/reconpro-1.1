@@ -33,6 +33,7 @@ const CustomerInspectionPDF: React.FC<CustomerInspectionPDFProps> = ({
 }) => {
   const { dealership, user } = useAuth();
   const [inspectionSettings, setInspectionSettings] = useState<InspectionSettings | null>(null);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [customerComments, setCustomerComments] = useState<CustomerComment[]>([]);
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [pdfHtml, setPdfHtml] = useState<string>('');
@@ -40,18 +41,25 @@ const CustomerInspectionPDF: React.FC<CustomerInspectionPDFProps> = ({
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
   const [error, setError] = useState<string | null>(null);
 
+  // Load inspection settings from DB only (never localStorage)
   useEffect(() => {
-    if (dealership && isOpen) {
-      // Initialize default settings first to ensure customerPdfSettings exists
-      InspectionSettingsManager.initializeDefaultSettings(dealership.id);
-      
-      // Load inspection settings
-      const settings = InspectionSettingsManager.getSettings(dealership.id);
-      setInspectionSettings(settings);
-      
-      // Load customer comments
-      loadCustomerComments();
-    }
+    let cancelled = false;
+    const loadSettings = async () => {
+      setSettingsLoaded(false);
+      if (dealership && isOpen) {
+        await InspectionSettingsManager.initializeDefaultSettings(dealership.id);
+        const settings = await InspectionSettingsManager.getSettings(dealership.id);
+        if (!cancelled) {
+          setInspectionSettings(settings);
+          setSettingsLoaded(true);
+        }
+      } else {
+        setInspectionSettings(null);
+        setSettingsLoaded(false);
+      }
+    };
+    loadSettings();
+    return () => { cancelled = true; };
   }, [dealership, vehicle, isOpen]);
 
   // Listen for inspection data changes
@@ -68,10 +76,10 @@ const CustomerInspectionPDF: React.FC<CustomerInspectionPDFProps> = ({
 
   // Separate useEffect for generating PDF to ensure settings are loaded
   useEffect(() => {
-    if (isOpen && inspectionSettings) {
+    if (isOpen && inspectionSettings && settingsLoaded) {
       generatePdfPreview();
     }
-  }, [inspectionSettings, customerComments, isOpen, lastRefreshed]);
+  }, [inspectionSettings, customerComments, isOpen, lastRefreshed, settingsLoaded]);
 
   const loadCustomerComments = () => {
     // Load from localStorage
@@ -171,8 +179,7 @@ const CustomerInspectionPDF: React.FC<CustomerInspectionPDFProps> = ({
 
   // Get visible sections for the comment modal
   const getVisibleSections = () => {
-    if (!inspectionSettings) return [];
-    
+    if (!inspectionSettings || !inspectionSettings.sections) return [];
     return inspectionSettings.sections
       .filter(section => section.isActive && section.isCustomerVisible)
       .map(section => ({
@@ -188,6 +195,17 @@ const CustomerInspectionPDF: React.FC<CustomerInspectionPDFProps> = ({
   };
 
   if (!isOpen) return null;
+  if (!settingsLoaded) {
+    return (
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl max-w-2xl w-full p-8 flex flex-col items-center">
+          <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+          <h2 className="text-lg font-bold text-gray-900 mb-2">Loading Inspection Settings...</h2>
+          <p className="text-gray-600 text-sm">Please wait while we load the latest inspection settings for this dealership.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">

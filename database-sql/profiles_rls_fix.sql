@@ -13,7 +13,7 @@ CREATE POLICY "Allow profile operations during signup" ON public.profiles
 
 -- Note: The trigger function handle_new_user() has SECURITY DEFINER,
 -- which means it runs with elevated privileges and can bypass RLS.
--- This policy is mainly for manual profile creation by admins.
+-- This policy is mainly for manual profile creation by admins. 
 
 -- ========================================
 -- DEALERSHIPS RLS POLICIES

@@ -16,24 +16,17 @@ export class ProgressCalculator {
       
       if (!vehicleInspection) return this.calculateSectionProgress(vehicle);
       
-      // Count all inspection items
-      let totalItems = 0;
-      let completedItems = 0;
-      
-      // Process each section
-      Object.keys(vehicleInspection).forEach(sectionKey => {
-        // Skip non-array properties (like sectionNotes, overallNotes, lastSaved)
-        if (!Array.isArray(vehicleInspection[sectionKey])) return;
-        
-        const sectionItems = vehicleInspection[sectionKey];
-        totalItems += sectionItems.length;
-        
-        // Count completed items (rated as 'great')
-        completedItems += sectionItems.filter(item => item.rating === 'great').length;
+      // Only count a section as complete if ALL items are 'G'
+      const sectionKeys = ['emissions', 'cosmetic', 'mechanical', 'cleaning', 'photos'];
+      let completedSections = 0;
+      sectionKeys.forEach(sectionKey => {
+        const items = vehicleInspection[sectionKey];
+        if (Array.isArray(items) && items.length > 0) {
+          const allGreen = items.every(item => item.rating === 'G');
+          if (allGreen) completedSections++;
+        }
       });
-      
-      // Calculate percentage (avoid division by zero)
-      return totalItems > 0 ? (completedItems / totalItems) * 100 : 0;
+      return (completedSections / sectionKeys.length) * 100;
     } catch (error) {
       console.error('Error calculating detailed progress:', error);
       return this.calculateSectionProgress(vehicle);
@@ -45,7 +38,15 @@ export class ProgressCalculator {
    * Used when detailed inspection data is not available
    */
   static calculateSectionProgress(vehicle: Vehicle): number {
-    const statuses = Object.values(vehicle.status);
+    // Only use the correct keys: emissions, cosmetic, mechanical, cleaning, photos
+    const statuses = [
+      vehicle.status.emissions,
+      vehicle.status.cosmetic,
+      vehicle.status.mechanical,
+      vehicle.status.cleaning,
+      vehicle.status.photos,
+    ];
+    // Only count as completed if the status is 'completed' (which should only be set if all items are 'G')
     const completed = statuses.filter(status => status === 'completed').length;
     return (completed / statuses.length) * 100;
   }

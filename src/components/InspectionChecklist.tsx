@@ -7,7 +7,7 @@ import { InspectionSettings, InspectionSection } from '../types/inspectionSettin
 import { CheckCircle2, Circle, Save, Star, AlertTriangle, CheckCircle, Clock, Filter, X, ChevronDown, ChevronUp, FileText } from 'lucide-react';
 import { InspectionDataManager } from '../utils/inspectionDataManager';
 
-console.log('[InspectionChecklist] File loaded');
+// console.log('[InspectionChecklist] File loaded');
 
 interface InspectionChecklistProps {
   vehicle: Vehicle;
@@ -234,22 +234,21 @@ const ChecklistSection: React.FC<{
   onItemChange: (key: string, rating: ItemRating) => void;
   onNotesChange: (notes: string) => void;
   onStatusUpdate: (sectionKey: string, status: InspectionStatus) => void;
+  onSectionComplete?: (sectionKey: string, userInitials: string) => void;
   isFiltered?: boolean;
-}> = ({ title, sectionKey, items, notes, onItemChange, onNotesChange, onStatusUpdate, isFiltered = false }) => {
+}> = ({ title, sectionKey, items, notes, onItemChange, onNotesChange, onStatusUpdate, onSectionComplete, isFiltered = false }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const prevStatusRef = useRef<InspectionStatus | null>(null);
+  const { user } = useAuth ? useAuth() : { user: null };
 
   const calculateSectionStatus = (): InspectionStatus => {
     if (items.length === 0) return 'not-started';
-    
     const checkedItems = items.filter(item => item.rating !== 'not-checked');
     if (checkedItems.length === 0) return 'not-started';
-    
     const needsAttentionItems = checkedItems.filter(item => item.rating === 'N');
     if (needsAttentionItems.length > 0) return 'needs-attention';
-    
     const allGreat = checkedItems.every(item => item.rating === 'G');
     if (allGreat) return 'completed';
-    
     return 'pending';
   };
 
@@ -273,6 +272,19 @@ const ChecklistSection: React.FC<{
   const totalItems = items.length;
   const progress = (checkedItems / totalItems) * 100;
 
+  // Call onSectionComplete when status transitions to 'completed'
+  useEffect(() => {
+    if (
+      prevStatusRef.current !== 'completed' &&
+      currentStatus === 'completed' &&
+      typeof onSectionComplete === 'function' &&
+      user && user.initials
+    ) {
+      onSectionComplete(sectionKey, user.initials);
+    }
+    prevStatusRef.current = currentStatus;
+  }, [currentStatus, onSectionComplete, sectionKey, user]);
+
   return (
     <div className={`bg-white/80 backdrop-blur-sm rounded-xl shadow-lg border transition-all duration-300 ${
       isFiltered 
@@ -281,6 +293,7 @@ const ChecklistSection: React.FC<{
     } overflow-hidden`}>
       {/* 🎯 FIXED: Compact Header - Prevents overlapping on mobile */}
       <button
+        type="button"
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full p-3 sm:p-4 text-left hover:bg-gray-50/50 transition-colors"
       >
@@ -440,28 +453,28 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
   onGeneratePdf 
 }) => {
   const instanceId = React.useRef(Math.random().toString(36).substr(2, 5)).current;
-  console.log(`[InspectionChecklist] Instance ${instanceId} Render`, { vehicle, activeFilter });
+  // console.log(`[InspectionChecklist] Instance ${instanceId} Render`, { vehicle, activeFilter });
   const { user, dealership } = useAuth();
   const [inspectionData, setInspectionData] = useState<InspectionData>(DEFAULT_INSPECTION_DATA);
   const [isLoaded, setIsLoaded] = useState(false);
   const [inspectionSettings, setInspectionSettings] = useState<InspectionSettings | null>(null);
 
   // Load inspection settings when component mounts
+  // console.log('[InspectionChecklist] useEffect: Load inspection settings', { dealership });
   useEffect(() => {
-    console.log('[InspectionChecklist] useEffect: Load inspection settings', { dealership });
     if (!dealership) return;
     (async () => {
       await InspectionSettingsManager.initializeDefaultSettings(dealership.id);
       const settings = await InspectionSettingsManager.getSettings(dealership.id);
       setInspectionSettings(settings);
-      console.log('[InspectionChecklist] Inspection settings loaded', settings);
+      // console.log('[InspectionChecklist] Inspection settings loaded', settings);
     })();
 
     const handleStorageChange = async (e: StorageEvent) => {
       if (e.key === `dealership_inspection_settings_${dealership.id}`) {
         const updated = await InspectionSettingsManager.getSettings(dealership.id);
         setInspectionSettings(updated);
-        console.log('[InspectionChecklist] Inspection settings updated from storage event', updated);
+        // console.log('[InspectionChecklist] Inspection settings updated from storage event', updated);
       }
     };
     window.addEventListener('storage', handleStorageChange);
@@ -469,28 +482,28 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
   }, [dealership]);
 
   // Load inspection data only once per vehicle/user
+  // console.log(`[InspectionChecklist] Instance ${instanceId} useEffect: Load inspection data`, { vehicle, user });
   useEffect(() => {
-    console.log(`[InspectionChecklist] Instance ${instanceId} useEffect: Load inspection data`, { vehicle, user });
     if (!vehicle || !user) return;
     let cancelled = false;
     (async () => {
-      console.log('🔄 Loading inspection data for vehicle:', vehicle.id);
+      // console.log('🔄 Loading inspection data for vehicle:', vehicle.id);
       try {
         const savedData = await InspectionDataManager.loadInspectionData(vehicle.id, user.id);
         if (!cancelled && savedData) {
           setInspectionData(savedData);
           setIsLoaded(true);
-          console.log('✅ Loaded inspection data from database', savedData);
+          // console.log('✅ Loaded inspection data from database', savedData);
         } else if (!cancelled) {
           setInspectionData(DEFAULT_INSPECTION_DATA);
           setIsLoaded(true);
-          console.log('ℹ️ No inspection data found in DB, using default state');
+          // console.log('ℹ️ No inspection data found in DB, using default state');
         }
       } catch (error) {
         if (!cancelled) {
           setInspectionData(DEFAULT_INSPECTION_DATA);
           setIsLoaded(true);
-          console.error('❌ Error loading inspection data:', error);
+          // console.error('❌ Error loading inspection data:', error);
         }
       }
     })();
@@ -499,62 +512,58 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
 
   // Update inspection item and trigger save
   const updateInspectionItem = (section: keyof InspectionData, key: string, rating: ItemRating) => {
-    console.log(`[InspectionChecklist] updateInspectionItem: User clicked ${rating} for ${section}.${key}`);
+    // console.log(`[InspectionChecklist] updateInspectionItem: User clicked ${rating} for ${section}.${key}`);
     setInspectionData(prev => {
       const arr = (prev[section] as ChecklistItem[]) || [];
       const updatedArr = arr.map(item => item.key === key ? { ...item, rating } : item);
       const newData = { ...prev, [section]: updatedArr } as InspectionData;
-      console.log('[InspectionChecklist] setInspectionData (from updateInspectionItem)', newData);
+      // console.log('[InspectionChecklist] setInspectionData (from updateInspectionItem)', newData);
       return newData;
     });
   };
 
   // Update section notes and trigger save
   const updateSectionNotes = (section: keyof InspectionData['sectionNotes'], notes: string) => {
-    console.log(`[InspectionChecklist] updateSectionNotes: User updated notes for ${section}`);
+    // console.log(`[InspectionChecklist] updateSectionNotes: User updated notes for ${section}`);
     setInspectionData(prev => {
       const newData = {
         ...prev,
         sectionNotes: { ...prev.sectionNotes, [section]: notes }
       } as InspectionData;
-      console.log('[InspectionChecklist] setInspectionData (from updateSectionNotes)', newData);
+      // console.log('[InspectionChecklist] setInspectionData (from updateSectionNotes)', newData);
       return newData;
     });
   };
 
   // Bulletproof status update with correct mapping
   const handleSectionStatusUpdate = (sectionKey: string, status: InspectionStatus) => {
-    console.log('[InspectionChecklist] handleSectionStatusUpdate', { sectionKey, status });
-    // Only update the parent if the section is completed
-    if (status === 'completed') {
-      const vehicleStatusKey = getStatusKeyForSection(sectionKey);
-      onStatusUpdate(vehicleStatusKey, status);
-    }
+    // console.log('[InspectionChecklist] handleSectionStatusUpdate', { sectionKey, status });
+    // No longer update the parent at all
   };
 
   // Save inspection data to database (manual only)
   const saveInspectionData = async (): Promise<boolean> => {
-    console.log('[InspectionChecklist] saveInspectionData called');
+    // console.log('[InspectionChecklist] saveInspectionData called');
     if (!vehicle || !user) return false;
     try {
       await InspectionDataManager.saveInspectionData(vehicle.id, user.id, inspectionData);
-      console.log('[InspectionChecklist] saveInspectionData: Data saved');
+      // console.log('[InspectionChecklist] saveInspectionData: Data saved');
       return true;
     } catch (e) {
-      console.error('[InspectionChecklist] saveInspectionData: Error', e);
+      // console.error('[InspectionChecklist] saveInspectionData: Error', e);
       return false;
     }
   };
 
   const handleSave = async () => {
-    console.log('[InspectionChecklist] handleSave called');
+    // console.log('[InspectionChecklist] handleSave called');
     const ok = await saveInspectionData();
     if (ok) alert('✅ Inspection data saved successfully!');
   };
 
   // Convert inspection settings to inspection data format
   const getInspectionDataFromSettings = (settings: InspectionSettings): InspectionData => {
-    console.log('[InspectionChecklist] getInspectionDataFromSettings', settings);
+    // console.log('[InspectionChecklist] getInspectionDataFromSettings', settings);
     // If settings is null/undefined or doesn't have sections, return default data
     if (!settings || !settings.sections || !Array.isArray(settings.sections)) {
       return DEFAULT_INSPECTION_DATA;
@@ -593,7 +602,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       }
     });
     
-    console.log('[InspectionChecklist] getInspectionDataFromSettings result', data);
+    // console.log('[InspectionChecklist] getInspectionDataFromSettings result', data);
     return data;
   };
 
@@ -621,7 +630,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
 
   // Show loading state until data is loaded
   if (!isLoaded) {
-    console.log('[InspectionChecklist] Not loaded yet, showing loading UI');
+    // console.log('[InspectionChecklist] Not loaded yet, showing loading UI');
     return (
       <div className="space-y-4">
         <div className="bg-white/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 p-4 text-center">
@@ -638,7 +647,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
 
   // Get sections from settings if available, otherwise use default
   const getSections = () => {
-    console.log('[InspectionChecklist] getSections called', { inspectionSettings, inspectionData });
+    // console.log('[InspectionChecklist] getSections called', { inspectionSettings, inspectionData });
     if (inspectionSettings && inspectionSettings.sections && Array.isArray(inspectionSettings.sections)) {
       // Get all active sections from settings
       return inspectionSettings.sections
@@ -709,7 +718,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       })
     : sections;
 
-  console.log('[InspectionChecklist] Rendered sections', filteredSections);
+  // console.log('[InspectionChecklist] Rendered sections', filteredSections);
 
   return (
     <div className="space-y-4">
@@ -749,20 +758,6 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
         </div>
       )}
 
-      {/* Overall Progress Bar */}
-      <div className="mb-4">
-        <div className="flex items-center justify-between">
-          <span className="font-semibold text-gray-700">Reconditioning Progress</span>
-          <span className="font-bold text-gray-900">{getOverallProgress()}%</span>
-        </div>
-        <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-          <div
-            className="h-2 rounded-full bg-blue-600 transition-all duration-300"
-            style={{ width: `${getOverallProgress()}%` }}
-          ></div>
-        </div>
-      </div>
-
       {/* Compact Inspection Section Cards */}
       <div className="space-y-3">
         {filteredSections.map((section) => (
@@ -775,6 +770,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
             onItemChange={(key, rating) => updateInspectionItem(section.key as keyof InspectionData, key, rating)}
             onNotesChange={(notes) => updateSectionNotes(section.key as keyof InspectionData['sectionNotes'], notes)}
             onStatusUpdate={handleSectionStatusUpdate}
+            onSectionComplete={onSectionComplete}
             isFiltered={!!activeFilter}
           />
         ))}
@@ -797,6 +793,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
         {/* Generate PDF Button - Now positioned to the left of Save */}
         {onGeneratePdf && (
           <button
+            type="button"
             onClick={onGeneratePdf}
             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
           >
@@ -807,6 +804,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
         
         {/* Save Button */}
         <button
+          type="button"
           onClick={handleSave}
           className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
         >

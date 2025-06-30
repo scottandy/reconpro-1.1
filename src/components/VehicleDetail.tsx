@@ -11,6 +11,7 @@ import CustomerInspectionPDF from './CustomerInspectionPDF';
 import { ProgressCalculator } from '../utils/progressCalculator';
 import { supabase } from '../utils/supabaseClient';
 import { VehicleManager } from '../utils/vehicleManager';
+import { InspectionDataManager } from '../utils/inspectionDataManager';
 import { 
   ArrowLeft, 
   Car, 
@@ -51,25 +52,32 @@ const VehicleDetail: React.FC = () => {
   const [isEditingLocation, setIsEditingLocation] = useState(false);
   const [editedLocation, setEditedLocation] = useState('');
 
-  console.log('[VehicleDetail] Render', { vehicle });
+  const [inspectionData, setInspectionData] = useState<any>(null);
+  const [inspectionLoading, setInspectionLoading] = useState(true);
+
+  // console.log('[VehicleDetail] Render', { vehicle });
 
   useEffect(() => {
-    if (id) {
-      loadVehicle(id);
+    if (id && user && user.dealershipId) {
+      loadVehicle(id, user.dealershipId);
     }
-  }, [id]);
+  }, [id, user?.dealershipId]);
 
-  const loadVehicle = async (vehicleId: string) => {
+  useEffect(() => {
+    if (!vehicle || !user) return;
+    setInspectionLoading(true);
+    InspectionDataManager.loadInspectionData(vehicle.id, user.id)
+      .then(data => setInspectionData(data || {}))
+      .finally(() => setInspectionLoading(false));
+  }, [vehicle?.id, user?.id]);
+
+  const loadVehicle = async (vehicleId: string, dealershipId: string) => {
     setIsLoading(true);
-    const { data, error } = await supabase
-      .from('vehicles')
-      .select('*')
-      .eq('id', vehicleId)
-      .single();
-    if (data) {
-      setVehicle(data);
-      setEditedNotes(data.notes || '');
-      setEditedLocation(data.location);
+    const vehicle = await VehicleManager.getVehicleById(dealershipId, vehicleId);
+    if (vehicle) {
+      setVehicle(vehicle);
+      setEditedNotes(vehicle.notes || '');
+      setEditedLocation(vehicle.location);
     } else {
       setVehicle(null);
     }
@@ -90,8 +98,10 @@ const VehicleDetail: React.FC = () => {
   };
 
   const handleSectionComplete = (section: keyof Vehicle['status'], userInitials: string) => {
-    console.log('[VehicleDetail] handleSectionComplete', { section, userInitials });
+    // console.log('[VehicleDetail] handleSectionComplete', { section, userInitials });
     if (!vehicle) return;
+    // Only update if not already completed
+    if (vehicle.status[section] === 'completed') return;
     const updatedVehicle = {
       ...vehicle,
       status: {
@@ -230,7 +240,9 @@ const VehicleDetail: React.FC = () => {
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
+    const date = new Date(dateStr);
+    if (!dateStr || isNaN(date.getTime())) return 'N/A';
+    return date.toLocaleDateString('en-US', {
       month: 'long',
       day: 'numeric',
       year: 'numeric'
@@ -238,11 +250,8 @@ const VehicleDetail: React.FC = () => {
   };
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0
-    }).format(price);
+    // Just show the number, no $ sign
+    return price.toLocaleString('en-US', { minimumFractionDigits: 0 });
   };
 
   const getSummaryNotes = () => {
@@ -290,6 +299,16 @@ const VehicleDetail: React.FC = () => {
     };
   };
 
+  // Helper for section status using only allowed InspectionStatus values
+  const getSectionStatus = (sectionKey: string, inspectionData: any): InspectionStatus => {
+    const items = inspectionData?.[sectionKey] || [];
+    if (!Array.isArray(items) || items.length === 0) return 'not-started';
+    if (items.some((item: any) => item.rating === 'N')) return 'needs-attention';
+    if (items.some((item: any) => item.rating === 'F')) return 'pending';
+    if (items.every((item: any) => item.rating === 'G')) return 'completed';
+    return 'not-started';
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 flex items-center justify-center">
@@ -327,6 +346,21 @@ const VehicleDetail: React.FC = () => {
   const summaryNotes = getSummaryNotes();
   const isReadyForSale = Object.values(vehicle.status).every(status => status === 'completed');
   const locationStyle = getLocationStyle(vehicle.location);
+
+  // Section status and progress logic
+  const sectionKeys = ['emissions', 'cosmetic', 'mechanical', 'cleaning', 'photos'];
+  const sectionStatuses = sectionKeys.reduce((acc, key) => {
+    acc[key] = getSectionStatus(key, inspectionData);
+    return acc;
+  }, {} as Record<string, InspectionStatus>);
+
+  const completedSections = sectionKeys.filter(key => sectionStatuses[key] === 'completed').length;
+  const overallProgress = Math.round((completedSections / sectionKeys.length) * 100);
+
+  // Guard: show loading state until inspectionData is loaded
+  if (inspectionLoading) {
+    return <div>Loading inspection data...</div>;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
@@ -389,7 +423,7 @@ const VehicleDetail: React.FC = () => {
                       title="Click to edit location"
                     >
                       <MapPin className="w-3 h-3" />
-                      <span>{vehicle.location}</span>
+                      <span>{vehicle.location || 'N/A'}</span>
                       <Edit3 className="w-2 h-2 opacity-60" />
                     </button>
                   )}
@@ -447,7 +481,7 @@ const VehicleDetail: React.FC = () => {
                     title="Click to edit location"
                   >
                     <MapPin className="w-4 h-4" />
-                    <span>{vehicle.location}</span>
+                    <span>{vehicle.location || 'N/A'}</span>
                     <Edit3 className="w-3 h-3 opacity-60" />
                   </button>
                 )}
@@ -471,17 +505,17 @@ const VehicleDetail: React.FC = () => {
           <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-gray-900">Reconditioning Progress</h2>
-              <span className="text-2xl font-bold text-gray-900">{Math.round(getOverallProgress())}%</span>
+              <span className="text-2xl font-bold text-gray-900">{overallProgress}%</span>
             </div>
             
             <div className="w-full bg-gray-200 rounded-full h-3 mb-6">
               <div 
                 className={`h-3 rounded-full transition-all duration-500 ${
-                  getOverallProgress() === 100 
+                  overallProgress === 100 
                     ? 'bg-gradient-to-r from-emerald-500 to-green-600' 
                     : 'bg-gradient-to-r from-blue-500 to-indigo-600'
                 }`}
-                style={{ width: `${getOverallProgress()}%` }}
+                style={{ width: `${overallProgress}%` }}
               ></div>
             </div>
 
@@ -495,7 +529,7 @@ const VehicleDetail: React.FC = () => {
                     : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                <StatusBadge status={vehicle.status.emissions} label="Emissions" section="emissions" size="sm" />
+                <StatusBadge status={sectionStatuses['emissions']} label="Emissions" section="emissions" size="sm" />
               </button>
               
               <button
@@ -506,7 +540,7 @@ const VehicleDetail: React.FC = () => {
                     : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                <StatusBadge status={vehicle.status.cosmetic} label="Cosmetic" section="cosmetic" size="sm" />
+                <StatusBadge status={sectionStatuses['cosmetic']} label="Cosmetic" section="cosmetic" size="sm" />
               </button>
               
               <button
@@ -517,18 +551,18 @@ const VehicleDetail: React.FC = () => {
                     : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                <StatusBadge status={vehicle.status.mechanical} label="Mechanical" section="mechanical" size="sm" />
+                <StatusBadge status={sectionStatuses['mechanical']} label="Mechanical" section="mechanical" size="sm" />
               </button>
               
               <button
-                onClick={() => handleMobileSectionClick('cleaned')}
+                onClick={() => handleMobileSectionClick('cleaning')}
                 className={`p-3 rounded-lg border transition-all duration-200 ${
-                  activeFilter === 'cleaned'
+                  activeFilter === 'cleaning'
                     ? 'border-cyan-300 bg-cyan-50 shadow-md'
                     : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                <StatusBadge status={vehicle.status.cleaned} label="Cleaned" section="cleaned" size="sm" />
+                <StatusBadge status={sectionStatuses['cleaning']} label="Cleaning" section="cleaning" size="sm" />
               </button>
               
               <button
@@ -539,96 +573,83 @@ const VehicleDetail: React.FC = () => {
                     : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                <StatusBadge status={vehicle.status.photos} label="Photos" section="photos" size="sm" />
+                <StatusBadge status={sectionStatuses['photos']} label="Photos" section="photos" size="sm" />
               </button>
             </div>
 
             {/* Vehicle Notes Section - SMALLER HEADER */}
-            {(vehicle.notes || summaryNotes.length > 0 || isEditingNotes) && (
-              <div className="border-t border-gray-200/60 pt-4">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-xs font-medium text-gray-700 flex items-center gap-1">
-                    <FileText className="w-3 h-3" />
-                    Vehicle Notes
-                  </h3>
-                  {!isEditingNotes && (
+            <div className="border-t border-gray-200/60 pt-4 mt-4">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-xs font-medium text-gray-700 flex items-center gap-1">
+                  <FileText className="w-3 h-3" />
+                  Vehicle Notes
+                </h3>
+                {!isEditingNotes && (
+                  <div className="flex items-center gap-2">
+                    {(!vehicle.notes || vehicle.notes.trim() === '') && (
+                      <span
+                        className="text-xs text-blue-600 font-medium cursor-pointer hover:underline"
+                        onClick={() => setIsEditingNotes(true)}
+                      >
+                        Add Issue Notes
+                      </span>
+                    )}
                     <button
                       onClick={() => setIsEditingNotes(true)}
                       className="p-1 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      title="Edit Notes"
+                      title={(!vehicle.notes || vehicle.notes.trim() === '') ? 'Add Issue Notes' : 'Edit Notes'}
                     >
                       <Edit3 className="w-3 h-3" />
                     </button>
-                  )}
-                </div>
-
-                {/* Summary Notes from Team Notes */}
-                {summaryNotes.length > 0 && (
-                  <div className="space-y-2 mb-3">
-                    {summaryNotes.map((note) => (
-                      <div key={note.id} className="p-3 bg-indigo-50/80 backdrop-blur-sm rounded-lg border border-indigo-200/60">
-                        <div className="flex items-start gap-2">
-                          <div className="w-4 h-4 bg-indigo-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                            <FileText className="w-2 h-2 text-indigo-600" />
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xs font-semibold text-indigo-800">{note.userInitials}</span>
-                              <span className="text-xs text-indigo-600">
-                                {new Date(note.timestamp).toLocaleDateString()}
-                              </span>
-                            </div>
-                            <p className="text-xs text-indigo-900 font-medium leading-relaxed">{note.text}</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Regular Notes */}
-                {isEditingNotes ? (
-                  <div className="space-y-3">
-                    <textarea
-                      value={editedNotes}
-                      onChange={(e) => setEditedNotes(e.target.value)}
-                      placeholder="Add notes about this vehicle's condition, issues, or important information..."
-                      rows={4}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        onClick={handleSaveNotes}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                      >
-                        <Save className="w-4 h-4" />
-                        Save
-                      </button>
-                      <button
-                        onClick={handleCancelEditNotes}
-                        className="flex items-center gap-2 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors font-medium"
-                      >
-                        <X className="w-4 h-4" />
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : vehicle.notes ? (
-                  <div className="p-3 bg-amber-50/80 backdrop-blur-sm rounded-lg border border-amber-200/60">
-                    <div className="flex items-start gap-2">
-                      <div className="w-4 h-4 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <AlertTriangle className="w-2 h-2 text-amber-600" />
-                      </div>
-                      <p className="text-xs text-amber-800 font-medium leading-relaxed">{vehicle.notes}</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="p-3 bg-gray-50/80 backdrop-blur-sm rounded-lg border border-gray-200/60 text-center">
-                    <p className="text-xs text-gray-600">No notes added yet</p>
                   </div>
                 )}
               </div>
-            )}
+              {/* Show placeholder if no notes and not editing */}
+              {(!vehicle.notes || vehicle.notes.trim() === '') && !isEditingNotes && (
+                <div className="p-3 bg-gray-50/80 backdrop-blur-sm rounded-lg border border-gray-200/60 text-center">
+                  <p className="text-xs text-gray-600">No notes added yet</p>
+                </div>
+              )}
+              {/* Show textarea if editing */}
+              {isEditingNotes && (
+                <div className="space-y-3">
+                  <textarea
+                    value={editedNotes}
+                    onChange={(e) => setEditedNotes(e.target.value)}
+                    placeholder="Add notes about this vehicle's condition, issues, or important information..."
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleSaveNotes}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                    >
+                      <Save className="w-4 h-4" />
+                      Save
+                    </button>
+                    <button
+                      onClick={handleCancelEditNotes}
+                      className="flex items-center gap-2 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors font-medium"
+                    >
+                      <X className="w-4 h-4" />
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+              {/* Show notes if present and not editing */}
+              {vehicle.notes && vehicle.notes.trim() !== '' && !isEditingNotes && (
+                <div className="p-3 bg-amber-50/80 backdrop-blur-sm rounded-lg border border-amber-200/60">
+                  <div className="flex items-start gap-2">
+                    <div className="w-4 h-4 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <AlertTriangle className="w-2 h-2 text-amber-600" />
+                    </div>
+                    <p className="text-xs text-amber-800 font-medium leading-relaxed">{vehicle.notes}</p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Mobile Right Panel Toggle */}
@@ -739,7 +760,7 @@ const VehicleDetail: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
                 <div className="flex items-center gap-2">
                   <MapPin className="w-4 h-4 text-gray-500" />
-                  <p className="text-sm text-gray-900">{vehicle.location}</p>
+                  <p className="text-sm text-gray-900">{vehicle.location || 'N/A'}</p>
                 </div>
               </div>
               
@@ -770,17 +791,17 @@ const VehicleDetail: React.FC = () => {
             <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-bold text-gray-900">Reconditioning Progress</h2>
-                <span className="text-2xl font-bold text-gray-900">{Math.round(getOverallProgress())}%</span>
+                <span className="text-2xl font-bold text-gray-900">{overallProgress}%</span>
               </div>
               
               <div className="w-full bg-gray-200 rounded-full h-3 mb-6">
                 <div 
                   className={`h-3 rounded-full transition-all duration-500 ${
-                    getOverallProgress() === 100 
+                    overallProgress === 100 
                       ? 'bg-gradient-to-r from-emerald-500 to-green-600' 
                       : 'bg-gradient-to-r from-blue-500 to-indigo-600'
                   }`}
-                  style={{ width: `${getOverallProgress()}%` }}
+                  style={{ width: `${overallProgress}%` }}
                 ></div>
               </div>
 
@@ -794,7 +815,7 @@ const VehicleDetail: React.FC = () => {
                       : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                   }`}
                 >
-                  <StatusBadge status={vehicle.status.emissions} label="Emissions" section="emissions" size="sm" />
+                  <StatusBadge status={sectionStatuses['emissions']} label="Emissions" section="emissions" size="sm" />
                 </button>
                 
                 <button
@@ -805,7 +826,7 @@ const VehicleDetail: React.FC = () => {
                       : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                   }`}
                 >
-                  <StatusBadge status={vehicle.status.cosmetic} label="Cosmetic" section="cosmetic" size="sm" />
+                  <StatusBadge status={sectionStatuses['cosmetic']} label="Cosmetic" section="cosmetic" size="sm" />
                 </button>
                 
                 <button
@@ -816,18 +837,18 @@ const VehicleDetail: React.FC = () => {
                       : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                   }`}
                 >
-                  <StatusBadge status={vehicle.status.mechanical} label="Mechanical" section="mechanical" size="sm" />
+                  <StatusBadge status={sectionStatuses['mechanical']} label="Mechanical" section="mechanical" size="sm" />
                 </button>
                 
                 <button
-                  onClick={() => setActiveFilter(activeFilter === 'cleaned' ? null : 'cleaned')}
+                  onClick={() => setActiveFilter(activeFilter === 'cleaning' ? null : 'cleaning')}
                   className={`p-3 rounded-lg border transition-all duration-200 ${
-                    activeFilter === 'cleaned'
+                    activeFilter === 'cleaning'
                       ? 'border-cyan-300 bg-cyan-50 shadow-md'
                       : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                   }`}
                 >
-                  <StatusBadge status={vehicle.status.cleaned} label="Cleaned" section="cleaned" size="sm" />
+                  <StatusBadge status={sectionStatuses['cleaning']} label="Cleaning" section="cleaning" size="sm" />
                 </button>
                 
                 <button
@@ -838,96 +859,83 @@ const VehicleDetail: React.FC = () => {
                       : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                   }`}
                 >
-                  <StatusBadge status={vehicle.status.photos} label="Photos" section="photos" size="sm" />
+                  <StatusBadge status={sectionStatuses['photos']} label="Photos" section="photos" size="sm" />
                 </button>
               </div>
 
               {/* Vehicle Notes Section - SMALLER HEADER */}
-              {(vehicle.notes || summaryNotes.length > 0 || isEditingNotes) && (
-                <div className="border-t border-gray-200/60 pt-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-xs font-medium text-gray-700 flex items-center gap-1">
-                      <FileText className="w-3 h-3" />
-                      Vehicle Notes
-                    </h3>
-                    {!isEditingNotes && (
+              <div className="border-t border-gray-200/60 pt-4 mt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-xs font-medium text-gray-700 flex items-center gap-1">
+                    <FileText className="w-3 h-3" />
+                    Vehicle Notes
+                  </h3>
+                  {!isEditingNotes && (
+                    <div className="flex items-center gap-2">
+                      {(!vehicle.notes || vehicle.notes.trim() === '') && (
+                        <span
+                          className="text-xs text-blue-600 font-medium cursor-pointer hover:underline"
+                          onClick={() => setIsEditingNotes(true)}
+                        >
+                          Add Issue Notes
+                        </span>
+                      )}
                       <button
                         onClick={() => setIsEditingNotes(true)}
                         className="p-1 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Edit Notes"
+                        title={(!vehicle.notes || vehicle.notes.trim() === '') ? 'Add Issue Notes' : 'Edit Notes'}
                       >
                         <Edit3 className="w-3 h-3" />
                       </button>
-                    )}
-                  </div>
-
-                  {/* Summary Notes from Team Notes */}
-                  {summaryNotes.length > 0 && (
-                    <div className="space-y-2 mb-3">
-                      {summaryNotes.map((note) => (
-                        <div key={note.id} className="p-3 bg-indigo-50/80 backdrop-blur-sm rounded-lg border border-indigo-200/60">
-                          <div className="flex items-start gap-2">
-                            <div className="w-4 h-4 bg-indigo-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                              <FileText className="w-2 h-2 text-indigo-600" />
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-xs font-semibold text-indigo-800">{note.userInitials}</span>
-                                <span className="text-xs text-indigo-600">
-                                  {new Date(note.timestamp).toLocaleDateString()}
-                                </span>
-                              </div>
-                              <p className="text-xs text-indigo-900 font-medium leading-relaxed">{note.text}</p>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Regular Notes */}
-                  {isEditingNotes ? (
-                    <div className="space-y-3">
-                      <textarea
-                        value={editedNotes}
-                        onChange={(e) => setEditedNotes(e.target.value)}
-                        placeholder="Add notes about this vehicle's condition, issues, or important information..."
-                        rows={4}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          onClick={handleSaveNotes}
-                          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                        >
-                          <Save className="w-4 h-4" />
-                          Save
-                        </button>
-                        <button
-                          onClick={handleCancelEditNotes}
-                          className="flex items-center gap-2 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors font-medium"
-                        >
-                          <X className="w-4 h-4" />
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : vehicle.notes ? (
-                    <div className="p-3 bg-amber-50/80 backdrop-blur-sm rounded-lg border border-amber-200/60">
-                      <div className="flex items-start gap-2">
-                        <div className="w-4 h-4 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <AlertTriangle className="w-2 h-2 text-amber-600" />
-                        </div>
-                        <p className="text-xs text-amber-800 font-medium leading-relaxed">{vehicle.notes}</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="p-3 bg-gray-50/80 backdrop-blur-sm rounded-lg border border-gray-200/60 text-center">
-                      <p className="text-xs text-gray-600">No notes added yet</p>
                     </div>
                   )}
                 </div>
-              )}
+                {/* Show placeholder if no notes and not editing */}
+                {(!vehicle.notes || vehicle.notes.trim() === '') && !isEditingNotes && (
+                  <div className="p-3 bg-gray-50/80 backdrop-blur-sm rounded-lg border border-gray-200/60 text-center">
+                    <p className="text-xs text-gray-600">No notes added yet</p>
+                  </div>
+                )}
+                {/* Show textarea if editing */}
+                {isEditingNotes && (
+                  <div className="space-y-3">
+                    <textarea
+                      value={editedNotes}
+                      onChange={(e) => setEditedNotes(e.target.value)}
+                      placeholder="Add notes about this vehicle's condition, issues, or important information..."
+                      rows={4}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleSaveNotes}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                      >
+                        <Save className="w-4 h-4" />
+                        Save
+                      </button>
+                      <button
+                        onClick={handleCancelEditNotes}
+                        className="flex items-center gap-2 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors font-medium"
+                      >
+                        <X className="w-4 h-4" />
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {/* Show notes if present and not editing */}
+                {vehicle.notes && vehicle.notes.trim() !== '' && !isEditingNotes && (
+                  <div className="p-3 bg-amber-50/80 backdrop-blur-sm rounded-lg border border-amber-200/60">
+                    <div className="flex items-start gap-2">
+                      <div className="w-4 h-4 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <AlertTriangle className="w-2 h-2 text-amber-600" />
+                      </div>
+                      <p className="text-xs text-amber-800 font-medium leading-relaxed">{vehicle.notes}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Desktop Vehicle Information */}
@@ -993,7 +1001,7 @@ const VehicleDetail: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
                   <div className="flex items-center gap-2">
                     <MapPin className="w-4 h-4 text-gray-500" />
-                    <p className="text-sm text-gray-900">{vehicle.location}</p>
+                    <p className="text-sm text-gray-900">{vehicle.location || 'N/A'}</p>
                   </div>
                 </div>
                 

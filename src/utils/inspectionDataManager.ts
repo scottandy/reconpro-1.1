@@ -72,7 +72,7 @@ export class InspectionDataManager {
     inspectorId: string
   ): Promise<InspectionData | null> {
     try {
-      console.log('Loading inspection data:', { vehicleId, inspectorId });
+      // console.log('Loading inspection data:', { vehicleId, inspectorId });
       const { data, error } = await supabase
         .from('inspection_checklists')
         .select('checklist_data')
@@ -82,13 +82,13 @@ export class InspectionDataManager {
       if (error) {
         if (error.code === 'PGRST116') {
           // No data found, return null
-          console.log('No inspection data found for this vehicle');
+          // console.log('No inspection data found for this vehicle');
           return null;
         }
         console.error('Error loading inspection data:', error);
         return null;
       }
-      console.log('Inspection data loaded successfully');
+      // console.log('Inspection data loaded successfully');
       return data.checklist_data;
     } catch (error) {
       console.error('Error loading inspection data:', error);

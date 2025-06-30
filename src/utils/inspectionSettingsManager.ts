@@ -25,31 +25,63 @@ export class InspectionSettingsManager {
         .from('inspection_settings')
         .select('settings')
         .eq('dealership_id', dealershipId)
-        .single();
-      if (error || !data) {
-        // Return default settings if not found or error
+        .maybeSingle();
+      
+      if (error) {
+        console.error('Error fetching settings from Supabase:', error);
+        // Return properly structured default settings
         return {
-          dealership_id: dealershipId,
-          settings: {
-            sections: [],
-            ratingLabels: [],
-            customerPdfSettings: {},
-            // Add any other default/zero values as needed
-          }
-        } as any;
+          ...DEFAULT_INSPECTION_SETTINGS,
+          id: `settings-${Date.now()}`,
+          dealershipId,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
       }
-      return data.settings;
-    } catch (err) {
-      // On fetch error, return default settings
+      
+      if (!data || !data.settings) {
+        // No settings found, return properly structured default settings
+        return {
+          ...DEFAULT_INSPECTION_SETTINGS,
+          id: `settings-${Date.now()}`,
+          dealershipId,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+      }
+      
+      // Ensure the returned settings have all required properties
+      const settings = data.settings;
       return {
-        dealership_id: dealershipId,
-        settings: {
-          sections: [],
-          ratingLabels: [],
-          customerPdfSettings: {},
-          // Add any other default/zero values as needed
-        }
-      } as any;
+        ...DEFAULT_INSPECTION_SETTINGS,
+        ...settings,
+        dealershipId,
+        // Ensure nested objects are properly merged
+        customerPdfSettings: {
+          ...DEFAULT_INSPECTION_SETTINGS.customerPdfSettings,
+          ...(settings.customerPdfSettings || {})
+        },
+        globalSettings: {
+          ...DEFAULT_INSPECTION_SETTINGS.globalSettings,
+          ...(settings.globalSettings || {})
+        },
+        ratingLabels: settings.ratingLabels && Array.isArray(settings.ratingLabels) && settings.ratingLabels.length > 0 
+          ? settings.ratingLabels 
+          : DEFAULT_INSPECTION_SETTINGS.ratingLabels,
+        sections: settings.sections && Array.isArray(settings.sections)
+          ? settings.sections 
+          : DEFAULT_INSPECTION_SETTINGS.sections
+      };
+    } catch (err) {
+      console.error('Error in getSettings:', err);
+      // On any error, return properly structured default settings
+      return {
+        ...DEFAULT_INSPECTION_SETTINGS,
+        id: `settings-${Date.now()}`,
+        dealershipId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
     }
   }
 

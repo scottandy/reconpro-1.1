@@ -43,11 +43,45 @@ export class ProgressCalculator {
       vehicle.status.emissions,
       vehicle.status.cosmetic,
       vehicle.status.mechanical,
-      vehicle.status.cleaning,
+      vehicle.status.cleaned,
       vehicle.status.photos,
     ];
     // Only count as completed if the status is 'completed' (which should only be set if all items are 'G')
     const completed = statuses.filter(status => status === 'completed').length;
     return (completed / statuses.length) * 100;
+  }
+
+  /**
+   * Get the appropriate color class for progress bar based on completion percentage
+   */
+  static getProgressColorClass(progress: number): string {
+    if (progress >= 100) {
+      return 'bg-gradient-to-r from-emerald-500 to-green-600 dark:from-emerald-400 dark:to-green-700';
+    } else if (progress >= 75) {
+      return 'bg-gradient-to-r from-blue-500 to-indigo-600 dark:from-blue-400 dark:to-indigo-700';
+    } else if (progress >= 50) {
+      return 'bg-gradient-to-r from-yellow-500 to-amber-600 dark:from-yellow-400 dark:to-amber-700';
+    } else if (progress >= 25) {
+      return 'bg-gradient-to-r from-orange-500 to-amber-600 dark:from-orange-400 dark:to-amber-700';
+    } else {
+      return 'bg-gradient-to-r from-red-500 to-orange-600 dark:from-red-400 dark:to-orange-700';
+    }
+  }
+
+  /**
+   * Get the appropriate text color class based on completion percentage
+   */
+  static getProgressTextColorClass(progress: number): string {
+    if (progress >= 100) {
+      return 'text-emerald-600 dark:text-emerald-400';
+    } else if (progress >= 75) {
+      return 'text-blue-600 dark:text-blue-400';
+    } else if (progress >= 50) {
+      return 'text-yellow-600 dark:text-yellow-500';
+    } else if (progress >= 25) {
+      return 'text-orange-600 dark:text-orange-400';
+    } else {
+      return 'text-red-600 dark:text-red-400';
+    }
   }
 }

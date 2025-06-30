@@ -235,29 +235,6 @@ const VehicleDetail: React.FC = () => {
     setIsLoading(false);
   };
 
-  // 🎯 NEW: Mobile scroll to section functionality
-  const handleMobileSectionClick = (section: string) => {
-    // Set the active filter
-    setActiveFilter(activeFilter === section ? null : section);
-    
-    // Switch to inspection view if not already there
-    if (rightPanelView !== 'inspection') {
-      setRightPanelView('inspection');
-    }
-    
-    // Scroll to the inspection content area on mobile
-    setTimeout(() => {
-      const inspectionElement = document.getElementById('mobile-inspection-content');
-      if (inspectionElement) {
-        inspectionElement.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'start',
-          inline: 'nearest'
-        });
-      }
-    }, 100); // Small delay to ensure state updates are processed
-  };
-
   const getStockNumber = (vin: string): string => {
     return vin.slice(-6);
   };
@@ -332,6 +309,29 @@ const VehicleDetail: React.FC = () => {
     return 'not-started';
   };
 
+  // 🎯 NEW: Mobile scroll to section functionality
+  const handleMobileSectionClick = (section: string) => {
+    // Set the active filter
+    setActiveFilter(activeFilter === section ? null : section);
+    
+    // Switch to inspection view if not already there
+    if (rightPanelView !== 'inspection') {
+      setRightPanelView('inspection');
+    }
+    
+    // Scroll to the inspection content area on mobile
+    setTimeout(() => {
+      const inspectionElement = document.getElementById('mobile-inspection-content');
+      if (inspectionElement) {
+        inspectionElement.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start',
+          inline: 'nearest'
+        });
+      }
+    }, 100); // Small delay to ensure state updates are processed
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 flex items-center justify-center">
@@ -384,6 +384,16 @@ const VehicleDetail: React.FC = () => {
   if (inspectionLoading) {
     return <div>Loading inspection data...</div>;
   }
+
+  // Get progress bar color based on completion percentage
+  const getProgressBarColor = () => {
+    return ProgressCalculator.getProgressColorClass(overallProgress);
+  };
+
+  // Get progress text color based on completion percentage
+  const getProgressTextColor = () => {
+    return ProgressCalculator.getProgressTextColorClass(overallProgress);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
@@ -528,16 +538,12 @@ const VehicleDetail: React.FC = () => {
           <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-gray-900">Reconditioning Progress</h2>
-              <span className="text-2xl font-bold text-gray-900">{overallProgress}%</span>
+              <span className={`text-2xl font-bold ${getProgressTextColor()}`}>{overallProgress}%</span>
             </div>
             
             <div className="w-full bg-gray-200 rounded-full h-3 mb-6">
               <div 
-                className={`h-3 rounded-full transition-all duration-500 ${
-                  overallProgress === 100 
-                    ? 'bg-gradient-to-r from-emerald-500 to-green-600' 
-                    : 'bg-gradient-to-r from-blue-500 to-indigo-600'
-                }`}
+                className={`h-3 rounded-full transition-all duration-500 ${getProgressBarColor()}`}
                 style={{ width: `${overallProgress}%` }}
               ></div>
             </div>
@@ -814,16 +820,12 @@ const VehicleDetail: React.FC = () => {
             <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-bold text-gray-900">Reconditioning Progress</h2>
-                <span className="text-2xl font-bold text-gray-900">{overallProgress}%</span>
+                <span className={`text-2xl font-bold ${getProgressTextColor()}`}>{overallProgress}%</span>
               </div>
               
               <div className="w-full bg-gray-200 rounded-full h-3 mb-6">
                 <div 
-                  className={`h-3 rounded-full transition-all duration-500 ${
-                    overallProgress === 100 
-                      ? 'bg-gradient-to-r from-emerald-500 to-green-600' 
-                      : 'bg-gradient-to-r from-blue-500 to-indigo-600'
-                  }`}
+                  className={`h-3 rounded-full transition-all duration-500 ${getProgressBarColor()}`}
                   style={{ width: `${overallProgress}%` }}
                 ></div>
               </div>

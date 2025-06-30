@@ -124,6 +124,23 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
     return diffDays;
   };
 
+  // Get progress bar color based on completion percentage
+  const getProgressBarColor = () => {
+    return ProgressCalculator.getProgressColorClass(progress);
+  };
+
+  // Get progress text color based on completion percentage
+  const getProgressTextColor = () => {
+    return ProgressCalculator.getProgressTextColorClass(progress);
+  };
+
+  // 🎯 NEW: Get truncated notes for display
+  const getTruncatedNotes = (text: string, maxLength: number = 60) => {
+    if (!text) return '';
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength).trim() + '...';
+  };
+
   // Enhanced location type detection and color coding
   const getLocationStyle = (location: string) => {
     const locationLower = (location || '').toLowerCase();
@@ -169,13 +186,6 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
       textColor: 'text-green-800',
       borderColor: 'border-green-200'
     };
-  };
-
-  // 🎯 NEW: Get truncated notes for display
-  const getTruncatedNotes = (text: string, maxLength: number = 60) => {
-    if (!text) return '';
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength).trim() + '...';
   };
 
   const stockNumber = getStockNumber(vehicle.vin);
@@ -266,15 +276,11 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
         <div className="mb-5">
           <div className="flex justify-between items-center mb-3">
             <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">Reconditioning Progress</span>
-            <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{progress}%</span>
+            <span className={`text-sm font-bold ${getProgressTextColor()}`}>{progress}%</span>
           </div>
           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 mb-4 shadow-inner">
             <div 
-              className={`h-3 rounded-full transition-all duration-500 shadow-sm ${
-                progress === 100 
-                  ? 'bg-gradient-to-r from-emerald-500 to-green-600 dark:from-emerald-400 dark:to-green-700' 
-                  : 'bg-gradient-to-r from-blue-500 to-indigo-600 dark:from-blue-400 dark:to-indigo-700'
-              }`}
+              className={`h-3 rounded-full transition-all duration-500 shadow-sm ${getProgressBarColor()}`}
               style={{ width: `${progress}%` }}
             ></div>
           </div>

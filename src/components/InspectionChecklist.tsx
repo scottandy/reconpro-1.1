@@ -40,7 +40,7 @@ interface InspectionData {
 }
 
 // Default inspection data structure - will be overridden by settings
-const DEFAULT_INSPECTION_DATA: InspectionData = {
+export const DEFAULT_INSPECTION_DATA: InspectionData = {
   emissions: [
     { key: 'emissionsTest', label: 'Pass Emissions Test', rating: 'not-checked' },
     { key: 'obd2Scan', label: 'OBD2 Diagnostic Scan', rating: 'not-checked' },

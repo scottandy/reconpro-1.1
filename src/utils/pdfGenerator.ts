@@ -1,6 +1,8 @@
 import { Vehicle } from '../types/vehicle';
 import { InspectionSettings } from '../types/inspectionSettings';
 import { ProgressCalculator } from '../utils/progressCalculator';
+import { InspectionDataManager } from './inspectionDataManager';
+import { DEFAULT_INSPECTION_DATA } from '../components/InspectionChecklist';
 
 export interface CustomerComment {
   id: string;
@@ -27,24 +29,21 @@ export interface CustomerPdfData {
 }
 
 export class PDFGenerator {
-  static generateCustomerInspectionPDF(data: CustomerPdfData): string {
+  static async generateCustomerInspectionPDF(data: CustomerPdfData, inspectorId: string): Promise<string> {
     const { vehicle, inspectionSettings, customerComments, dealershipInfo, inspectionDate, inspectorName } = data;
     
-    // Get only customer-visible sections
-    const visibleSections = inspectionSettings.sections
-      .filter(section => section.isActive && section.isCustomerVisible)
+    // Get ALL sections in order (not just customer-visible)
+    const allSections = inspectionSettings.sections
+      .slice() // shallow copy
       .sort((a, b) => a.order - b.order);
 
-    // Get inspection data for this vehicle
-    const savedInspections = localStorage.getItem('vehicleInspections');
+    // Load inspection data from the database (not localStorage)
     let vehicleInspection: any = {};
-    if (savedInspections) {
-      try {
-        const inspections = JSON.parse(savedInspections);
-        vehicleInspection = inspections[vehicle.id] || {};
-      } catch (error) {
-        console.error('Error loading inspection data:', error);
-      }
+    try {
+      const dbData = await InspectionDataManager.loadInspectionData(vehicle.id, inspectorId);
+      vehicleInspection = dbData || DEFAULT_INSPECTION_DATA;
+    } catch (error) {
+      vehicleInspection = DEFAULT_INSPECTION_DATA;
     }
 
     const formatDate = (dateStr: string) => {
@@ -60,8 +59,39 @@ export class PDFGenerator {
     };
 
     const getRatingLabel = (rating: string) => {
-      const ratingLabel = inspectionSettings.ratingLabels.find(label => label.key === rating);
-      return ratingLabel ? ratingLabel.label : rating;
+      switch (rating) {
+        case 'G':
+        case 'great':
+          return 'Great';
+        case 'F':
+        case 'fair':
+          return 'Fair';
+        case 'N':
+        case 'needs-attention':
+          return 'Needs Attention';
+        case 'not-checked':
+          return 'Not Checked';
+        default:
+          return rating;
+      }
+    };
+
+    const getRatingClass = (rating: string) => {
+      switch (rating) {
+        case 'G':
+        case 'great':
+          return 'badge-great';
+        case 'F':
+        case 'fair':
+          return 'badge-fair';
+        case 'N':
+        case 'needs-attention':
+          return 'badge-needs-attention';
+        case 'not-checked':
+          return 'badge-not-checked';
+        default:
+          return 'badge-not-checked';
+      }
     };
 
     const getRatingColor = (rating: string) => {
@@ -76,6 +106,35 @@ export class PDFGenerator {
           return '#6b7280'; // gray-500
       }
     };
+
+    // Section status calculation logic (copied from VehicleCard/InspectionChecklist)
+    const sectionKeys = ['emissions', 'cosmetic', 'mechanical', 'cleaning', 'photos'];
+    const getSectionStatus = (sectionKey: string, inspectionData: any): string => {
+      const items = inspectionData?.[sectionKey] || [];
+      if (!Array.isArray(items) || items.length === 0) return 'not-started';
+      if (items.some((item: any) => item.rating === 'N')) return 'needs-attention';
+      if (items.some((item: any) => item.rating === 'F')) return 'pending';
+      if (items.every((item: any) => item.rating === 'G')) return 'completed';
+      return 'not-started';
+    };
+    const sectionStatuses: Record<string, string> = sectionKeys.reduce((acc, key) => {
+      acc[key] = getSectionStatus(key, vehicleInspection);
+      return acc;
+    }, {} as Record<string, string>);
+    const completedSections = sectionKeys.filter(key => sectionStatuses[key] === 'completed').length;
+    const needsAttention = sectionKeys.some(key => sectionStatuses[key] === 'needs-attention');
+    const inProgress = !needsAttention && sectionKeys.some(key => sectionStatuses[key] === 'pending');
+    const allCompleted = completedSections === sectionKeys.length;
+    const progress = Math.round((completedSections / sectionKeys.length) * 100);
+
+    let statusBadgeHtml = '';
+    if (needsAttention) {
+      statusBadgeHtml = `<span style="display:inline-flex;align-items:center;font-weight:bold;font-size:15px;padding:4px 16px;border-radius:999px;background:#fee2e2;color:#b91c1c;"><span style='font-size:16px;margin-right:6px;'>⚠️</span> Needs Attention</span>`;
+    } else if (inProgress) {
+      statusBadgeHtml = `<span style="display:inline-flex;align-items:center;font-weight:bold;font-size:15px;padding:4px 16px;border-radius:999px;background:#fde68a;color:#92400e;">In Progress</span>`;
+    } else if (allCompleted) {
+      statusBadgeHtml = `<span style="display:inline-flex;align-items:center;font-weight:bold;font-size:15px;padding:4px 16px;border-radius:999px;background:#d1fae5;color:#065f46;"><span style='font-size:16px;margin-right:6px;'>✓</span> Ready for Sale</span>`;
+    }
 
     // Generate HTML content for the PDF
     const htmlContent = `
@@ -174,25 +233,29 @@ export class PDFGenerator {
             font-weight: 500;
           }
           .item-rating {
-            font-weight: 600;
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 12px;
+            font-weight: bold;
+            font-size: 13px;
+            padding: 2px 14px;
+            border-radius: 999px;
+            display: inline-block;
+            min-width: 0;
+            text-align: center;
+            margin-left: 12px;
           }
-          .rating-great {
-            background-color: #d1fae5;
-            color: #065f46;
+          .badge-great {
+            background-color: #10b981;
+            color: #fff;
           }
-          .rating-fair {
-            background-color: #fef3c7;
+          .badge-fair {
+            background-color: #fde68a;
             color: #92400e;
           }
-          .rating-needs-attention {
-            background-color: #fee2e2;
-            color: #b91c1c;
+          .badge-needs-attention {
+            background-color: #ef4444;
+            color: #fff;
           }
-          .rating-not-checked {
-            background-color: #f3f4f6;
+          .badge-not-checked {
+            background-color: #e5e7eb;
             color: #6b7280;
           }
           .section-notes {
@@ -348,15 +411,13 @@ export class PDFGenerator {
             
             <div class="info-item">
               <label>Reconditioning Status</label>
-              ${Object.values(vehicle.status).every(status => status === 'completed') 
-                ? '<p class="ready-badge">✓ Ready for Sale</p>' 
-                : '<p class="not-ready-badge">⚠ In Reconditioning</p>'}
+              ${statusBadgeHtml}
             </div>
             
             <div class="progress-container">
-              <div class="progress-bar" style="width: ${ProgressCalculator.calculateDetailedProgress(vehicle.id, vehicle)}%"></div>
+              <div class="progress-bar" style="width: ${progress}%;background:${allCompleted ? 'linear-gradient(to right,#10b981,#059669)' : 'linear-gradient(to right,#3b82f6,#6366f1)'}"></div>
             </div>
-            <div class="progress-text">${Math.round(ProgressCalculator.calculateDetailedProgress(vehicle.id, vehicle))}% Complete</div>
+            <div class="progress-text" style="font-weight:bold;font-size:20px;text-align:right;">${progress}% Complete</div>
           </div>
           
           ${vehicle.notes ? `
@@ -370,7 +431,7 @@ export class PDFGenerator {
           </div>
           ` : ''}
           
-          ${visibleSections.map(section => {
+          ${allSections.map(section => {
             const sectionItems = vehicleInspection[section.key] || [];
             return `
               <div class="section">
@@ -382,21 +443,20 @@ export class PDFGenerator {
                     ${sectionItems.map(item => `
                       <div class="inspection-item">
                         <div class="item-name">${item.label}</div>
-                        <div class="item-rating rating-${item.rating}" style="background-color: ${this.getRatingColorLight(item.rating)}; color: ${this.getRatingColorDark(item.rating)}">
+                        <div class="item-rating ${getRatingClass(item.rating)}">
                           ${getRatingLabel(item.rating)}
                         </div>
                       </div>
                     `).join('')}
-                    
-                    ${vehicleInspection.sectionNotes && vehicleInspection.sectionNotes[section.key] ? `
-                      <div class="section-notes">
-                        <h4>Section Notes:</h4>
-                        <p>${vehicleInspection.sectionNotes[section.key]}</p>
-                      </div>
-                    ` : ''}
                   ` : `
                     <p>No inspection data available for this section.</p>
                   `}
+                  ${vehicleInspection.sectionNotes && vehicleInspection.sectionNotes[section.key] ? `
+                    <div class="section-notes">
+                      <h4>Section Notes:</h4>
+                      <p>${vehicleInspection.sectionNotes[section.key]}</p>
+                    </div>
+                  ` : ''}
                 </div>
               </div>
             `;
@@ -436,64 +496,5 @@ export class PDFGenerator {
     `;
 
     return htmlContent;
-  }
-
-  // Helper methods for PDF generation
-  static getOverallProgress(vehicle: Vehicle): number {
-    // Use the new detailed progress calculator
-    return ProgressCalculator.calculateDetailedProgress(vehicle.id, vehicle);
-  }
-
-  static getRatingColorLight(rating: string): string {
-    switch (rating) {
-      case 'great':
-        return '#d1fae5'; // emerald-100
-      case 'fair':
-        return '#fef3c7'; // amber-100
-      case 'needs-attention':
-        return '#fee2e2'; // red-100
-      default:
-        return '#f3f4f6'; // gray-100
-    }
-  }
-
-  static getRatingColorDark(rating: string): string {
-    switch (rating) {
-      case 'great':
-        return '#065f46'; // emerald-800
-      case 'fair':
-        return '#92400e'; // amber-800
-      case 'needs-attention':
-        return '#b91c1c'; // red-800
-      default:
-        return '#6b7280'; // gray-500
-    }
-  }
-
-  // Convert HTML to PDF and download
-  static downloadPDF(htmlContent: string, fileName: string): void {
-    // Create a Blob with the HTML content
-    const blob = new Blob([htmlContent], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    
-    // Create a link and trigger download
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    
-    // Clean up
-    setTimeout(() => {
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }, 100);
-  }
-
-  // Open PDF in new tab (for preview)
-  static previewPDF(htmlContent: string): void {
-    const blob = new Blob([htmlContent], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    window.open(url, '_blank');
   }
 }

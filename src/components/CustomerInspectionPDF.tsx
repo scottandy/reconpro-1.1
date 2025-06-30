@@ -118,15 +118,13 @@ const CustomerInspectionPDF: React.FC<CustomerInspectionPDFProps> = ({
     saveCustomerComments(updatedComments);
   };
 
-  const generatePdfPreview = () => {
-    if (!dealership || !inspectionSettings) {
-      setError('Cannot generate PDF: Missing dealership or inspection settings');
+  const generatePdfPreview = async () => {
+    if (!dealership || !inspectionSettings || !user) {
+      setError('Cannot generate PDF: Missing dealership, inspection settings, or user');
       return;
     }
-    
     setIsGenerating(true);
     setError(null);
-    
     try {
       // Get dealership info
       const dealershipInfo = {
@@ -136,17 +134,15 @@ const CustomerInspectionPDF: React.FC<CustomerInspectionPDFProps> = ({
         email: dealership.email,
         website: dealership.website
       };
-      
-      // Generate PDF HTML
-      const html = PDFGenerator.generateCustomerInspectionPDF({
+      // Generate PDF HTML (async)
+      const html = await PDFGenerator.generateCustomerInspectionPDF({
         vehicle,
         inspectionSettings,
         customerComments,
         dealershipInfo,
         inspectionDate: new Date().toISOString(),
         inspectorName: user ? `${user.firstName} ${user.lastName}` : undefined
-      });
-      
+      }, user.id);
       setPdfHtml(html);
     } catch (error) {
       console.error('Error generating PDF:', error);

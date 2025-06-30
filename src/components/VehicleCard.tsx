@@ -19,6 +19,7 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
   const [inspectionData, setInspectionData] = useState<any>(null);
   const [inspectionLoaded, setInspectionLoaded] = useState(false);
+  const [progress, setProgress] = useState(0);
   
   // Load custom sections asynchronously
   useEffect(() => {
@@ -31,7 +32,7 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
 
       try {
         const settings = await InspectionSettingsManager.getSettings(dealership.id);
-        if (settings) {
+        if (settings && settings.sections && Array.isArray(settings.sections)) {
           const sections = settings.sections
             .filter(section => section.isActive && section.key !== 'emissions' && section.key !== 'cosmetic' && 
                     section.key !== 'mechanical' && section.key !== 'cleaning' && section.key !== 'photos')
@@ -61,16 +62,44 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
         if (!cancelled) {
           setInspectionData(data || {});
           setInspectionLoaded(true);
+          
+          // Calculate progress based on inspection data
+          const progress = calculateProgress(data);
+          setProgress(progress);
         }
       })
       .catch(() => {
         if (!cancelled) {
           setInspectionData({});
           setInspectionLoaded(true);
+          
+          // Fallback to vehicle status-based progress
+          const progress = ProgressCalculator.calculateSectionProgress(vehicle);
+          setProgress(progress);
         }
       });
     return () => { cancelled = true; };
   }, [vehicle?.id, user?.id]);
+
+  // Calculate progress based on inspection data
+  const calculateProgress = (data: any): number => {
+    if (!data) return ProgressCalculator.calculateSectionProgress(vehicle);
+    
+    const sectionKeys = ['emissions', 'cosmetic', 'mechanical', 'cleaning', 'photos'];
+    let totalItems = 0;
+    let completedItems = 0;
+    
+    sectionKeys.forEach(key => {
+      const items = data[key] || [];
+      if (Array.isArray(items)) {
+        totalItems += items.length;
+        completedItems += items.filter((item: any) => item.rating === 'G').length;
+      }
+    });
+    
+    if (totalItems === 0) return ProgressCalculator.calculateSectionProgress(vehicle);
+    return Math.round((completedItems / totalItems) * 100);
+  };
 
   // Section status and progress logic (copied from VehicleDetail)
   const sectionKeys = ['emissions', 'cosmetic', 'mechanical', 'cleaning', 'photos'];
@@ -86,8 +115,6 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
     acc[key] = getSectionStatus(key, inspectionData);
     return acc;
   }, {} as Record<string, InspectionStatus>);
-  const completedSections = sectionKeys.filter(key => sectionStatuses[key] === 'completed').length;
-  const overallProgress = Math.round((completedSections / sectionKeys.length) * 100);
 
   const getDaysInInventory = () => {
     const acquiredDate = new Date(vehicle.dateAcquired);
@@ -239,16 +266,16 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
         <div className="mb-5">
           <div className="flex justify-between items-center mb-3">
             <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">Reconditioning Progress</span>
-            <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{inspectionLoaded ? overallProgress : 0}%</span>
+            <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{progress}%</span>
           </div>
           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 mb-4 shadow-inner">
             <div 
               className={`h-3 rounded-full transition-all duration-500 shadow-sm ${
-                inspectionLoaded && overallProgress === 100 
+                progress === 100 
                   ? 'bg-gradient-to-r from-emerald-500 to-green-600 dark:from-emerald-400 dark:to-green-700' 
                   : 'bg-gradient-to-r from-blue-500 to-indigo-600 dark:from-blue-400 dark:to-indigo-700'
               }`}
-              style={{ width: `${inspectionLoaded ? overallProgress : 0}%` }}
+              style={{ width: `${progress}%` }}
             ></div>
           </div>
           

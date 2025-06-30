@@ -47,6 +47,7 @@ const VehicleDetail: React.FC = () => {
   const [editedNotes, setEditedNotes] = useState('');
   const [rightPanelView, setRightPanelView] = useState<'inspection' | 'team-notes'>('inspection');
   const [showPdfModal, setShowPdfModal] = useState(false);
+  const [overallProgress, setOverallProgress] = useState(0);
   
   // NEW: Location editing state
   const [isEditingLocation, setIsEditingLocation] = useState(false);
@@ -71,6 +72,14 @@ const VehicleDetail: React.FC = () => {
       .finally(() => setInspectionLoading(false));
   }, [vehicle?.id, user?.id]);
 
+  // Calculate and update overall progress whenever vehicle status changes
+  useEffect(() => {
+    if (vehicle) {
+      const progress = ProgressCalculator.calculateDetailedProgress(vehicle.id, vehicle);
+      setOverallProgress(progress);
+    }
+  }, [vehicle]);
+
   const loadVehicle = async (vehicleId: string, dealershipId: string) => {
     setIsLoading(true);
     const vehicle = await VehicleManager.getVehicleById(dealershipId, vehicleId);
@@ -84,9 +93,13 @@ const VehicleDetail: React.FC = () => {
     setIsLoading(false);
   };
 
-  const handleStatusUpdate = (section: keyof Vehicle['status'], status: InspectionStatus) => {
+  const handleStatusUpdate = async (section: keyof Vehicle['status'], status: InspectionStatus) => {
     console.log('[VehicleDetail] handleStatusUpdate', { section, status });
-    if (!vehicle) return;
+    if (!vehicle || !user?.dealershipId) return;
+    
+    // Only update if the status has actually changed
+    if (vehicle.status[section] === status) return;
+    
     const updatedVehicle = {
       ...vehicle,
       status: {
@@ -94,7 +107,21 @@ const VehicleDetail: React.FC = () => {
         [section]: status
       }
     };
-    saveVehicleUpdate(updatedVehicle);
+    
+    try {
+      const result = await VehicleManager.updateVehicle(user.dealershipId, vehicle.id, {
+        status: updatedVehicle.status
+      });
+      
+      if (result) {
+        setVehicle(result);
+        // Recalculate progress after status update
+        const progress = ProgressCalculator.calculateDetailedProgress(result.id, result);
+        setOverallProgress(progress);
+      }
+    } catch (error) {
+      console.error('Error updating vehicle status:', error);
+    }
   };
 
   const handleSectionComplete = (section: keyof Vehicle['status'], userInitials: string) => {
@@ -199,6 +226,9 @@ const VehicleDetail: React.FC = () => {
     const result = await VehicleManager.updateVehicle(dealershipId, vehicleId, updatedVehicle);
     if (result) {
       setVehicle(result);
+      // Recalculate progress after any vehicle update
+      const progress = ProgressCalculator.calculateDetailedProgress(result.id, result);
+      setOverallProgress(progress);
     } else {
       console.error('Error updating vehicle');
     }
@@ -226,13 +256,6 @@ const VehicleDetail: React.FC = () => {
         });
       }
     }, 100); // Small delay to ensure state updates are processed
-  };
-
-  const getOverallProgress = () => {
-    if (!vehicle) return 0;
-    
-    // Use the new detailed progress calculator
-    return ProgressCalculator.calculateDetailedProgress(vehicle.id, vehicle);
   };
 
   const getStockNumber = (vin: string): string => {
@@ -355,7 +378,7 @@ const VehicleDetail: React.FC = () => {
   }, {} as Record<string, InspectionStatus>);
 
   const completedSections = sectionKeys.filter(key => sectionStatuses[key] === 'completed').length;
-  const overallProgress = Math.round((completedSections / sectionKeys.length) * 100);
+  const sectionProgress = Math.round((completedSections / sectionKeys.length) * 100);
 
   // Guard: show loading state until inspectionData is loaded
   if (inspectionLoading) {

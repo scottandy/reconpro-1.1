@@ -458,6 +458,8 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
   const [inspectionData, setInspectionData] = useState<InspectionData>(DEFAULT_INSPECTION_DATA);
   const [isLoaded, setIsLoaded] = useState(false);
   const [inspectionSettings, setInspectionSettings] = useState<InspectionSettings | null>(null);
+  const [autoSaveTimer, setAutoSaveTimer] = useState<NodeJS.Timeout | null>(null);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
   // Load inspection settings when component mounts
   // console.log('[InspectionChecklist] useEffect: Load inspection settings', { dealership });
@@ -510,6 +512,43 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
     return () => { cancelled = true; };
   }, [vehicle?.id, user?.id]);
 
+  // Auto-save function
+  const autoSaveInspectionData = useCallback(async () => {
+    if (!vehicle || !user) return false;
+    try {
+      await InspectionDataManager.saveInspectionData(vehicle.id, user.id, inspectionData);
+      setLastSaved(new Date());
+      return true;
+    } catch (e) {
+      console.error('[InspectionChecklist] autoSaveInspectionData: Error', e);
+      return false;
+    }
+  }, [vehicle, user, inspectionData]);
+
+  // Set up auto-save timer whenever inspection data changes
+  useEffect(() => {
+    if (!isLoaded || !vehicle || !user) return;
+    
+    // Clear any existing timer
+    if (autoSaveTimer) {
+      clearTimeout(autoSaveTimer);
+    }
+    
+    // Set a new timer to save after 2 seconds of inactivity
+    const timer = setTimeout(() => {
+      autoSaveInspectionData();
+    }, 2000);
+    
+    setAutoSaveTimer(timer);
+    
+    // Clean up timer on unmount or when dependencies change
+    return () => {
+      if (autoSaveTimer) {
+        clearTimeout(autoSaveTimer);
+      }
+    };
+  }, [inspectionData, isLoaded, vehicle, user, autoSaveInspectionData]);
+
   // Update inspection item and trigger save
   const updateInspectionItem = (section: keyof InspectionData, key: string, rating: ItemRating) => {
     // console.log(`[InspectionChecklist] updateInspectionItem: User clicked ${rating} for ${section}.${key}`);
@@ -520,6 +559,20 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       // console.log('[InspectionChecklist] setInspectionData (from updateInspectionItem)', newData);
       return newData;
     });
+    
+    // Record analytics for the item update
+    if (vehicle && user) {
+      const vehicleName = `${vehicle.year} ${vehicle.make} ${vehicle.model}`;
+      AnalyticsManager.recordTaskUpdate(
+        vehicle.id,
+        vehicleName,
+        section as any,
+        user.initials,
+        key,
+        'not-checked', // Simplified - we don't track previous state
+        rating
+      );
+    }
   };
 
   // Update section notes and trigger save
@@ -538,7 +591,11 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
   // Bulletproof status update with correct mapping
   const handleSectionStatusUpdate = (sectionKey: string, status: InspectionStatus) => {
     // console.log('[InspectionChecklist] handleSectionStatusUpdate', { sectionKey, status });
-    // No longer update the parent at all
+    // Map the section key to the correct status key in vehicle.status
+    const statusKey = getStatusKeyForSection(sectionKey);
+    
+    // Call the parent's onStatusUpdate with the correct mapping
+    onStatusUpdate(statusKey, status);
   };
 
   // Save inspection data to database (manual only)
@@ -547,6 +604,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
     if (!vehicle || !user) return false;
     try {
       await InspectionDataManager.saveInspectionData(vehicle.id, user.id, inspectionData);
+      setLastSaved(new Date());
       // console.log('[InspectionChecklist] saveInspectionData: Data saved');
       return true;
     } catch (e) {
@@ -755,6 +813,15 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
               </p>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Last Saved Indicator */}
+      {lastSaved && (
+        <div className="bg-blue-50/80 backdrop-blur-sm border border-blue-200 rounded-xl p-2 text-center">
+          <p className="text-xs text-blue-700">
+            Last auto-saved: {lastSaved.toLocaleTimeString()}
+          </p>
         </div>
       )}
 

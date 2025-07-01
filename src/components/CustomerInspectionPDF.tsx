@@ -70,6 +70,13 @@ const CustomerInspectionPDF: React.FC<CustomerInspectionPDFProps> = ({
     return () => { cancelled = true; };
   }, [dealership, vehicle, isOpen]);
 
+  // Load customer comments when component mounts
+  useEffect(() => {
+    if (isOpen && vehicle) {
+      loadCustomerComments();
+    }
+  }, [isOpen, vehicle]);
+
   // Listen for inspection data changes
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
@@ -81,13 +88,6 @@ const CustomerInspectionPDF: React.FC<CustomerInspectionPDFProps> = ({
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
-
-  // Load customer comments when component mounts
-  useEffect(() => {
-    if (isOpen && vehicle) {
-      loadCustomerComments();
-    }
-  }, [isOpen, vehicle]);
 
   // Separate useEffect for generating PDF to ensure settings are loaded
   useEffect(() => {

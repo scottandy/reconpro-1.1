@@ -145,9 +145,28 @@ const VehicleDetail: React.FC = () => {
       section as any, 
       userInitials
     );
+    
+    // Add team note about section completion
+    const sectionDisplayName = getSectionDisplayName(section);
+    onAddTeamNote({
+      text: `Completed the ${sectionDisplayName} section.`,
+      userInitials: userInitials,
+      category: 'summary'
+    });
   };
 
-  const handleAddTeamNote = (note: Omit<TeamNote, 'id' | 'timestamp'>) => {
+  const getSectionDisplayName = (section: keyof Vehicle['status']): string => {
+    const displayNames: Record<string, string> = {
+      'emissions': 'Emissions',
+      'cosmetic': 'Cosmetic',
+      'mechanical': 'Mechanical',
+      'cleaned': 'Cleaning',
+      'photos': 'Photos'
+    };
+    return displayNames[section] || section;
+  };
+
+  const onAddTeamNote = (note: Omit<TeamNote, 'id' | 'timestamp'>) => {
     console.log('[VehicleDetail] handleAddTeamNote', note);
     if (!vehicle) return;
     const newNote: TeamNote = {
@@ -716,14 +735,14 @@ const VehicleDetail: React.FC = () => {
                 vehicle={vehicle}
                 onStatusUpdate={handleStatusUpdate}
                 onSectionComplete={handleSectionComplete}
-                onAddTeamNote={handleAddTeamNote}
+                onAddTeamNote={onAddTeamNote}
                 activeFilter={activeFilter}
                 onGeneratePdf={() => setShowPdfModal(true)}
               />
             ) : (
               <TeamNotes
                 notes={vehicle.teamNotes || []}
-                onAddNote={handleAddTeamNote}
+                onAddNote={onAddTeamNote}
               />
             )}
           </div>
@@ -1085,14 +1104,14 @@ const VehicleDetail: React.FC = () => {
                 vehicle={vehicle}
                 onStatusUpdate={handleStatusUpdate}
                 onSectionComplete={handleSectionComplete}
-                onAddTeamNote={handleAddTeamNote}
+                onAddTeamNote={onAddTeamNote}
                 activeFilter={activeFilter}
                 onGeneratePdf={() => setShowPdfModal(true)}
               />
             ) : (
               <TeamNotes
                 notes={vehicle.teamNotes || []}
-                onAddNote={handleAddTeamNote}
+                onAddNote={onAddTeamNote}
               />
             )}
           </div>

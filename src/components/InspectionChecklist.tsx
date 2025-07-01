@@ -454,7 +454,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
 }) => {
   const instanceId = React.useRef(Math.random().toString(36).substr(2, 5)).current;
   // console.log(`[InspectionChecklist] Instance ${instanceId} Render`, { vehicle, activeFilter });
-  const { user, dealership } = useAuth();
+  const { user, dealership } = useAuth ? useAuth() : { user: null, dealership: null };
   const [inspectionData, setInspectionData] = useState<InspectionData>(DEFAULT_INSPECTION_DATA);
   const [isLoaded, setIsLoaded] = useState(false);
   const [inspectionSettings, setInspectionSettings] = useState<InspectionSettings | null>(null);
@@ -572,6 +572,32 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
         'not-checked', // Simplified - we don't track previous state
         rating
       );
+      
+      // Add team note when an item is marked as completed (Great)
+      if (rating === 'G') {
+        const sectionItems = (inspectionData[section] as ChecklistItem[]) || [];
+        const item = sectionItems.find(i => i.key === key);
+        if (item) {
+          onAddTeamNote({
+            text: `Marked "${item.label}" as Great in ${section} section.`,
+            userInitials: user.initials,
+            category: section as any
+          });
+        }
+      }
+      
+      // Add team note when an item needs attention
+      if (rating === 'N') {
+        const sectionItems = (inspectionData[section] as ChecklistItem[]) || [];
+        const item = sectionItems.find(i => i.key === key);
+        if (item) {
+          onAddTeamNote({
+            text: `Flagged "${item.label}" as Needs Attention in ${section} section.`,
+            userInitials: user.initials,
+            category: section as any
+          });
+        }
+      }
     }
   };
 

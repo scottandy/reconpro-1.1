@@ -248,7 +248,7 @@ const ChecklistSection: React.FC<{
     const needsAttentionItems = checkedItems.filter(item => item.rating === 'N');
     if (needsAttentionItems.length > 0) return 'needs-attention';
     const allGreat = checkedItems.every(item => item.rating === 'G');
-    if (allGreat) return 'completed';
+    if (allGreat && checkedItems.length === items.length) return 'completed';
     return 'pending';
   };
 
@@ -676,14 +676,14 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
   const getOverallProgress = (): number => {
     const sectionKeys: (keyof InspectionData)[] = ['emissions', 'cosmetic', 'mechanical', 'cleaning', 'photos'];
     let totalItems = 0;
-    let checkedItems = 0;
+    let completedItems = 0;
     sectionKeys.forEach(key => {
       const items = (inspectionData[key] as ChecklistItem[]) || [];
       totalItems += items.length;
-      checkedItems += items.filter(item => item.rating !== 'not-checked').length;
+      completedItems += items.filter(item => item.rating === 'G').length;
     });
     if (totalItems === 0) return 0;
-    return Math.round((checkedItems / totalItems) * 100);
+    return Math.round((completedItems / totalItems) * 100);
   };
 
   // Show loading state until data is loaded

@@ -332,6 +332,16 @@ const VehicleDetail: React.FC = () => {
     }, 100); // Small delay to ensure state updates are processed
   };
 
+  // Get progress bar color based on completion percentage
+  const getProgressBarColor = () => {
+    return ProgressCalculator.getProgressColorClass(overallProgress);
+  };
+
+  // Get progress text color based on completion percentage
+  const getProgressTextColor = () => {
+    return ProgressCalculator.getProgressTextColorClass(overallProgress);
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 flex items-center justify-center">
@@ -384,16 +394,6 @@ const VehicleDetail: React.FC = () => {
   if (inspectionLoading) {
     return <div>Loading inspection data...</div>;
   }
-
-  // Get progress bar color based on completion percentage
-  const getProgressBarColor = () => {
-    return ProgressCalculator.getProgressColorClass(overallProgress);
-  };
-
-  // Get progress text color based on completion percentage
-  const getProgressTextColor = () => {
-    return ProgressCalculator.getProgressTextColorClass(overallProgress);
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">

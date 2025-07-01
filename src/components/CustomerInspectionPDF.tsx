@@ -47,11 +47,19 @@ const CustomerInspectionPDF: React.FC<CustomerInspectionPDFProps> = ({
     const loadSettings = async () => {
       setSettingsLoaded(false);
       if (dealership && isOpen) {
-        await InspectionSettingsManager.initializeDefaultSettings(dealership.id);
-        const settings = await InspectionSettingsManager.getSettings(dealership.id);
-        if (!cancelled) {
-          setInspectionSettings(settings);
-          setSettingsLoaded(true);
+        try {
+          await InspectionSettingsManager.initializeDefaultSettings(dealership.id);
+          const settings = await InspectionSettingsManager.getSettings(dealership.id);
+          if (!cancelled) {
+            setInspectionSettings(settings);
+            setSettingsLoaded(true);
+          }
+        } catch (err) {
+          console.error("Error loading inspection settings:", err);
+          if (!cancelled) {
+            setInspectionSettings(null);
+            setSettingsLoaded(true);
+          }
         }
       } else {
         setInspectionSettings(null);
@@ -73,6 +81,13 @@ const CustomerInspectionPDF: React.FC<CustomerInspectionPDFProps> = ({
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
+
+  // Load customer comments when component mounts
+  useEffect(() => {
+    if (isOpen && vehicle) {
+      loadCustomerComments();
+    }
+  }, [isOpen, vehicle]);
 
   // Separate useEffect for generating PDF to ensure settings are loaded
   useEffect(() => {

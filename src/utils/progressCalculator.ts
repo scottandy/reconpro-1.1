@@ -38,7 +38,7 @@ export class ProgressCalculator {
    * Used when detailed inspection data is not available
    */
   static calculateSectionProgress(vehicle: Vehicle): number {
-    // Only use the correct keys: emissions, cosmetic, mechanical, cleaning, photos
+    // Only use the correct keys: emissions, cosmetic, mechanical, cleaned, photos
     const statuses = [
       vehicle.status.emissions,
       vehicle.status.cosmetic,

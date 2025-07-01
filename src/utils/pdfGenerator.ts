@@ -33,9 +33,9 @@ export class PDFGenerator {
     const { vehicle, inspectionSettings, customerComments, dealershipInfo, inspectionDate, inspectorName } = data;
     
     // Get ALL sections in order (not just customer-visible)
-    const allSections = inspectionSettings.sections
-      .slice() // shallow copy
-      .sort((a, b) => a.order - b.order);
+    const allSections = inspectionSettings.sections && Array.isArray(inspectionSettings.sections) 
+      ? inspectionSettings.sections.slice().sort((a, b) => a.order - b.order)
+      : [];
 
     // Load inspection data from the database (not localStorage)
     let vehicleInspection: any = {};
@@ -496,5 +496,25 @@ export class PDFGenerator {
     `;
 
     return htmlContent;
+  }
+
+  static downloadPDF(html: string, fileName: string): void {
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  static previewPDF(html: string): void {
+    const newWindow = window.open('', '_blank');
+    if (newWindow) {
+      newWindow.document.write(html);
+      newWindow.document.close();
+    }
   }
 }

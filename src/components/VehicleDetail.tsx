@@ -9,7 +9,7 @@ import InspectionChecklist from './InspectionChecklist';
 import TeamNotes from './TeamNotes';
 import CustomerInspectionPDF from './CustomerInspectionPDF';
 import { ProgressCalculator } from '../utils/progressCalculator';
-import { supabase } from './supabaseClient';
+import { supabase } from '../utils/supabaseClient';
 import { VehicleManager } from '../utils/vehicleManager';
 import { InspectionDataManager } from '../utils/inspectionDataManager';
 import { 
@@ -69,6 +69,10 @@ const VehicleDetail: React.FC = () => {
     setInspectionLoading(true);
     InspectionDataManager.loadInspectionData(vehicle.id, user.id)
       .then(data => setInspectionData(data || {}))
+      .catch(err => {
+        console.error("Error loading inspection data:", err);
+        setInspectionData({});
+      })
       .finally(() => setInspectionLoading(false));
   }, [vehicle?.id, user?.id]);
 
@@ -410,7 +414,16 @@ const VehicleDetail: React.FC = () => {
 
   // Guard: show loading state until inspectionData is loaded
   if (inspectionLoading) {
-    return <div>Loading inspection data...</div>;
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 animate-pulse">
+            <Car className="w-8 h-8 text-white" />
+          </div>
+          <p className="text-gray-600 font-medium">Loading inspection data...</p>
+        </div>
+      </div>
+    );
   }
 
   return (

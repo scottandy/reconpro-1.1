@@ -16,17 +16,22 @@ export class ProgressCalculator {
       
       if (!vehicleInspection) return this.calculateSectionProgress(vehicle);
       
-      // Only count a section as complete if ALL items are 'G'
+      // Count all items that have been checked (not just completed sections)
       const sectionKeys = ['emissions', 'cosmetic', 'mechanical', 'cleaning', 'photos'];
-      let completedSections = 0;
+      let totalItems = 0;
+      let checkedItems = 0;
+      
       sectionKeys.forEach(sectionKey => {
         const items = vehicleInspection[sectionKey];
         if (Array.isArray(items) && items.length > 0) {
-          const allGreen = items.every(item => item.rating === 'G');
-          if (allGreen) completedSections++;
+          totalItems += items.length;
+          // Count any item that has been rated (G, F, or N) as "checked"
+          checkedItems += items.filter(item => item.rating !== 'not-checked').length;
         }
       });
-      return (completedSections / sectionKeys.length) * 100;
+      
+      if (totalItems === 0) return this.calculateSectionProgress(vehicle);
+      return Math.round((checkedItems / totalItems) * 100);
     } catch (error) {
       console.error('Error calculating detailed progress:', error);
       return this.calculateSectionProgress(vehicle);

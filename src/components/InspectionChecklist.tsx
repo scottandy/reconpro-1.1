@@ -247,6 +247,8 @@ const ChecklistSection: React.FC<{
     if (checkedItems.length === 0) return 'not-started';
     const needsAttentionItems = checkedItems.filter(item => item.rating === 'N');
     if (needsAttentionItems.length > 0) return 'needs-attention';
+    const fairItems = checkedItems.filter(item => item.rating === 'F');
+    if (fairItems.length > 0) return 'pending';
     const allGreat = checkedItems.every(item => item.rating === 'G');
     if (allGreat && checkedItems.length === items.length) return 'completed';
     return 'pending';
@@ -454,12 +456,11 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
 }) => {
   const instanceId = React.useRef(Math.random().toString(36).substr(2, 5)).current;
   // console.log(`[InspectionChecklist] Instance ${instanceId} Render`, { vehicle, activeFilter });
-  const { user, dealership } = useAuth ? useAuth() : { user: null, dealership: null };
+  const { user, dealership } = useAuth();
   const [inspectionData, setInspectionData] = useState<InspectionData>(DEFAULT_INSPECTION_DATA);
   const [isLoaded, setIsLoaded] = useState(false);
   const [inspectionSettings, setInspectionSettings] = useState<InspectionSettings | null>(null);
   const [autoSaveTimer, setAutoSaveTimer] = useState<NodeJS.Timeout | null>(null);
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
   // Load inspection settings when component mounts
   // console.log('[InspectionChecklist] useEffect: Load inspection settings', { dealership });
@@ -512,20 +513,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
     return () => { cancelled = true; };
   }, [vehicle?.id, user?.id]);
 
-  // Auto-save function
-  const autoSaveInspectionData = useCallback(async () => {
-    if (!vehicle || !user) return false;
-    try {
-      await InspectionDataManager.saveInspectionData(vehicle.id, user.id, inspectionData);
-      setLastSaved(new Date());
-      return true;
-    } catch (e) {
-      console.error('[InspectionChecklist] autoSaveInspectionData: Error', e);
-      return false;
-    }
-  }, [vehicle, user, inspectionData]);
-
-  // Set up auto-save timer whenever inspection data changes
+  // Auto-save inspection data when it changes
   useEffect(() => {
     if (!isLoaded || !vehicle || !user) return;
     
@@ -534,24 +522,28 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       clearTimeout(autoSaveTimer);
     }
     
-    // Set a new timer to save after 2 seconds of inactivity
+    // Set a new timer to save after 1 second of inactivity
     const timer = setTimeout(() => {
-      autoSaveInspectionData();
-    }, 2000);
+      saveInspectionData();
+    }, 1000);
     
     setAutoSaveTimer(timer);
     
-    // Clean up timer on unmount or when dependencies change
+    // Cleanup on unmount
     return () => {
       if (autoSaveTimer) {
         clearTimeout(autoSaveTimer);
       }
     };
-  }, [inspectionData, isLoaded, vehicle, user, autoSaveInspectionData]);
+  }, [inspectionData, isLoaded]);
 
   // Update inspection item and trigger save
   const updateInspectionItem = (section: keyof InspectionData, key: string, rating: ItemRating) => {
     // console.log(`[InspectionChecklist] updateInspectionItem: User clicked ${rating} for ${section}.${key}`);
+    
+    // Get the old rating before updating
+    const oldRating = (inspectionData[section] as ChecklistItem[])?.find(item => item.key === key)?.rating || 'not-checked';
+    
     setInspectionData(prev => {
       const arr = (prev[section] as ChecklistItem[]) || [];
       const updatedArr = arr.map(item => item.key === key ? { ...item, rating } : item);
@@ -560,45 +552,73 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       return newData;
     });
     
-    // Record analytics for the item update
-    if (vehicle && user) {
-      const vehicleName = `${vehicle.year} ${vehicle.make} ${vehicle.model}`;
-      AnalyticsManager.recordTaskUpdate(
-        vehicle.id,
-        vehicleName,
-        section as any,
-        user.initials,
-        key,
-        'not-checked', // Simplified - we don't track previous state
-        rating
-      );
-      
-      // Add team note when an item is marked as completed (Great)
-      if (rating === 'G') {
-        const sectionItems = (inspectionData[section] as ChecklistItem[]) || [];
-        const item = sectionItems.find(i => i.key === key);
-        if (item) {
-          onAddTeamNote({
-            text: `Marked "${item.label}" as Great in ${section} section.`,
-            userInitials: user.initials,
-            category: section as any
-          });
-        }
-      }
-      
-      // Add team note when an item needs attention
-      if (rating === 'N') {
-        const sectionItems = (inspectionData[section] as ChecklistItem[]) || [];
-        const item = sectionItems.find(i => i.key === key);
-        if (item) {
-          onAddTeamNote({
-            text: `Flagged "${item.label}" as Needs Attention in ${section} section.`,
-            userInitials: user.initials,
-            category: section as any
-          });
-        }
+    // Add team note about the rating change
+    if (user && rating !== oldRating) {
+      const sectionItems = (inspectionData[section] as ChecklistItem[]) || [];
+      const item = sectionItems.find(item => item.key === key);
+      if (item) {
+        const ratingLabels = {
+          'G': 'Great',
+          'F': 'Fair',
+          'N': 'Needs Attention',
+          'not-checked': 'Not Checked'
+        };
+        
+        const noteText = `Changed "${item.label}" from "${ratingLabels[oldRating]}" to "${ratingLabels[rating]}".`;
+        
+        onAddTeamNote({
+          text: noteText,
+          userInitials: user.initials,
+          category: section as any
+        });
+        
+        // Record analytics for the task update
+        AnalyticsManager.recordTaskUpdate(
+          vehicle.id,
+          `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
+          section as any,
+          user.initials,
+          item.label,
+          oldRating,
+          rating
+        );
       }
     }
+    
+    // Calculate and update section status
+    const statusKey = getStatusKeyForSection(section as string);
+    const newStatus = calculateSectionStatus(section as string, key, rating);
+    onStatusUpdate(statusKey, newStatus);
+  };
+
+  // Calculate section status based on all items
+  const calculateSectionStatus = (section: string, updatedKey: string, newRating: ItemRating): InspectionStatus => {
+    const items = [...(inspectionData[section] as ChecklistItem[] || [])];
+    
+    // Update the specific item with the new rating
+    const itemIndex = items.findIndex(item => item.key === updatedKey);
+    if (itemIndex !== -1) {
+      items[itemIndex] = { ...items[itemIndex], rating: newRating };
+    }
+    
+    if (items.length === 0) return 'not-started';
+    
+    const checkedItems = items.filter(item => item.rating !== 'not-checked');
+    if (checkedItems.length === 0) return 'not-started';
+    
+    // If any item is rated 'N', the section needs attention
+    if (checkedItems.some(item => item.rating === 'N')) return 'needs-attention';
+    
+    // If any item is rated 'F', the section is pending
+    if (checkedItems.some(item => item.rating === 'F')) return 'pending';
+    
+    // If all items are rated 'G' and all items are checked, the section is completed
+    if (checkedItems.every(item => item.rating === 'G') && checkedItems.length === items.length) {
+      return 'completed';
+    }
+    
+    // Otherwise, the section is pending
+    return 'pending';
   };
 
   // Update section notes and trigger save
@@ -617,10 +637,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
   // Bulletproof status update with correct mapping
   const handleSectionStatusUpdate = (sectionKey: string, status: InspectionStatus) => {
     // console.log('[InspectionChecklist] handleSectionStatusUpdate', { sectionKey, status });
-    // Map the section key to the correct status key in vehicle.status
     const statusKey = getStatusKeyForSection(sectionKey);
-    
-    // Call the parent's onStatusUpdate with the correct mapping
     onStatusUpdate(statusKey, status);
   };
 
@@ -630,7 +647,6 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
     if (!vehicle || !user) return false;
     try {
       await InspectionDataManager.saveInspectionData(vehicle.id, user.id, inspectionData);
-      setLastSaved(new Date());
       // console.log('[InspectionChecklist] saveInspectionData: Data saved');
       return true;
     } catch (e) {
@@ -702,14 +718,14 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
   const getOverallProgress = (): number => {
     const sectionKeys: (keyof InspectionData)[] = ['emissions', 'cosmetic', 'mechanical', 'cleaning', 'photos'];
     let totalItems = 0;
-    let completedItems = 0;
+    let checkedItems = 0;
     sectionKeys.forEach(key => {
       const items = (inspectionData[key] as ChecklistItem[]) || [];
       totalItems += items.length;
-      completedItems += items.filter(item => item.rating === 'G').length;
+      checkedItems += items.filter(item => item.rating !== 'not-checked').length;
     });
     if (totalItems === 0) return 0;
-    return Math.round((completedItems / totalItems) * 100);
+    return Math.round((checkedItems / totalItems) * 100);
   };
 
   // Show loading state until data is loaded
@@ -839,15 +855,6 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
               </p>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Last Saved Indicator */}
-      {lastSaved && (
-        <div className="bg-blue-50/80 backdrop-blur-sm border border-blue-200 rounded-xl p-2 text-center">
-          <p className="text-xs text-blue-700">
-            Last auto-saved: {lastSaved.toLocaleTimeString()}
-          </p>
         </div>
       )}
 

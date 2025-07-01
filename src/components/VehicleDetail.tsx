@@ -127,16 +127,7 @@ const VehicleDetail: React.FC = () => {
   const handleSectionComplete = (section: keyof Vehicle['status'], userInitials: string) => {
     // console.log('[VehicleDetail] handleSectionComplete', { section, userInitials });
     if (!vehicle) return;
-    // Only update if not already completed
-    if (vehicle.status[section] === 'completed') return;
-    const updatedVehicle = {
-      ...vehicle,
-      status: {
-        ...vehicle.status,
-        [section]: 'completed' as InspectionStatus
-      }
-    };
-    saveVehicleUpdate(updatedVehicle);
+    
     // Record analytics
     const vehicleName = `${vehicle.year} ${vehicle.make} ${vehicle.model}`;
     AnalyticsManager.recordCompletion(
@@ -151,7 +142,7 @@ const VehicleDetail: React.FC = () => {
     onAddTeamNote({
       text: `Completed the ${sectionDisplayName} section.`,
       userInitials: userInitials,
-      category: 'summary'
+      category: section as any
     });
   };
 
@@ -318,16 +309,6 @@ const VehicleDetail: React.FC = () => {
     };
   };
 
-  // Helper for section status using only allowed InspectionStatus values
-  const getSectionStatus = (sectionKey: string, inspectionData: any): InspectionStatus => {
-    const items = inspectionData?.[sectionKey] || [];
-    if (!Array.isArray(items) || items.length === 0) return 'not-started';
-    if (items.some((item: any) => item.rating === 'N')) return 'needs-attention';
-    if (items.some((item: any) => item.rating === 'F')) return 'pending';
-    if (items.every((item: any) => item.rating === 'G')) return 'completed';
-    return 'not-started';
-  };
-
   // 🎯 NEW: Mobile scroll to section functionality
   const handleMobileSectionClick = (section: string) => {
     // Set the active filter
@@ -401,11 +382,18 @@ const VehicleDetail: React.FC = () => {
 
   // Section status and progress logic
   const sectionKeys = ['emissions', 'cosmetic', 'mechanical', 'cleaning', 'photos'];
-  const sectionStatuses = sectionKeys.reduce((acc, key) => {
+  const getSectionStatus = (sectionKey: string, inspectionData: any): InspectionStatus => {
+    const items = inspectionData?.[sectionKey] || [];
+    if (!Array.isArray(items) || items.length === 0) return 'not-started';
+    if (items.some((item: any) => item.rating === 'N')) return 'needs-attention';
+    if (items.some((item: any) => item.rating === 'F')) return 'pending';
+    if (items.every((item: any) => item.rating === 'G')) return 'completed';
+    return 'not-started';
+  };
+  const sectionStatuses: Record<string, InspectionStatus> = sectionKeys.reduce((acc, key) => {
     acc[key] = getSectionStatus(key, inspectionData);
     return acc;
   }, {} as Record<string, InspectionStatus>);
-
   const completedSections = sectionKeys.filter(key => sectionStatuses[key] === 'completed').length;
   const sectionProgress = Math.round((completedSections / sectionKeys.length) * 100);
 
@@ -562,7 +550,7 @@ const VehicleDetail: React.FC = () => {
             
             <div className="w-full bg-gray-200 rounded-full h-3 mb-6">
               <div 
-                className={`h-3 rounded-full transition-all duration-500 ${getProgressBarColor()}`}
+                className={`h-3 rounded-full transition-all duration-500 shadow-sm ${getProgressBarColor()}`}
                 style={{ width: `${overallProgress}%` }}
               ></div>
             </div>

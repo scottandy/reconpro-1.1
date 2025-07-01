@@ -87,18 +87,19 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
     
     const sectionKeys = ['emissions', 'cosmetic', 'mechanical', 'cleaning', 'photos'];
     let totalItems = 0;
-    let completedItems = 0;
+    let checkedItems = 0;
     
     sectionKeys.forEach(key => {
       const items = data[key] || [];
       if (Array.isArray(items)) {
         totalItems += items.length;
-        completedItems += items.filter((item: any) => item.rating === 'G').length;
+        // Count any item that has been rated (G, F, or N) as "checked"
+        checkedItems += items.filter((item: any) => item.rating !== 'not-checked').length;
       }
     });
     
     if (totalItems === 0) return ProgressCalculator.calculateSectionProgress(vehicle);
-    return Math.round((completedItems / totalItems) * 100);
+    return Math.round((checkedItems / totalItems) * 100);
   };
 
   // Section status and progress logic (copied from VehicleDetail)

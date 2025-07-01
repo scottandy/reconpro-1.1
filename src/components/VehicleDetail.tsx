@@ -9,7 +9,7 @@ import InspectionChecklist from './InspectionChecklist';
 import TeamNotes from './TeamNotes';
 import CustomerInspectionPDF from './CustomerInspectionPDF';
 import { ProgressCalculator } from '../utils/progressCalculator';
-import { supabase } from '../utils/supabaseClient';
+import { supabase } from './supabaseClient';
 import { VehicleManager } from '../utils/vehicleManager';
 import { InspectionDataManager } from '../utils/inspectionDataManager';
 import { 
@@ -82,15 +82,21 @@ const VehicleDetail: React.FC = () => {
 
   const loadVehicle = async (vehicleId: string, dealershipId: string) => {
     setIsLoading(true);
-    const vehicle = await VehicleManager.getVehicleById(dealershipId, vehicleId);
-    if (vehicle) {
-      setVehicle(vehicle);
-      setEditedNotes(vehicle.notes || '');
-      setEditedLocation(vehicle.location);
-    } else {
+    try {
+      const vehicle = await VehicleManager.getVehicleById(dealershipId, vehicleId);
+      if (vehicle) {
+        setVehicle(vehicle);
+        setEditedNotes(vehicle.notes || '');
+        setEditedLocation(vehicle.location);
+      } else {
+        setVehicle(null);
+      }
+    } catch (error) {
+      console.error('Error loading vehicle:', error);
       setVehicle(null);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const handleStatusUpdate = async (section: keyof Vehicle['status'], status: InspectionStatus) => {
@@ -231,18 +237,23 @@ const VehicleDetail: React.FC = () => {
     console.log('[VehicleDetail] saveVehicleUpdate', updatedVehicle);
     if (!user || !user.dealershipId) return;
     setIsLoading(true);
-    const dealershipId = user.dealershipId;
-    const vehicleId = updatedVehicle.id;
-    const result = await VehicleManager.updateVehicle(dealershipId, vehicleId, updatedVehicle);
-    if (result) {
-      setVehicle(result);
-      // Recalculate progress after any vehicle update
-      const progress = ProgressCalculator.calculateDetailedProgress(result.id, result);
-      setOverallProgress(progress);
-    } else {
-      console.error('Error updating vehicle');
+    try {
+      const dealershipId = user.dealershipId;
+      const vehicleId = updatedVehicle.id;
+      const result = await VehicleManager.updateVehicle(dealershipId, vehicleId, updatedVehicle);
+      if (result) {
+        setVehicle(result);
+        // Recalculate progress after any vehicle update
+        const progress = ProgressCalculator.calculateDetailedProgress(result.id, result);
+        setOverallProgress(progress);
+      } else {
+        console.error('Error updating vehicle');
+      }
+    } catch (error) {
+      console.error('Error updating vehicle:', error);
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const getStockNumber = (vin: string): string => {

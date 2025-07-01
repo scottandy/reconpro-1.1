@@ -132,4 +132,4 @@ export class InspectionDataManager {
       return false;
     }
   }
-} 
+}

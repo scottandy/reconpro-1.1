@@ -349,7 +349,10 @@ export class VehicleManager {
       .eq('id', vehicleId)
       .eq('dealership_id', dealershipId)
       .single();
-    if (error) return null;
+    if (error) {
+      console.error('Error fetching vehicle by ID:', error);
+      return null;
+    }
     return this.fromDatabaseFormat(data);
   }
 

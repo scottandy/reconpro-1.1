@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Car, Users, BarChart3, Shield, CheckCircle, ArrowRight, Building2, Zap, Globe, Star, Eye } from 'lucide-react';
+import { Car, Users, BarChart3, Shield, CheckCircle, ArrowRight, Building2, Zap, Globe, Star } from 'lucide-react';
 
 interface LandingPageProps {
   onShowLogin: () => void;
@@ -8,7 +8,6 @@ interface LandingPageProps {
 
 const LandingPage: React.FC<LandingPageProps> = ({ onShowLogin, onShowRegister }) => {
   const [activeTab, setActiveTab] = useState<'features' | 'pricing' | 'testimonials'>('features');
-  const [showPreview, setShowPreview] = useState(false);
 
   const features = [
     {
@@ -114,111 +113,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onShowLogin, onShowRegister }
     }
   ];
 
-  // Preview mode content
-  const previewContent = (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 overflow-auto">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex justify-between items-center mb-8">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center">
-              <Car className="w-5 h-5 text-white" />
-            </div>
-            <h2 className="text-2xl font-bold text-white">ReconPro Preview</h2>
-          </div>
-          <button 
-            onClick={() => setShowPreview(false)}
-            className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
-          >
-            <X className="w-6 h-6 text-white" />
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Dashboard Preview */}
-          <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
-            <div className="p-4 bg-gradient-to-r from-blue-600/20 to-indigo-600/20 border-b border-white/10">
-              <h3 className="text-lg font-semibold text-white">Dashboard View</h3>
-            </div>
-            <div className="p-4">
-              <img 
-                src="https://images.pexels.com/photos/7688336/pexels-photo-7688336.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2" 
-                alt="Dashboard Preview" 
-                className="w-full h-auto rounded-lg border border-white/10 shadow-lg"
-              />
-              <p className="mt-4 text-gray-300 text-sm">
-                The main dashboard provides a comprehensive overview of your dealership's reconditioning process, 
-                with real-time statistics and quick access to all vehicles in your inventory.
-              </p>
-            </div>
-          </div>
-
-          {/* Vehicle Detail Preview */}
-          <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
-            <div className="p-4 bg-gradient-to-r from-blue-600/20 to-indigo-600/20 border-b border-white/10">
-              <h3 className="text-lg font-semibold text-white">Vehicle Detail View</h3>
-            </div>
-            <div className="p-4">
-              <img 
-                src="https://images.pexels.com/photos/7688460/pexels-photo-7688460.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2" 
-                alt="Vehicle Detail Preview" 
-                className="w-full h-auto rounded-lg border border-white/10 shadow-lg"
-              />
-              <p className="mt-4 text-gray-300 text-sm">
-                The vehicle detail page allows you to track every aspect of the reconditioning process,
-                from initial inspection to final preparation for sale.
-              </p>
-            </div>
-          </div>
-
-          {/* Inspection Checklist Preview */}
-          <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
-            <div className="p-4 bg-gradient-to-r from-blue-600/20 to-indigo-600/20 border-b border-white/10">
-              <h3 className="text-lg font-semibold text-white">Inspection Checklist</h3>
-            </div>
-            <div className="p-4">
-              <img 
-                src="https://images.pexels.com/photos/4482900/pexels-photo-4482900.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2" 
-                alt="Inspection Checklist Preview" 
-                className="w-full h-auto rounded-lg border border-white/10 shadow-lg"
-              />
-              <p className="mt-4 text-gray-300 text-sm">
-                Comprehensive inspection checklists ensure nothing is missed during the reconditioning process,
-                with customizable sections for emissions, cosmetic, mechanical, cleaning, and photography.
-              </p>
-            </div>
-          </div>
-
-          {/* Analytics Preview */}
-          <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
-            <div className="p-4 bg-gradient-to-r from-blue-600/20 to-indigo-600/20 border-b border-white/10">
-              <h3 className="text-lg font-semibold text-white">Advanced Analytics</h3>
-            </div>
-            <div className="p-4">
-              <img 
-                src="https://images.pexels.com/photos/7821473/pexels-photo-7821473.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2" 
-                alt="Analytics Preview" 
-                className="w-full h-auto rounded-lg border border-white/10 shadow-lg"
-              />
-              <p className="mt-4 text-gray-300 text-sm">
-                Gain valuable insights into your reconditioning process with detailed analytics,
-                tracking performance metrics, bottlenecks, and team productivity.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-8 text-center">
-          <button
-            onClick={() => setShowPreview(false)}
-            className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 font-semibold text-lg shadow-xl"
-          >
-            Close Preview
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
       {/* Header */}
@@ -272,11 +166,10 @@ const LandingPage: React.FC<LandingPageProps> = ({ onShowLogin, onShowRegister }
               <ArrowRight className="w-5 h-5 inline ml-2" />
             </button>
             <button
-              onClick={() => setShowPreview(true)}
-              className="px-6 sm:px-8 py-3 sm:py-4 bg-white/70 backdrop-blur-sm text-gray-700 rounded-xl hover:bg-white/90 transition-all duration-200 font-semibold text-lg border border-gray-200 shadow-lg flex items-center justify-center gap-2"
+              onClick={onShowLogin}
+              className="px-6 sm:px-8 py-3 sm:py-4 bg-white/70 backdrop-blur-sm text-gray-700 rounded-xl hover:bg-white/90 transition-all duration-200 font-semibold text-lg border border-gray-200 shadow-lg"
             >
-              <Eye className="w-5 h-5" />
-              View Preview
+              View Demo
             </button>
           </div>
         </div>
@@ -440,21 +333,12 @@ const LandingPage: React.FC<LandingPageProps> = ({ onShowLogin, onShowRegister }
           <p className="text-lg text-blue-100 mb-8 max-w-2xl mx-auto">
             Join hundreds of dealerships already using ReconPro to streamline their operations
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button
-              onClick={onShowRegister}
-              className="px-8 py-4 bg-white text-blue-600 rounded-xl hover:bg-gray-50 transition-all duration-200 font-semibold text-lg shadow-xl"
-            >
-              Start Your Free Trial Today
-            </button>
-            <button
-              onClick={() => setShowPreview(true)}
-              className="px-8 py-4 bg-blue-500/30 backdrop-blur-sm text-white border border-white/20 rounded-xl hover:bg-blue-500/40 transition-all duration-200 font-semibold text-lg shadow-xl flex items-center justify-center gap-2"
-            >
-              <Eye className="w-5 h-5" />
-              View Preview
-            </button>
-          </div>
+          <button
+            onClick={onShowRegister}
+            className="px-8 py-4 bg-white text-blue-600 rounded-xl hover:bg-gray-50 transition-all duration-200 font-semibold text-lg shadow-xl"
+          >
+            Start Your Free Trial Today
+          </button>
         </div>
       </section>
 
@@ -506,9 +390,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onShowLogin, onShowRegister }
           </div>
         </div>
       </footer>
-
-      {/* Preview Modal */}
-      {showPreview && previewContent}
     </div>
   );
 };

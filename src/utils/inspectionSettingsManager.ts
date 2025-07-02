@@ -110,7 +110,7 @@ export class InspectionSettingsManager {
         ratingLabels: storedSettings.ratingLabels && Array.isArray(storedSettings.ratingLabels) && storedSettings.ratingLabels.length > 0 
           ? storedSettings.ratingLabels 
           : DEFAULT_INSPECTION_SETTINGS.ratingLabels,
-        sections: storedSettings.sections && Array.isArray(storedSettings.sections)
+        sections: storedSettings.sections && Array.isArray(storedSettings.sections) 
           ? storedSettings.sections 
           : DEFAULT_INSPECTION_SETTINGS.sections
       };

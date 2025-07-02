@@ -43,6 +43,8 @@ export class ProgressCalculator {
    * Used when detailed inspection data is not available
    */
   static calculateSectionProgress(vehicle: Vehicle): number {
+    if (!vehicle || !vehicle.status) return 0;
+    
     // Only use the correct keys: emissions, cosmetic, mechanical, cleaned, photos
     const statuses = [
       vehicle.status.emissions,
@@ -53,7 +55,7 @@ export class ProgressCalculator {
     ];
     // Only count as completed if the status is 'completed' (which should only be set if all items are 'G')
     const completed = statuses.filter(status => status === 'completed').length;
-    return (completed / statuses.length) * 100;
+    return Math.round((completed / statuses.length) * 100);
   }
 
   /**

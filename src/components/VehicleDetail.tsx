@@ -435,7 +435,7 @@ const VehicleDetail: React.FC = () => {
   const locationStyle = getLocationStyle(vehicle.location);
 
   // Section status and progress logic
-  const sectionKeys = ['emissions', 'cosmetic', 'mechanical', 'cleaning', 'photos'];
+  const sectionKeys = ['emissions', 'cosmetic', 'mechanical', 'cleaned', 'photos'];
   const getSectionStatus = (sectionKey: string, inspectionData: any): InspectionStatus => {
     const items = inspectionData?.[sectionKey] || [];
     if (!Array.isArray(items) || items.length === 0) return 'not-started';

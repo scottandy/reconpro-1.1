@@ -442,10 +442,12 @@ export class InspectionSettingsManager {
           ...DEFAULT_INSPECTION_SETTINGS.globalSettings,
           ...(importedSettings.globalSettings || {})
         },
-        ratingLabels: importedSettings.ratingLabels && importedSettings.ratingLabels.length > 0 
+        ratingLabels: importedSettings.ratingLabels && Array.isArray(importedSettings.ratingLabels) && importedSettings.ratingLabels.length > 0 
           ? importedSettings.ratingLabels 
           : DEFAULT_INSPECTION_SETTINGS.ratingLabels,
-        sections: importedSettings.sections || DEFAULT_INSPECTION_SETTINGS.sections
+        sections: importedSettings.sections && Array.isArray(importedSettings.sections) 
+          ? importedSettings.sections 
+          : DEFAULT_INSPECTION_SETTINGS.sections
       };
 
       await this.saveSettings(dealershipId, mergedSettings);

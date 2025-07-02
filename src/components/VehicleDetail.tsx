@@ -48,6 +48,7 @@ const VehicleDetail: React.FC = () => {
   const [rightPanelView, setRightPanelView] = useState<'inspection' | 'team-notes'>('inspection');
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [overallProgress, setOverallProgress] = useState(0);
+  const [loadingError, setLoadingError] = useState<string | null>(null);
   
   // NEW: Location editing state
   const [isEditingLocation, setIsEditingLocation] = useState(false);
@@ -55,7 +56,6 @@ const VehicleDetail: React.FC = () => {
 
   const [inspectionData, setInspectionData] = useState<any>(null);
   const [inspectionLoading, setInspectionLoading] = useState(true);
-  const [loadingError, setLoadingError] = useState<string | null>(null);
 
   // Use a ref to track if the component is mounted
   const isMounted = React.useRef(true);
@@ -77,6 +77,7 @@ const VehicleDetail: React.FC = () => {
     if (!vehicle || !user) return;
     
     setInspectionLoading(true);
+    setLoadingError(null);
     
     InspectionDataManager.loadInspectionData(vehicle.id, user.id)
       .then(data => {
@@ -90,6 +91,7 @@ const VehicleDetail: React.FC = () => {
         if (isMounted.current) {
           setInspectionData({});
           setInspectionLoading(false);
+          setLoadingError("Failed to load inspection data");
         }
       });
   }, [vehicle?.id, user?.id]);

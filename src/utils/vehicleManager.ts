@@ -132,25 +132,8 @@ export class VehicleManager {
 
   static async addVehicle(dealershipId: string, vehicleData: Omit<Vehicle, 'id'>): Promise<Vehicle | null> {
     try {
-      console.log('=== VEHICLE ADDITION DEBUG ===');
-      console.log('Input vehicleData:', vehicleData);
-      console.log('Dealership ID:', dealershipId);
-      
       const dbData = this.toDatabaseFormat(vehicleData);
       dbData.dealership_id = dealershipId;
-      
-      console.log('Database format data:', dbData);
-      console.log('Data types:', {
-        vin: typeof dbData.vin,
-        year: typeof dbData.year,
-        make: typeof dbData.make,
-        model: typeof dbData.model,
-        mileage: typeof dbData.mileage,
-        color: typeof dbData.color,
-        date_acquired: typeof dbData.date_acquired,
-        location_name: typeof dbData.location_name,
-        dealership_id: typeof dbData.dealership_id
-      });
       
       const { data, error } = await supabase
         .from('vehicles')
@@ -159,22 +142,12 @@ export class VehicleManager {
         .single();
       
       if (error) {
-        console.error('=== SUPABASE ERROR ===');
         console.error('Error adding vehicle to Supabase:', error);
-        console.error('Error details:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        });
-        console.error('Full error object:', JSON.stringify(error, null, 2));
         return null;
       }
       
-      console.log('Successfully added vehicle:', data);
       return this.fromDatabaseFormat(data);
     } catch (validationError) {
-      console.error('=== VALIDATION ERROR ===');
       console.error('Validation error:', validationError);
       return null;
     }
@@ -212,10 +185,6 @@ export class VehicleManager {
       .single();
     if (error) {
       console.error('Error updating vehicle in Supabase:', error);
-      if (error.message) console.error('Supabase error message:', error.message);
-      if (error.details) console.error('Supabase error details:', error.details);
-      if (error.hint) console.error('Supabase error hint:', error.hint);
-      // Reminder: Prevent infinite update loops in frontend logic!
       return null;
     }
     return this.fromDatabaseFormat(data);
@@ -343,17 +312,24 @@ export class VehicleManager {
   }
 
   static async getVehicleById(dealershipId: string, vehicleId: string): Promise<Vehicle | null> {
-    const { data, error } = await supabase
-      .from('vehicles')
-      .select('*')
-      .eq('id', vehicleId)
-      .eq('dealership_id', dealershipId)
-      .single();
-    if (error) {
-      console.error('Error fetching vehicle by ID:', error);
+    try {
+      const { data, error } = await supabase
+        .from('vehicles')
+        .select('*')
+        .eq('id', vehicleId)
+        .eq('dealership_id', dealershipId)
+        .single();
+      
+      if (error) {
+        console.error('Error fetching vehicle by ID:', error);
+        return null;
+      }
+      
+      return this.fromDatabaseFormat(data);
+    } catch (error) {
+      console.error('Error in getVehicleById:', error);
       return null;
     }
-    return this.fromDatabaseFormat(data);
   }
 
   static async searchVehicles(dealershipId: string, query: string): Promise<Vehicle[]> {

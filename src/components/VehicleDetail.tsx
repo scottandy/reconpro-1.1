@@ -55,8 +55,17 @@ const VehicleDetail: React.FC = () => {
 
   const [inspectionData, setInspectionData] = useState<any>(null);
   const [inspectionLoading, setInspectionLoading] = useState(true);
+  const [loadingError, setLoadingError] = useState<string | null>(null);
 
-  // console.log('[VehicleDetail] Render', { vehicle });
+  // Use a ref to track if the component is mounted
+  const isMounted = React.useRef(true);
+
+  // Set isMounted to false when component unmounts
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (id && user && user.dealershipId) {
@@ -66,14 +75,23 @@ const VehicleDetail: React.FC = () => {
 
   useEffect(() => {
     if (!vehicle || !user) return;
+    
     setInspectionLoading(true);
+    
     InspectionDataManager.loadInspectionData(vehicle.id, user.id)
-      .then(data => setInspectionData(data || {}))
+      .then(data => {
+        if (isMounted.current) {
+          setInspectionData(data || {});
+          setInspectionLoading(false);
+        }
+      })
       .catch(err => {
         console.error("Error loading inspection data:", err);
-        setInspectionData({});
-      })
-      .finally(() => setInspectionLoading(false));
+        if (isMounted.current) {
+          setInspectionData({});
+          setInspectionLoading(false);
+        }
+      });
   }, [vehicle?.id, user?.id]);
 
   // Calculate and update overall progress whenever vehicle status changes
@@ -86,25 +104,33 @@ const VehicleDetail: React.FC = () => {
 
   const loadVehicle = async (vehicleId: string, dealershipId: string) => {
     setIsLoading(true);
+    setLoadingError(null);
+    
     try {
       const vehicle = await VehicleManager.getVehicleById(dealershipId, vehicleId);
-      if (vehicle) {
-        setVehicle(vehicle);
-        setEditedNotes(vehicle.notes || '');
-        setEditedLocation(vehicle.location);
-      } else {
-        setVehicle(null);
+      
+      if (isMounted.current) {
+        if (vehicle) {
+          setVehicle(vehicle);
+          setEditedNotes(vehicle.notes || '');
+          setEditedLocation(vehicle.location);
+        } else {
+          setVehicle(null);
+          setLoadingError('Vehicle not found');
+        }
+        setIsLoading(false);
       }
     } catch (error) {
       console.error('Error loading vehicle:', error);
-      setVehicle(null);
-    } finally {
-      setIsLoading(false);
+      if (isMounted.current) {
+        setVehicle(null);
+        setLoadingError('Error loading vehicle data');
+        setIsLoading(false);
+      }
     }
   };
 
   const handleStatusUpdate = async (section: keyof Vehicle['status'], status: InspectionStatus) => {
-    console.log('[VehicleDetail] handleStatusUpdate', { section, status });
     if (!vehicle || !user?.dealershipId) return;
     
     // Only update if the status has actually changed
@@ -123,7 +149,7 @@ const VehicleDetail: React.FC = () => {
         status: updatedVehicle.status
       });
       
-      if (result) {
+      if (result && isMounted.current) {
         setVehicle(result);
         // Recalculate progress after status update
         const progress = ProgressCalculator.calculateDetailedProgress(result.id, result);
@@ -135,7 +161,6 @@ const VehicleDetail: React.FC = () => {
   };
 
   const handleSectionComplete = (section: keyof Vehicle['status'], userInitials: string) => {
-    // console.log('[VehicleDetail] handleSectionComplete', { section, userInitials });
     if (!vehicle) return;
     
     // Record analytics
@@ -168,7 +193,6 @@ const VehicleDetail: React.FC = () => {
   };
 
   const onAddTeamNote = (note: Omit<TeamNote, 'id' | 'timestamp'>) => {
-    console.log('[VehicleDetail] handleAddTeamNote', note);
     if (!vehicle) return;
     const newNote: TeamNote = {
       ...note,
@@ -183,7 +207,6 @@ const VehicleDetail: React.FC = () => {
   };
 
   const handleSaveNotes = () => {
-    console.log('[VehicleDetail] handleSaveNotes');
     if (!vehicle) return;
     const updatedVehicle = {
       ...vehicle,
@@ -200,7 +223,6 @@ const VehicleDetail: React.FC = () => {
 
   // NEW: Location update handlers
   const handleSaveLocation = () => {
-    console.log('[VehicleDetail] handleSaveLocation');
     if (!vehicle || !user) return;
     const oldLocation = vehicle.location;
     const newLocation = editedLocation.trim();
@@ -238,14 +260,13 @@ const VehicleDetail: React.FC = () => {
   };
 
   const saveVehicleUpdate = async (updatedVehicle: Vehicle) => {
-    console.log('[VehicleDetail] saveVehicleUpdate', updatedVehicle);
     if (!user || !user.dealershipId) return;
     setIsLoading(true);
     try {
       const dealershipId = user.dealershipId;
       const vehicleId = updatedVehicle.id;
       const result = await VehicleManager.updateVehicle(dealershipId, vehicleId, updatedVehicle);
-      if (result) {
+      if (result && isMounted.current) {
         setVehicle(result);
         // Recalculate progress after any vehicle update
         const progress = ProgressCalculator.calculateDetailedProgress(result.id, result);
@@ -256,7 +277,9 @@ const VehicleDetail: React.FC = () => {
     } catch (error) {
       console.error('Error updating vehicle:', error);
     } finally {
-      setIsLoading(false);
+      if (isMounted.current) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -370,7 +393,7 @@ const VehicleDetail: React.FC = () => {
     );
   }
 
-  if (!vehicle) {
+  if (loadingError || !vehicle) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 flex items-center justify-center">
         <div className="text-center">
@@ -378,7 +401,7 @@ const VehicleDetail: React.FC = () => {
             <Car className="w-8 h-8 text-gray-500" />
           </div>
           <h2 className="text-xl font-bold text-gray-900 mb-2">Vehicle Not Found</h2>
-          <p className="text-gray-600 mb-6">The vehicle you're looking for doesn't exist.</p>
+          <p className="text-gray-600 mb-6">{loadingError || "The vehicle you're looking for doesn't exist."}</p>
           <button
             onClick={() => navigate('/')}
             className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
@@ -386,6 +409,20 @@ const VehicleDetail: React.FC = () => {
             <ArrowLeft className="w-4 h-4" />
             Back to Dashboard
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Guard: show loading state until inspectionData is loaded
+  if (inspectionLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 animate-pulse">
+            <Car className="w-8 h-8 text-white" />
+          </div>
+          <p className="text-gray-600 font-medium">Loading inspection data...</p>
         </div>
       </div>
     );
@@ -411,20 +448,6 @@ const VehicleDetail: React.FC = () => {
   }, {} as Record<string, InspectionStatus>);
   const completedSections = sectionKeys.filter(key => sectionStatuses[key] === 'completed').length;
   const sectionProgress = Math.round((completedSections / sectionKeys.length) * 100);
-
-  // Guard: show loading state until inspectionData is loaded
-  if (inspectionLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 animate-pulse">
-            <Car className="w-8 h-8 text-white" />
-          </div>
-          <p className="text-gray-600 font-medium">Loading inspection data...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">

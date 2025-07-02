@@ -8,9 +8,6 @@ export class InspectionDataManager {
     inspectionData: InspectionData
   ): Promise<boolean> {
     try {
-      console.log('Saving inspection data:', { vehicleId, inspectorId });
-      console.log('inspectionData to be saved:', JSON.stringify(inspectionData, null, 2));
-      
       // First, check if a checklist already exists for this vehicle
       const { data: existingChecklist, error: selectError } = await supabase
         .from('inspection_checklists')
@@ -25,7 +22,6 @@ export class InspectionDataManager {
 
       if (existingChecklist) {
         // Update existing checklist
-        console.log('Updating existing checklist:', existingChecklist.id);
         const { error: updateError } = await supabase
           .from('inspection_checklists')
           .update({
@@ -42,7 +38,6 @@ export class InspectionDataManager {
         }
       } else {
         // Insert new checklist
-        console.log('Creating new checklist');
         const { error: insertError } = await supabase
           .from('inspection_checklists')
           .insert({
@@ -59,7 +54,6 @@ export class InspectionDataManager {
         }
       }
 
-      console.log('Inspection data saved successfully');
       return true;
     } catch (error) {
       console.error('Error saving inspection data:', error);
@@ -72,7 +66,6 @@ export class InspectionDataManager {
     inspectorId: string
   ): Promise<InspectionData | null> {
     try {
-      // console.log('Loading inspection data:', { vehicleId, inspectorId });
       const { data, error } = await supabase
         .from('inspection_checklists')
         .select('checklist_data')
@@ -82,13 +75,12 @@ export class InspectionDataManager {
       if (error) {
         if (error.code === 'PGRST116') {
           // No data found, return null
-          // console.log('No inspection data found for this vehicle');
           return null;
         }
         console.error('Error loading inspection data:', error);
         return null;
       }
-      // console.log('Inspection data loaded successfully');
+      
       return data.checklist_data;
     } catch (error) {
       console.error('Error loading inspection data:', error);

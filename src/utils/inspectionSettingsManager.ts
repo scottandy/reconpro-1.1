@@ -107,10 +107,12 @@ export class InspectionSettingsManager {
           ...DEFAULT_INSPECTION_SETTINGS.globalSettings,
           ...(storedSettings.globalSettings || {})
         },
-        ratingLabels: storedSettings.ratingLabels && storedSettings.ratingLabels.length > 0 
+        ratingLabels: storedSettings.ratingLabels && Array.isArray(storedSettings.ratingLabels) && storedSettings.ratingLabels.length > 0 
           ? storedSettings.ratingLabels 
           : DEFAULT_INSPECTION_SETTINGS.ratingLabels,
-        sections: storedSettings.sections || DEFAULT_INSPECTION_SETTINGS.sections
+        sections: storedSettings.sections && Array.isArray(storedSettings.sections)
+          ? storedSettings.sections 
+          : DEFAULT_INSPECTION_SETTINGS.sections
       };
       
       return mergedSettings;

@@ -42,13 +42,13 @@ const VehicleDetail: React.FC = () => {
   const { user } = useAuth();
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadingError, setLoadingError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [editedNotes, setEditedNotes] = useState('');
   const [rightPanelView, setRightPanelView] = useState<'inspection' | 'team-notes'>('inspection');
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [overallProgress, setOverallProgress] = useState(0);
-  const [loadingError, setLoadingError] = useState<string | null>(null);
   
   // NEW: Location editing state
   const [isEditingLocation, setIsEditingLocation] = useState(false);

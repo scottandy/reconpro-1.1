@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { mockVehicles } from '../data/mockVehicles';
@@ -58,7 +58,7 @@ const VehicleDetail: React.FC = () => {
   const [inspectionLoading, setInspectionLoading] = useState(true);
 
   // Use a ref to track if the component is mounted
-  const isMounted = React.useRef(true);
+  const isMounted = useRef(true);
 
   // Set isMounted to false when component unmounts
   useEffect(() => {

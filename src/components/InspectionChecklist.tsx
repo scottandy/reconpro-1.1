@@ -6,6 +6,7 @@ import { InspectionSettingsManager } from '../utils/inspectionSettingsManager';
 import { InspectionSettings, InspectionSection } from '../types/inspectionSettings';
 import { CheckCircle2, Circle, Save, Star, AlertTriangle, CheckCircle, Clock, Filter, X, ChevronDown, ChevronUp, FileText } from 'lucide-react';
 import { InspectionDataManager } from '../utils/inspectionDataManager';
+import { VehicleManager } from '../utils/vehicleManager';
 
 // console.log('[InspectionChecklist] File loaded');
 
@@ -17,6 +18,7 @@ interface InspectionChecklistProps {
   activeFilter?: string | null;
   onGeneratePdf?: () => void;
   onInspectionDataChange?: (data: InspectionData) => void; // <-- Add this line
+  onTeamNoteAdded?: (note: TeamNote) => void;
 }
 
 type ItemRating = 'G' | 'F' | 'N' | 'not-checked';
@@ -452,7 +454,8 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
   onAddTeamNote, 
   activeFilter,
   onGeneratePdf,
-  onInspectionDataChange
+  onInspectionDataChange,
+  onTeamNoteAdded
 }) => {
   const instanceId = React.useRef(Math.random().toString(36).substr(2, 5)).current;
   // console.log(`[InspectionChecklist] Instance ${instanceId} Render`, { vehicle, activeFilter });
@@ -519,7 +522,36 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
   const updateInspectionItem = (section: keyof InspectionData, key: string, rating: ItemRating) => {
     setInspectionData(prev => {
       const arr = (prev[section] as ChecklistItem[]) || [];
-      const updatedArr = arr.map(item => item.key === key ? { ...item, rating } : item);
+      const updatedArr = arr.map(item => {
+        if (item.key === key) {
+          // Directly insert a team note into the database (no UI/state update)
+          if (item.rating !== rating && rating !== 'not-checked' && user && user.dealershipId && vehicle?.id) {
+            const prevLabel =
+              item.rating === 'G' ? 'Great' :
+              item.rating === 'F' ? 'Fair' :
+              item.rating === 'N' ? 'Needs Attention' :
+              'Not Checked';
+            const newLabel =
+              rating === 'G' ? 'Great' :
+              rating === 'F' ? 'Fair' :
+              rating === 'N' ? 'Needs Attention' :
+              'Not Checked';
+            const note = {
+              id: Date.now().toString(),
+              text: `Changed "${item.label}" from "${prevLabel}" to "${newLabel}".`,
+              userInitials: user.initials,
+              timestamp: new Date().toISOString(),
+              category: String(section)
+            };
+            VehicleManager.addTeamNote(user.dealershipId, vehicle.id, note);
+            if (typeof onTeamNoteAdded === 'function') {
+              onTeamNoteAdded(note);
+            }
+          }
+          return { ...item, rating };
+        }
+        return item;
+      });
       const newData = { ...prev, [section]: updatedArr } as InspectionData;
       return newData;
     });

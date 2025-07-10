@@ -311,6 +311,12 @@ const VehicleDetail: React.FC = () => {
     return 'not-started';
   };
 
+  // Handler to append a new team note to local state
+  const handleTeamNoteAdded = (note: TeamNote) => {
+    if (!vehicle) return;
+    setVehicle(prev => prev ? { ...prev, teamNotes: [note, ...(prev.teamNotes || [])] } : prev);
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 flex items-center justify-center">
@@ -697,6 +703,7 @@ const VehicleDetail: React.FC = () => {
                 activeFilter={activeFilter}
                 onGeneratePdf={() => setShowPdfModal(true)}
                 onInspectionDataChange={setInspectionData}
+                onTeamNoteAdded={handleTeamNoteAdded}
               />
             ) : (
               <TeamNotes
@@ -1071,6 +1078,7 @@ const VehicleDetail: React.FC = () => {
                 activeFilter={activeFilter}
                 onGeneratePdf={() => setShowPdfModal(true)}
                 onInspectionDataChange={setInspectionData}
+                onTeamNoteAdded={handleTeamNoteAdded}
               />
             ) : (
               <TeamNotes

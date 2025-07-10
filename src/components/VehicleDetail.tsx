@@ -690,6 +690,7 @@ const VehicleDetail: React.FC = () => {
                 onAddTeamNote={handleAddTeamNote}
                 activeFilter={activeFilter}
                 onGeneratePdf={() => setShowPdfModal(true)}
+                onInspectionDataChange={setInspectionData}
               />
             ) : (
               <TeamNotes
@@ -1063,6 +1064,7 @@ const VehicleDetail: React.FC = () => {
                 onAddTeamNote={handleAddTeamNote}
                 activeFilter={activeFilter}
                 onGeneratePdf={() => setShowPdfModal(true)}
+                onInspectionDataChange={setInspectionData}
               />
             ) : (
               <TeamNotes

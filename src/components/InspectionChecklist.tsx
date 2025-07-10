@@ -16,6 +16,7 @@ interface InspectionChecklistProps {
   onAddTeamNote: (note: Omit<TeamNote, 'id' | 'timestamp'>) => void;
   activeFilter?: string | null;
   onGeneratePdf?: () => void;
+  onInspectionDataChange?: (data: InspectionData) => void; // <-- Add this line
 }
 
 type ItemRating = 'G' | 'F' | 'N' | 'not-checked';
@@ -450,7 +451,8 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
   onSectionComplete, 
   onAddTeamNote, 
   activeFilter,
-  onGeneratePdf 
+  onGeneratePdf,
+  onInspectionDataChange
 }) => {
   const instanceId = React.useRef(Math.random().toString(36).substr(2, 5)).current;
   // console.log(`[InspectionChecklist] Instance ${instanceId} Render`, { vehicle, activeFilter });
@@ -510,17 +512,39 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
     return () => { cancelled = true; };
   }, [vehicle?.id, user?.id]);
 
-  // Update inspection item and trigger save
+  // Track if we should auto-save after a button click
+  const shouldAutoSaveRef = useRef(false);
+
+  // Update inspection item and trigger auto-save
   const updateInspectionItem = (section: keyof InspectionData, key: string, rating: ItemRating) => {
-    // console.log(`[InspectionChecklist] updateInspectionItem: User clicked ${rating} for ${section}.${key}`);
     setInspectionData(prev => {
       const arr = (prev[section] as ChecklistItem[]) || [];
       const updatedArr = arr.map(item => item.key === key ? { ...item, rating } : item);
       const newData = { ...prev, [section]: updatedArr } as InspectionData;
-      // console.log('[InspectionChecklist] setInspectionData (from updateInspectionItem)', newData);
       return newData;
     });
+    shouldAutoSaveRef.current = true;
   };
+
+  // Auto-save when inspectionData changes due to a button click
+  useEffect(() => {
+    if (shouldAutoSaveRef.current) {
+      (async () => {
+        const ok = await saveInspectionData();
+        if (ok) console.log('Saved Inspection');
+        shouldAutoSaveRef.current = false;
+      })();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inspectionData]);
+
+  // Notify parent of inspectionData changes
+  useEffect(() => {
+    if (typeof onInspectionDataChange === 'function') {
+      onInspectionDataChange(inspectionData);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inspectionData]);
 
   // Update section notes and trigger save
   const updateSectionNotes = (section: keyof InspectionData['sectionNotes'], notes: string) => {

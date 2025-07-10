@@ -303,6 +303,8 @@ const VehicleDetail: React.FC = () => {
   const getSectionStatus = (sectionKey: string, inspectionData: any): InspectionStatus => {
     const items = inspectionData?.[sectionKey] || [];
     if (!Array.isArray(items) || items.length === 0) return 'not-started';
+    // If any item is 'not-checked', return 'not-started' (grey)
+    if (items.some((item: any) => item.rating === 'not-checked')) return 'not-started';
     if (items.some((item: any) => item.rating === 'N')) return 'needs-attention';
     if (items.some((item: any) => item.rating === 'F')) return 'pending';
     if (items.every((item: any) => item.rating === 'G')) return 'completed';
@@ -354,7 +356,11 @@ const VehicleDetail: React.FC = () => {
     return acc;
   }, {} as Record<string, InspectionStatus>);
 
-  const completedSections = sectionKeys.filter(key => sectionStatuses[key] === 'completed').length;
+  // Count sections that are 'completed', 'pending', or 'needs-attention' as completed for progress
+  const completedSections = sectionKeys.filter(key => {
+    const status = sectionStatuses[key];
+    return status === 'completed' || status === 'pending' || status === 'needs-attention';
+  }).length;
   const overallProgress = Math.round((completedSections / sectionKeys.length) * 100);
 
   // Guard: show loading state until inspectionData is loaded

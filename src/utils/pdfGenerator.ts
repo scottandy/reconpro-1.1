@@ -497,4 +497,22 @@ export class PDFGenerator {
 
     return htmlContent;
   }
+
+  static downloadPDF(html: string, fileName: string) {
+    const blob = new Blob([html], { type: 'text/html' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  static previewPDF(html: string) {
+    const newWindow = window.open('', '_blank');
+    if (newWindow) {
+      newWindow.document.write(html);
+      newWindow.document.close();
+    }
+  }
 }

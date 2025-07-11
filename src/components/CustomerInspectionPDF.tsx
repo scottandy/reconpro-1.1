@@ -165,6 +165,46 @@ const CustomerInspectionPDF: React.FC<CustomerInspectionPDFProps> = ({
     PDFGenerator.previewPDF(pdfHtml);
   };
 
+  const handleEmailPDF = () => {
+    if (!pdfHtml) return;
+    
+    const fileName = `${vehicle.year}_${vehicle.make}_${vehicle.model}_Inspection_${new Date().toISOString().split('T')[0]}.html`;
+    const subject = `Vehicle Inspection Report - ${vehicle.year} ${vehicle.make} ${vehicle.model}`;
+    const body = `Please find attached the vehicle inspection report for the ${vehicle.year} ${vehicle.make} ${vehicle.model}.\n\nThis report contains detailed inspection results and recommendations.\n\nBest regards,\n${dealership?.name || 'Your Dealership'}`;
+    
+    // Create a data URL for the HTML content
+    const blob = new Blob([pdfHtml], { type: 'text/html' });
+    const dataUrl = URL.createObjectURL(blob);
+    
+    // Create mailto link with attachment (note: most email clients don't support attachments via mailto)
+    // So we'll include the content in the body and provide instructions
+    const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body + '\n\nNote: The full inspection report will be downloaded separately. Please attach the downloaded file to your email.')}`;
+    
+    // Open email client and trigger download
+    window.open(mailtoLink);
+    
+    // Also trigger the download so user can attach it manually
+    setTimeout(() => {
+      PDFGenerator.downloadPDF(pdfHtml, fileName);
+    }, 500);
+  };
+
+  const handlePrintPDF = () => {
+    if (!pdfHtml) return;
+    
+    // Create a new window with the PDF content and trigger print
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(pdfHtml);
+      printWindow.document.close();
+      
+      // Wait for content to load, then print
+      printWindow.onload = () => {
+        printWindow.print();
+      };
+    }
+  };
+
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('en-US', {
       month: 'short',
@@ -384,15 +424,17 @@ const CustomerInspectionPDF: React.FC<CustomerInspectionPDFProps> = ({
                 </button>
                 <div className="grid grid-cols-2 gap-2">
                   <button
-                    onClick={() => {/* Email functionality would go here */}}
+                    onClick={handleEmailPDF}
                     className="flex items-center justify-center gap-1 px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm"
+                    disabled={!pdfHtml || isGenerating}
                   >
                     <Mail className="w-3 h-3" />
                     <span>Email</span>
                   </button>
                   <button
-                    onClick={() => {/* Print functionality would go here */}}
+                    onClick={handlePrintPDF}
                     className="flex items-center justify-center gap-1 px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm"
+                    disabled={!pdfHtml || isGenerating}
                   >
                     <Printer className="w-3 h-3" />
                     <span>Print</span>

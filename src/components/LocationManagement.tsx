@@ -60,9 +60,19 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({ location, veh
   };
 
   const getOverallProgress = (vehicle: Vehicle) => {
-    const statuses = Object.values(vehicle.status);
-    const completed = statuses.filter(status => status === 'completed').length;
-    return (completed / statuses.length) * 100;
+    // Since we changed vehicle.status to a string, we'll return a simple progress based on the status
+    switch (vehicle.status) {
+      case 'ready':
+        return 100;
+      case 'issues':
+        return 75;
+      case 'working':
+        return 50;
+      case 'pending':
+        return 25;
+      default:
+        return 0;
+    }
   };
 
   const totalValue = vehicles.reduce((sum, vehicle) => sum + vehicle.price, 0);
@@ -114,7 +124,7 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({ location, veh
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-purple-600">
-                {vehicles.filter(v => Object.values(v.status).every(s => s === 'completed')).length}
+                {vehicles.filter(v => v.status === 'ready').length}
               </div>
               <div className="text-sm text-gray-600">Ready for Sale</div>
             </div>
@@ -139,7 +149,7 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({ location, veh
             <div className="space-y-4">
               {vehicles.map((vehicle) => {
                 const progress = getOverallProgress(vehicle);
-                const isReadyForSale = Object.values(vehicle.status).every(status => status === 'completed');
+                const isReadyForSale = vehicle.status === 'ready';
                 
                 return (
                   <Link
@@ -218,42 +228,45 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({ location, veh
                           </div>
                         </div>
 
-                        {/* Status Badges */}
+                        {/* Status Badge */}
                         <div className="flex flex-wrap gap-2 mb-3">
-                          {Object.entries(vehicle.status).map(([section, status]) => {
+                          {(() => {
                             const getStatusColor = (status: string) => {
                               switch (status) {
-                                case 'completed':
+                                case 'ready':
                                   return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+                                case 'working':
+                                  return 'bg-amber-100 text-amber-800 border-amber-200';
+                                case 'issues':
+                                  return 'bg-red-100 text-red-800 border-red-200';
                                 case 'pending':
                                   return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-                                case 'needs-attention':
-                                  return 'bg-red-100 text-red-800 border-red-200';
+                                case 'sold':
+                                  return 'bg-gray-100 text-gray-800 border-gray-200';
                                 default:
                                   return 'bg-gray-100 text-gray-600 border-gray-200';
                               }
                             };
 
-                            const getSectionLabel = (section: string) => {
+                            const getStatusLabel = (status: string) => {
                               const labels = {
-                                emissions: 'Emissions',
-                                cosmetic: 'Cosmetic',
-                                mechanical: 'Mechanical',
-                                cleaned: 'Cleaned',
-                                photos: 'Photos'
+                                ready: 'Ready',
+                                working: 'Working',
+                                issues: 'Issues',
+                                pending: 'Pending',
+                                sold: 'Sold'
                               };
-                              return labels[section as keyof typeof labels] || section;
+                              return labels[status as keyof typeof labels] || status;
                             };
 
                             return (
                               <span
-                                key={section}
-                                className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(status)} dark:bg-gray-800/60 dark:text-gray-200 dark:border-gray-700`}
+                                className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(vehicle.status)} dark:bg-gray-800/60 dark:text-gray-200 dark:border-gray-700`}
                               >
-                                {getSectionLabel(section)}
+                                {getStatusLabel(vehicle.status)}
                               </span>
                             );
-                          })}
+                          })()}
                         </div>
 
                         {/* Notes */}

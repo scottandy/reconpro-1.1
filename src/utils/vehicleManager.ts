@@ -25,13 +25,7 @@ export class VehicleManager {
       target_sale_date: vehicle.targetSaleDate || null,
       price: vehicle.price || 0,
       location_name: vehicle.location, // Map location to location_name
-      status: vehicle.status || {
-        emissions: 'not-started',
-        cosmetic: 'not-started',
-        mechanical: 'not-started',
-        cleaned: 'not-started',
-        photos: 'not-started'
-      },
+      status: vehicle.status,
       notes: vehicle.notes || null,
       team_notes: vehicle.teamNotes || [],
       customer_comments: vehicle.customerComments || null,
@@ -56,13 +50,7 @@ export class VehicleManager {
       targetSaleDate: data.target_sale_date,
       price: data.price,
       location: data.location_name, // Map location_name to location
-      status: data.status || {
-        emissions: 'not-started',
-        cosmetic: 'not-started',
-        mechanical: 'not-started',
-        cleaned: 'not-started',
-        photos: 'not-started'
-      },
+      status: data.status,
       notes: data.notes,
       teamNotes: data.team_notes || [],
       customerComments: data.customer_comments,

@@ -33,7 +33,8 @@ import {
   MessageSquare,
   ClipboardList,
   Download,
-  Printer
+  Printer,
+  Archive
 } from 'lucide-react';
 
 const VehicleDetail: React.FC = () => {
@@ -84,32 +85,16 @@ const VehicleDetail: React.FC = () => {
     setIsLoading(false);
   };
 
-  const handleStatusUpdate = (section: keyof Vehicle['status'], status: InspectionStatus) => {
-    console.log('[VehicleDetail] handleStatusUpdate', { section, status });
-    if (!vehicle) return;
-    const updatedVehicle = {
-      ...vehicle,
-      status: {
-        ...vehicle.status,
-        [section]: status
-      }
-    };
-    saveVehicleUpdate(updatedVehicle);
+  // These functions are no longer needed since we're not using vehicle.status object
+  // Status is now calculated from inspection data, not stored in vehicle.status
+  const handleStatusUpdate = (section: string, status: InspectionStatus) => {
+    console.log('[VehicleDetail] handleStatusUpdate - Status updates now handled by inspection data');
+    // This function is deprecated - status is now calculated from inspection data
   };
 
-  const handleSectionComplete = (section: keyof Vehicle['status'], userInitials: string) => {
-    // console.log('[VehicleDetail] handleSectionComplete', { section, userInitials });
-    if (!vehicle) return;
-    // Only update if not already completed
-    if (vehicle.status[section] === 'completed') return;
-    const updatedVehicle = {
-      ...vehicle,
-      status: {
-        ...vehicle.status,
-        [section]: 'completed' as InspectionStatus
-      }
-    };
-    saveVehicleUpdate(updatedVehicle);
+  const handleSectionComplete = (section: string, userInitials: string) => {
+    console.log('[VehicleDetail] handleSectionComplete - Status updates now handled by inspection data');
+    // This function is deprecated - status is now calculated from inspection data
     // Record analytics
     const vehicleName = `${vehicle.year} ${vehicle.make} ${vehicle.model}`;
     AnalyticsManager.recordCompletion(
@@ -188,6 +173,102 @@ const VehicleDetail: React.FC = () => {
   const handleCancelEditLocation = () => {
     setEditedLocation(vehicle?.location || '');
     setIsEditingLocation(false);
+  };
+
+  const handleMarkAsSold = async () => {
+    if (!vehicle || !user) return;
+    
+    // Check if already sold - if so, unmark it
+    if (vehicle.status === 'sold') {
+      const confirmation = confirm('Are you sure you want to unmark this vehicle as sold?');
+      if (!confirmation) return;
+
+      const updatedVehicle = {
+        ...vehicle,
+        status: null // Clear the status
+      };
+
+      // Add team note about status change
+      const statusNote: TeamNote = {
+        id: Date.now().toString(),
+        text: `Vehicle unmarked as sold by ${user.firstName} ${user.lastName}.`,
+        userInitials: user.initials,
+        timestamp: new Date().toISOString(),
+        category: 'general'
+      };
+
+      updatedVehicle.teamNotes = [statusNote, ...(vehicle.teamNotes || [])];
+      await saveVehicleUpdate(updatedVehicle);
+    } else {
+      // Mark as sold
+      const confirmation = confirm('Are you sure you want to mark this vehicle as sold?');
+      if (!confirmation) return;
+
+      const updatedVehicle = {
+        ...vehicle,
+        status: 'sold' as const
+      };
+
+      // Add team note about status change
+      const statusNote: TeamNote = {
+        id: Date.now().toString(),
+        text: `Vehicle marked as sold by ${user.firstName} ${user.lastName}.`,
+        userInitials: user.initials,
+        timestamp: new Date().toISOString(),
+        category: 'general'
+      };
+
+      updatedVehicle.teamNotes = [statusNote, ...(vehicle.teamNotes || [])];
+      await saveVehicleUpdate(updatedVehicle);
+    }
+  };
+
+  const handleMarkAsPending = async () => {
+    if (!vehicle || !user) return;
+    
+    // Check if already pending - if so, unmark it
+    if (vehicle.status === 'pending') {
+      const confirmation = confirm('Are you sure you want to unmark this vehicle as pending?');
+      if (!confirmation) return;
+
+      const updatedVehicle = {
+        ...vehicle,
+        status: null // Clear the status
+      };
+
+      // Add team note about status change
+      const statusNote: TeamNote = {
+        id: Date.now().toString(),
+        text: `Vehicle unmarked as pending by ${user.firstName} ${user.lastName}.`,
+        userInitials: user.initials,
+        timestamp: new Date().toISOString(),
+        category: 'general'
+      };
+
+      updatedVehicle.teamNotes = [statusNote, ...(vehicle.teamNotes || [])];
+      await saveVehicleUpdate(updatedVehicle);
+    } else {
+      // Mark as pending
+      const confirmation = confirm('Are you sure you want to mark this vehicle as pending?');
+      if (!confirmation) return;
+
+      const updatedVehicle = {
+        ...vehicle,
+        status: 'pending' as const
+      };
+
+      // Add team note about status change
+      const statusNote: TeamNote = {
+        id: Date.now().toString(),
+        text: `Vehicle marked as pending by ${user.firstName} ${user.lastName}.`,
+        userInitials: user.initials,
+        timestamp: new Date().toISOString(),
+        category: 'general'
+      };
+
+      updatedVehicle.teamNotes = [statusNote, ...(vehicle.teamNotes || [])];
+      await saveVehicleUpdate(updatedVehicle);
+    }
   };
 
   const saveVehicleUpdate = async (updatedVehicle: Vehicle) => {
@@ -352,7 +433,27 @@ const VehicleDetail: React.FC = () => {
   }
 
   const summaryNotes = getSummaryNotes();
-  const isReadyForSale = Object.values(vehicle.status).every(status => status === 'completed');
+  
+  // Check if vehicle is ready for sale based on inspection data (all ratings are 'G')
+  const isReadyForSale = inspectionData && (() => {
+    const sectionKeys = ['emissions', 'cosmetic', 'mechanical', 'cleaning', 'photos'];
+    const allRatings: string[] = [];
+    
+    for (const sectionKey of sectionKeys) {
+      const items = inspectionData[sectionKey] || [];
+      if (Array.isArray(items)) {
+        items.forEach((item: any) => {
+          if (item.rating) {
+            allRatings.push(item.rating);
+          }
+        });
+      }
+    }
+    
+    // Ready for sale: ALL ratings are 'G' and we have at least some ratings
+    return allRatings.length > 0 && allRatings.every(rating => rating === 'G');
+  })();
+  
   const locationStyle = getLocationStyle(vehicle.location);
 
   // Section status and progress logic
@@ -446,6 +547,18 @@ const VehicleDetail: React.FC = () => {
                       Ready for Sale
                     </div>
                   )}
+                  {vehicle.status === 'pending' && (
+                    <div className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs font-semibold border border-purple-200">
+                      <Clock className="w-3 h-3" />
+                      Pending
+                    </div>
+                  )}
+                  {vehicle.status === 'sold' && (
+                    <div className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-semibold border border-red-200">
+                      <Archive className="w-3 h-3" />
+                      Sold
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -503,6 +616,18 @@ const VehicleDetail: React.FC = () => {
                 <div className="flex items-center gap-2 px-4 py-2 bg-emerald-100 text-emerald-700 rounded-full text-sm font-semibold border border-emerald-200">
                   <CheckCircle2 className="w-4 h-4" />
                   Ready for Sale
+                </div>
+              )}
+              {vehicle.status === 'pending' && (
+                <div className="flex items-center gap-2 px-4 py-2 bg-purple-100 text-purple-700 rounded-full text-sm font-semibold border border-purple-200">
+                  <Clock className="w-4 h-4" />
+                  Pending
+                </div>
+              )}
+              {vehicle.status === 'sold' && (
+                <div className="flex items-center gap-2 px-4 py-2 bg-red-100 text-red-700 rounded-full text-sm font-semibold border border-red-200">
+                  <Archive className="w-4 h-4" />
+                  Sold
                 </div>
               )}
             </div>
@@ -875,6 +1000,43 @@ const VehicleDetail: React.FC = () => {
                 >
                   <StatusBadge status={sectionStatuses['photos']} label="Photos" section="photos" size="sm" />
                 </button>
+              </div>
+
+              {/* Sold/Pending Actions */}
+              <div className="border-t border-gray-200/60 pt-4 mt-4">
+                <hr className="border-gray-300 dark:border-gray-600 mb-4" />
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => handleMarkAsSold()}
+                    className={`flex-1 p-2 rounded-lg border transition-all duration-200 hover:shadow-md ${
+                      vehicle.status === 'sold'
+                        ? 'border-red-300 bg-red-50 shadow-md'
+                        : 'border-gray-200 hover:border-red-300 hover:bg-red-50 bg-white'
+                    }`}
+                  >
+                    <div className={`flex items-center justify-center gap-2 font-medium text-sm ${
+                      vehicle.status === 'sold' ? 'text-red-700' : 'text-red-600'
+                    }`}>
+                      <Archive className="w-3 h-3" />
+                      Mark as Sold
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => handleMarkAsPending()}
+                    className={`flex-1 p-2 rounded-lg border transition-all duration-200 hover:shadow-md ${
+                      vehicle.status === 'pending'
+                        ? 'border-purple-300 bg-purple-50 shadow-md'
+                        : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50 bg-white'
+                    }`}
+                  >
+                    <div className={`flex items-center justify-center gap-2 font-medium text-sm ${
+                      vehicle.status === 'pending' ? 'text-purple-700' : 'text-purple-600'
+                    }`}>
+                      <Clock className="w-3 h-3" />
+                      Mark as Pending
+                    </div>
+                  </button>
+                </div>
               </div>
 
               {/* Vehicle Notes Section - SMALLER HEADER */}

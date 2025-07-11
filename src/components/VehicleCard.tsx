@@ -77,6 +77,8 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
   const getSectionStatus = (sectionKey: string, inspectionData: any): InspectionStatus => {
     const items = inspectionData?.[sectionKey] || [];
     if (!Array.isArray(items) || items.length === 0) return 'not-started';
+    // If any item is 'not-checked', return 'not-started' (grey)
+    if (items.some((item: any) => item.rating === 'not-checked')) return 'not-started';
     if (items.some((item: any) => item.rating === 'N')) return 'needs-attention';
     if (items.some((item: any) => item.rating === 'F')) return 'pending';
     if (items.every((item: any) => item.rating === 'G')) return 'completed';
@@ -86,7 +88,11 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
     acc[key] = getSectionStatus(key, inspectionData);
     return acc;
   }, {} as Record<string, InspectionStatus>);
-  const completedSections = sectionKeys.filter(key => sectionStatuses[key] === 'completed').length;
+  // Count sections that are 'completed', 'pending', or 'needs-attention' as completed for progress
+  const completedSections = sectionKeys.filter(key => {
+    const status = sectionStatuses[key];
+    return status === 'completed' || status === 'pending' || status === 'needs-attention';
+  }).length;
   const overallProgress = Math.round((completedSections / sectionKeys.length) * 100);
 
   const getDaysInInventory = () => {
@@ -153,7 +159,27 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
 
   const stockNumber = getStockNumber(vehicle.vin);
   const daysInInventory = getDaysInInventory();
-  const isReadyForSale = Object.values(vehicle.status).every(status => status === 'completed');
+  
+  // Check if vehicle is ready for sale based on inspection data (all ratings are 'G')
+  const isReadyForSale = inspectionLoaded && inspectionData && (() => {
+    const sectionKeys = ['emissions', 'cosmetic', 'mechanical', 'cleaning', 'photos'];
+    const allRatings: string[] = [];
+    
+    for (const sectionKey of sectionKeys) {
+      const items = inspectionData[sectionKey] || [];
+      if (Array.isArray(items)) {
+        items.forEach((item: any) => {
+          if (item.rating) {
+            allRatings.push(item.rating);
+          }
+        });
+      }
+    }
+    
+    // Ready for sale: ALL ratings are 'G' and we have at least some ratings
+    return allRatings.length > 0 && allRatings.every(rating => rating === 'G');
+  })();
+  
   const locationStyle = getLocationStyle(vehicle.location);
   const truncatedNotes = getTruncatedNotes(vehicle.notes || '');
 
@@ -194,15 +220,25 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
             </div>
           </div>
           
-          {/* Ready for Sale Badge + Location Row */}
+          {/* Status Badge + Location Row */}
           <div className="flex items-center gap-3">
-            {/* Ready for Sale Badge - LEFT */}
-            {isReadyForSale && (
+            {/* Status Badge - LEFT (Priority: Sold > Pending > Ready for Sale) */}
+            {vehicle.status === 'sold' ? (
+              <div className="flex items-center gap-1 px-3 py-1 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200 rounded-full text-sm font-semibold border border-red-200 dark:border-red-800 flex-shrink-0">
+                <span className="w-2 h-2 bg-red-500 dark:bg-red-400 rounded-full"></span>
+                Sold
+              </div>
+            ) : vehicle.status === 'pending' ? (
+              <div className="flex items-center gap-1 px-3 py-1 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-200 rounded-full text-sm font-semibold border border-purple-200 dark:border-purple-800 flex-shrink-0">
+                <span className="w-2 h-2 bg-purple-500 dark:bg-purple-400 rounded-full"></span>
+                Pending
+              </div>
+            ) : isReadyForSale ? (
               <div className="flex items-center gap-1 px-3 py-1 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-200 rounded-full text-sm font-semibold border border-emerald-200 dark:border-emerald-800 flex-shrink-0">
                 <span className="w-2 h-2 bg-emerald-500 dark:bg-emerald-400 rounded-full"></span>
                 Ready for Sale
               </div>
-            )}
+            ) : null}
             
             {/* Location Box - RIGHT */}
             <div className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg text-sm font-medium border ${locationStyle.bgColor} ${locationStyle.textColor} ${locationStyle.borderColor} dark:bg-gray-800/60 dark:text-gray-200 dark:border-gray-700`}> 
@@ -263,14 +299,14 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
               <StatusBadge status={sectionStatuses['cleaning']} label="Cleaning" section="cleaning" size="sm" />
               <StatusBadge status={sectionStatuses['photos']} label="Photos" section="photos" size="sm" />
               
-              {/* 🎯 NEW: Custom sections from settings */}
+              {/* Custom sections from settings - using inspection data */}
               {customSections.map(section => {
-                // Check if this custom section exists in vehicle status
-                const status = vehicle.status[section.key as keyof typeof vehicle.status] || 'not-started';
+                // Get status from inspection data for custom sections
+                const customSectionStatus = getSectionStatus(section.key, inspectionData);
                 return (
                   <StatusBadge 
                     key={section.key} 
-                    status={status as InspectionStatus} 
+                    status={customSectionStatus} 
                     label={section.label} 
                     section={section.key as any} 
                     size="sm" 

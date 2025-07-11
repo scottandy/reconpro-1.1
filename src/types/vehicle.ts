@@ -14,14 +14,7 @@ export interface Vehicle {
   locationChangedBy?: string;
   locationChangedDate?: string;
   locationHistory?: LocationHistoryEntry[];
-  status: {
-    emissions: InspectionStatus;
-    cosmetic: InspectionStatus;
-    mechanical: InspectionStatus;
-    cleaned: InspectionStatus;
-    photos: InspectionStatus;
-    [key: string]: InspectionStatus; // Allow for custom sections
-  };
+  status: 'working' | 'ready' | 'issues' | 'sold' | 'pending' | null;
   inspection?: VehicleInspection;
   notes?: string;
   teamNotes?: TeamNote[];

@@ -34,20 +34,24 @@ export class ProgressCalculator {
   }
   
   /**
-   * Fallback method that calculates progress based on section status
+   * Fallback method that calculates progress based on overall vehicle status
    * Used when detailed inspection data is not available
    */
   static calculateSectionProgress(vehicle: Vehicle): number {
-    // Only use the correct keys: emissions, cosmetic, mechanical, cleaning, photos
-    const statuses = [
-      vehicle.status.emissions,
-      vehicle.status.cosmetic,
-      vehicle.status.mechanical,
-      vehicle.status.cleaning,
-      vehicle.status.photos,
-    ];
-    // Only count as completed if the status is 'completed' (which should only be set if all items are 'G')
-    const completed = statuses.filter(status => status === 'completed').length;
-    return (completed / statuses.length) * 100;
+    // Since vehicle.status is now a simple string, return progress based on that
+    switch (vehicle.status) {
+      case 'ready':
+        return 100;
+      case 'issues':
+        return 75;
+      case 'working':
+        return 50;
+      case 'pending':
+        return 25;
+      case 'sold':
+        return 100; // Sold vehicles are considered complete
+      default:
+        return 0;
+    }
   }
 }

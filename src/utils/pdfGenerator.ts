@@ -107,11 +107,13 @@ export class PDFGenerator {
       }
     };
 
-    // Section status calculation logic (copied from VehicleCard/InspectionChecklist)
+    // Section status calculation logic (matching VehicleDetail exactly)
     const sectionKeys = ['emissions', 'cosmetic', 'mechanical', 'cleaning', 'photos'];
     const getSectionStatus = (sectionKey: string, inspectionData: any): string => {
       const items = inspectionData?.[sectionKey] || [];
       if (!Array.isArray(items) || items.length === 0) return 'not-started';
+      // If any item is 'not-checked', return 'not-started' (grey)
+      if (items.some((item: any) => item.rating === 'not-checked')) return 'not-started';
       if (items.some((item: any) => item.rating === 'N')) return 'needs-attention';
       if (items.some((item: any) => item.rating === 'F')) return 'pending';
       if (items.every((item: any) => item.rating === 'G')) return 'completed';
@@ -121,10 +123,14 @@ export class PDFGenerator {
       acc[key] = getSectionStatus(key, vehicleInspection);
       return acc;
     }, {} as Record<string, string>);
-    const completedSections = sectionKeys.filter(key => sectionStatuses[key] === 'completed').length;
+    // Count sections that are 'completed', 'pending', or 'needs-attention' as completed for progress (matching VehicleDetail)
+    const completedSections = sectionKeys.filter(key => {
+      const status = sectionStatuses[key];
+      return status === 'completed' || status === 'pending' || status === 'needs-attention';
+    }).length;
     const needsAttention = sectionKeys.some(key => sectionStatuses[key] === 'needs-attention');
     const inProgress = !needsAttention && sectionKeys.some(key => sectionStatuses[key] === 'pending');
-    const allCompleted = completedSections === sectionKeys.length;
+    const allCompleted = sectionKeys.filter(key => sectionStatuses[key] === 'completed').length === sectionKeys.length;
     const progress = Math.round((completedSections / sectionKeys.length) * 100);
 
     let statusBadgeHtml = '';

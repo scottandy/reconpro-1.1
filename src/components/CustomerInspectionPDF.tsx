@@ -200,7 +200,10 @@ const CustomerInspectionPDF: React.FC<CustomerInspectionPDFProps> = ({
       
       // Wait for content to load, then print
       printWindow.onload = () => {
-        printWindow.print();
+        // Add a small delay to ensure all styles are loaded
+        setTimeout(() => {
+          printWindow.print();
+        }, 500);
       };
     }
   };

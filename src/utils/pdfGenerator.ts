@@ -381,6 +381,87 @@ export class PDFGenerator {
           .page-break {
             page-break-after: always;
           }
+          
+          /* Print-specific styles to ensure colors and backgrounds are preserved */
+          @media print {
+            * {
+              -webkit-print-color-adjust: exact !important;
+              color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            
+            .badge-great {
+              background-color: #10b981 !important;
+              color: #fff !important;
+            }
+            
+            .badge-fair {
+              background-color: #fde68a !important;
+              color: #92400e !important;
+            }
+            
+            .badge-needs-attention {
+              background-color: #ef4444 !important;
+              color: #fff !important;
+            }
+            
+            .badge-not-checked {
+              background-color: #e5e7eb !important;
+              color: #6b7280 !important;
+            }
+            
+            .progress-bar {
+              background: linear-gradient(to right, #3b82f6, #6366f1) !important;
+            }
+            
+            .ready-badge {
+              background-color: #d1fae5 !important;
+              color: #065f46 !important;
+            }
+            
+            .not-ready-badge {
+              background-color: #fee2e2 !important;
+              color: #b91c1c !important;
+            }
+            
+            .vehicle-info {
+              background-color: #f9fafb !important;
+              border: 1px solid #e5e7eb !important;
+            }
+            
+            .section-header {
+              background-color: #f3f4f6 !important;
+            }
+            
+            .section-notes {
+              background-color: #f9fafb !important;
+            }
+            
+            .customer-comments {
+              background-color: #eff6ff !important;
+              border: 1px solid #dbeafe !important;
+            }
+            
+            .vin {
+              background-color: #f3f4f6 !important;
+            }
+            
+            /* Ensure status badges print with colors */
+            span[style*="background:#fee2e2"] {
+              background-color: #fee2e2 !important;
+              color: #b91c1c !important;
+            }
+            
+            span[style*="background:#fde68a"] {
+              background-color: #fde68a !important;
+              color: #92400e !important;
+            }
+            
+            span[style*="background:#d1fae5"] {
+              background-color: #d1fae5 !important;
+              color: #065f46 !important;
+            }
+          }
         </style>
       </head>
       <body>

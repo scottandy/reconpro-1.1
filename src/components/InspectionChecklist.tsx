@@ -767,7 +767,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
           'emissions': 'emissions',
           'cosmetic': 'cosmetic',
           'mechanical': 'mechanical',
-          'cleaned': 'cleaning', // Note: cleaned maps to cleaning section
+          'cleaning': 'cleaning',
           'photos': 'photos'
         };
         return section.key === filterMap[activeFilter];
@@ -789,7 +789,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
               <div>
                 <h4 className="text-sm font-semibold text-blue-800">Focused Inspection Mode</h4>
                 <p className="text-xs text-blue-700">
-                  Showing only {activeFilter === 'cleaned' ? 'cleaning' : activeFilter} section for faster completion
+                  Showing only {activeFilter === 'cleaning' ? 'cleaning' : activeFilter} section for faster completion
                 </p>
               </div>
             </div>

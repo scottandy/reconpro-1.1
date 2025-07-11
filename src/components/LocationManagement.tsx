@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { LocationManager } from '../utils/locationManager';
+import { VehicleManager } from '../utils/vehicleManager';
 import { Location, LocationType, LOCATION_TYPE_CONFIGS } from '../types/location';
 import { Vehicle } from '../types/vehicle';
 import { supabase } from '../utils/supabaseClient';
@@ -261,9 +262,9 @@ const LocationDetailModal: React.FC<LocationDetailModalProps> = ({ location, veh
 
                             return (
                               <span
-                                className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(vehicle.status)} dark:bg-gray-800/60 dark:text-gray-200 dark:border-gray-700`}
+                                className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(vehicle.status || 'unknown')} dark:bg-gray-800/60 dark:text-gray-200 dark:border-gray-700`}
                               >
-                                {getStatusLabel(vehicle.status)}
+                                {getStatusLabel(vehicle.status || 'unknown')}
                               </span>
                             );
                           })()}
@@ -557,55 +558,75 @@ const LocationManagement: React.FC = () => {
 
   useEffect(() => {
     if (dealership) {
-      loadLocations();
-      loadVehicles();
+      loadData(); // Load both vehicles and locations in proper order
     }
   }, [dealership]);
+
+  const loadData = async () => {
+    const vehicleCounts = await loadVehicles(); // Load vehicles first and get counts
+    await loadLocations(vehicleCounts); // Then load locations with the counts
+  };
 
   useEffect(() => {
     filterLocations();
   }, [locations, searchTerm, typeFilter]);
 
-  const loadLocations = async () => {
-    if (dealership) {
-      setLoading(true);
-      try {
-        const locs = await LocationManager.getLocations(dealership.id);
-        setLocations(locs);
-      } catch (error) {
-        console.error('Error loading locations:', error);
-      } finally {
-        setLoading(false);
-      }
+  const loadLocations = async (vehicleCounts?: Record<string, number>) => {
+    if (!dealership) return;
+    
+    setLoading(true);
+    try {
+      // Get formal locations from database
+      const formalLocations = await LocationManager.getLocations(dealership.id);
+      
+      // Use provided counts or fall back to state
+      const counts = vehicleCounts || vehicleLocationCounts;
+      
+      // Create virtual locations based on actual vehicle locations
+      const vehicleLocationNames = Object.keys(counts);
+      const virtualLocations: Location[] = vehicleLocationNames
+        .filter(locationName => !formalLocations.some(loc => loc.name === locationName))
+        .map(locationName => ({
+          id: `virtual-${locationName}`,
+          name: locationName,
+          type: 'on-site' as LocationType, // Default type
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }));
+      
+      // Combine formal and virtual locations
+      setLocations([...formalLocations, ...virtualLocations]);
+    } catch (error) {
+      console.error('Error loading locations:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const loadVehicles = async () => {
-    if (!dealership) return;
+  const loadVehicles = async (): Promise<Record<string, number>> => {
+    if (!dealership) return {};
     
     try {
-      // Load vehicles from Supabase
-      const { data: vehicles, error } = await supabase
-        .from('vehicles')
-        .select('*')
-        .eq('dealership_id', dealership.id)
-        .eq('isSold', false)
-        .eq('isPending', false);
+      // Load vehicles from Supabase using VehicleManager to get proper format
+      const vehicles = await VehicleManager.getVehicles(dealership.id);
       
-      if (!error && vehicles) {
-        setAllVehicles(vehicles as Vehicle[]);
-        
-        // Calculate location counts
-        const counts: Record<string, number> = {};
-        vehicles.forEach(vehicle => {
-          if (vehicle.location) {
-            counts[vehicle.location] = (counts[vehicle.location] || 0) + 1;
-          }
-        });
-        setVehicleLocationCounts(counts);
-      }
+      // Filter out sold and pending vehicles
+      const activeVehicles = vehicles.filter((v: Vehicle) => v.status !== 'sold' && v.status !== 'pending');
+      setAllVehicles(activeVehicles);
+      
+      // Calculate location counts using the location field (which maps to location_name in DB)
+      const counts: Record<string, number> = {};
+      activeVehicles.forEach((vehicle: Vehicle) => {
+        if (vehicle.location) {
+          counts[vehicle.location] = (counts[vehicle.location] || 0) + 1;
+        }
+      });
+      setVehicleLocationCounts(counts);
+      return counts;
     } catch (error) {
       console.error('Error loading vehicles:', error);
+      return {};
     }
   };
 

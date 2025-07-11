@@ -96,13 +96,15 @@ const VehicleDetail: React.FC = () => {
     console.log('[VehicleDetail] handleSectionComplete - Status updates now handled by inspection data');
     // This function is deprecated - status is now calculated from inspection data
     // Record analytics
-    const vehicleName = `${vehicle.year} ${vehicle.make} ${vehicle.model}`;
-    AnalyticsManager.recordCompletion(
-      vehicle.id, 
-      vehicleName, 
-      section as any, 
-      userInitials
-    );
+    if (vehicle) {
+      const vehicleName = `${vehicle.year} ${vehicle.make} ${vehicle.model}`;
+      AnalyticsManager.recordCompletion(
+        vehicle.id, 
+        vehicleName, 
+        section as any, 
+        userInitials
+      );
+    }
   };
 
   const handleAddTeamNote = (note: Omit<TeamNote, 'id' | 'timestamp'>) => {

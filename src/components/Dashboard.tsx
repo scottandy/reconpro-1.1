@@ -62,7 +62,8 @@ type LocationFilter = 'all' | 'on-site' | 'off-site' | 'in-transit';
 
 const Dashboard: React.FC = () => {
   const { user, dealership, logout } = useAuth();
-  const { isDarkMode, toggleDarkMode } = useTheme();
+  // Theme context available if needed
+  useTheme();
   const [activeView, setActiveView] = useState<DashboardView>('inventory');
   const [vehicleFilter, setVehicleFilter] = useState<VehicleFilter>('active');
   const [locationFilter, setLocationFilter] = useState<LocationFilter>('all');
@@ -122,10 +123,10 @@ const Dashboard: React.FC = () => {
       // Load all vehicles using VehicleManager
       const allVehicles = await VehicleManager.getVehicles(dealership.id);
       
-      // Separate active, sold, and pending vehicles
-      const activeVehicles = allVehicles.filter((v: any) => !v.is_sold && !v.is_pending);
-      const soldVehiclesList = allVehicles.filter((v: any) => v.is_sold);
-      const pendingVehiclesList = allVehicles.filter((v: any) => v.is_pending);
+      // Separate active, sold, and pending vehicles using vehicle.status
+      const activeVehicles = allVehicles.filter((v: Vehicle) => v.status !== 'sold' && v.status !== 'pending');
+      const soldVehiclesList = allVehicles.filter((v: Vehicle) => v.status === 'sold');
+      const pendingVehiclesList = allVehicles.filter((v: Vehicle) => v.status === 'pending');
       
       setVehicles(activeVehicles);
       setSoldVehicles(soldVehiclesList);
@@ -136,6 +137,8 @@ const Dashboard: React.FC = () => {
       setSoldVehicles([]);
       setPendingVehicles([]);
     }
+    
+    setIsLoading(false);
   };
 
   const handleAddVehicle = async (vehicleData: Omit<Vehicle, 'id'>) => {
@@ -241,6 +244,9 @@ const Dashboard: React.FC = () => {
         break;
       case 'vehicle-pending':
         vehiclesToFilter = pendingVehicles;
+        break;
+      case 'all':
+        vehiclesToFilter = [...vehicles, ...soldVehicles, ...pendingVehicles];
         break;
       default:
         vehiclesToFilter = vehicles;
@@ -456,7 +462,7 @@ const Dashboard: React.FC = () => {
     const locationCounts = getLocationFilterCounts();
     
     return {
-      totalVehicles: counts.all,
+      totalVehicles: vehicles.length + soldVehicles.length + pendingVehicles.length, // ALL vehicles regardless of status
       activeVehicles: counts.pending + counts.active, // Working: pending (F/not-checked) + active (mixed states)
       completedVehicles: counts.completed,
       pendingVehicles: counts.pending,
@@ -489,7 +495,7 @@ const Dashboard: React.FC = () => {
   const inventorySummary = getInventorySummary();
 
   const sidebarItems = [
-    { id: 'inventory', label: 'Inventory', icon: Car, count: vehicles.length },
+    { id: 'inventory', label: 'Inventory', icon: Car, count: vehicles.length + soldVehicles.length + pendingVehicles.length },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
     { id: 'todos', label: 'Todo & Calendar', icon: Calendar },
     { id: 'contacts', label: 'Contacts', icon: Phone },
@@ -502,7 +508,7 @@ const Dashboard: React.FC = () => {
   ];
 
   const filterOptions = [
-    { id: 'all', label: 'All Vehicles', icon: Car, count: filterCounts.all },
+    { id: 'all', label: 'All Vehicles', icon: Car, count: vehicles.length + soldVehicles.length + pendingVehicles.length },
     { id: 'active', label: 'Working', icon: Activity, count: filterCounts.pending + filterCounts.active },
     { id: 'completed', label: 'Ready', icon: CheckCircle2, count: filterCounts.completed },
     { id: 'needs-attention', label: 'Issues', icon: AlertTriangle, count: filterCounts['needs-attention'] },
@@ -873,15 +879,17 @@ const Dashboard: React.FC = () => {
                         <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-4">
                           {searchTerm || vehicleFilter !== 'all' || locationFilter !== 'all'
                             ? 'Try adjusting your search terms or filters.'
-                            : vehicleFilter === 'sold' 
-                              ? 'No vehicles have been sold yet.'
-                              : vehicleFilter === 'vehicle-pending'
-                                ? 'No vehicles are currently pending.'
-                                : vehicleFilter === 'needs-attention'
-                                  ? 'Great! No vehicles currently need attention.'
-                                  : vehicleFilter === 'completed'
-                                    ? 'No vehicles are ready for sale yet.'
-                                    : 'Add your first vehicle to get started.'
+                            : vehicleFilter === 'all' 
+                              ? 'Add your first vehicle to get started.'
+                              : vehicleFilter === 'sold'
+                                ? 'No vehicles have been sold yet.'
+                                : vehicleFilter === 'vehicle-pending'
+                                  ? 'No vehicles are currently pending.'
+                                  : vehicleFilter === 'needs-attention'
+                                    ? 'Great! No vehicles currently need attention.'
+                                    : vehicleFilter === 'completed'
+                                      ? 'No vehicles are ready for sale yet.'
+                                      : 'No vehicles found in this category.'
                           }
                         </p>
                         {!searchTerm && vehicleFilter === 'all' && locationFilter === 'all' && (

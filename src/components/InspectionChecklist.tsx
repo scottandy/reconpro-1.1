@@ -1,921 +1,456 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Vehicle, InspectionStatus, TeamNote } from '../types/vehicle';
-import { useAuth } from '../contexts/AuthContext';
-import { AnalyticsManager } from '../utils/analytics';
-import { InspectionSettingsManager } from '../utils/inspectionSettingsManager';
-import { InspectionSettings, InspectionSection } from '../types/inspectionSettings';
-import { CheckCircle2, Circle, Save, Star, AlertTriangle, CheckCircle, Clock, Filter, X, ChevronDown, ChevronUp, FileText } from 'lucide-react';
-import { InspectionDataManager } from '../utils/inspectionDataManager';
-import { VehicleManager } from '../utils/vehicleManager';
+import { InspectionSettings, InspectionSection, InspectionItem, RatingLabel, DEFAULT_INSPECTION_SETTINGS } from '../types/inspectionSettings';
+import { supabase } from './supabaseClient';
 
-// Define a type for custom sections
-interface CustomSectionData {
-  [key: string]: ChecklistItem[];
-}
+export class InspectionSettingsManager {
+  private static readonly STORAGE_KEY = 'dealership_inspection_settings';
 
-interface InspectionChecklistProps {
-  vehicle: Vehicle;
-  onStatusUpdate: (section: keyof Vehicle['status'], status: InspectionStatus) => void;
-  onSectionComplete: (section: keyof Vehicle['status'], userInitials: string) => void;
-  onAddTeamNote: (note: Omit<TeamNote, 'id' | 'timestamp'>) => void;
-  activeFilter?: string | null;
-  onGeneratePdf?: () => void;
-  onInspectionDataChange?: (data: InspectionData) => void; // <-- Add this line
-  onTeamNoteAdded?: (note: TeamNote) => void;
-}
+  static async initializeDefaultSettings(dealershipId: string): Promise<void> {
+    const existingSettings = await this.getSettings(dealershipId);
+    if (existingSettings) return;
 
-type ItemRating = 'G' | 'F' | 'N' | 'not-checked';
+    const defaultSettings: InspectionSettings = {
+      ...DEFAULT_INSPECTION_SETTINGS,
+      id: `settings-${Date.now()}`,
+      dealershipId,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
 
-interface ChecklistItem {
-  key: string;
-  label: string;
-  rating: ItemRating;
-  notes?: string;
-}
-
-interface InspectionData {
-  [key: string]: ChecklistItem[] | Record<string, string> | string | undefined;
-  emissions: ChecklistItem[];
-  cosmetic: ChecklistItem[];
-  mechanical: ChecklistItem[];
-  cleaning: ChecklistItem[];
-  photos: ChecklistItem[];
-  customSections?: CustomSectionData;
-  sectionNotes: Record<string, string>;
-  overallNotes: string;
-  lastSaved?: string;
-}
-
-// Default inspection data structure - will be overridden by settings
-export const DEFAULT_INSPECTION_DATA: InspectionData = {
-  emissions: [
-    { key: 'emissionsTest', label: 'Pass Emissions Test', rating: 'not-checked' },
-    { key: 'obd2Scan', label: 'OBD2 Diagnostic Scan', rating: 'not-checked' },
-    { key: 'catalyticConverter', label: 'Catalytic Converter Check', rating: 'not-checked' }
-  ],
-  cosmetic: [
-    { key: 'exteriorPaint', label: 'Exterior Paint Condition', rating: 'not-checked' },
-    { key: 'bumperCondition', label: 'Bumper Condition', rating: 'not-checked' },
-    { key: 'windowsGlass', label: 'Windows & Glass', rating: 'not-checked' },
-    { key: 'lightsFunction', label: 'All Lights Functioning', rating: 'not-checked' },
-    { key: 'tiresCondition', label: 'Tire Condition & Tread', rating: 'not-checked' },
-    { key: 'interiorCleanliness', label: 'Interior Cleanliness', rating: 'not-checked' }
-  ],
-  mechanical: [
-    { key: 'engineOperation', label: 'Engine Operation', rating: 'not-checked' },
-    { key: 'transmissionFunction', label: 'Transmission Function', rating: 'not-checked' },
-    { key: 'brakesCondition', label: 'Brakes Condition', rating: 'not-checked' },
-    { key: 'suspensionCheck', label: 'Suspension Check', rating: 'not-checked' },
-    { key: 'steeringAlignment', label: 'Steering & Alignment', rating: 'not-checked' },
-    { key: 'fluidsLevels', label: 'Fluid Levels Check', rating: 'not-checked' }
-  ],
-  cleaning: [
-    { key: 'exteriorWash', label: 'Exterior Wash & Wax', rating: 'not-checked' },
-    { key: 'interiorVacuum', label: 'Interior Vacuum', rating: 'not-checked' },
-    { key: 'windowsCleaned', label: 'Windows Cleaned', rating: 'not-checked' },
-    { key: 'detailComplete', label: 'Detail Complete', rating: 'not-checked' }
-  ],
-  photos: [
-    { key: 'exteriorPhotos', label: 'Exterior Photos (All Angles)', rating: 'not-checked' },
-    { key: 'interiorPhotos', label: 'Interior Photos', rating: 'not-checked' },
-    { key: 'engineBayPhotos', label: 'Engine Bay Photos', rating: 'not-checked' },
-    { key: 'damagePhotos', label: 'Any Damage Photos', rating: 'not-checked' }
-  ],
-  sectionNotes: {
-    emissions: '',
-    cosmetic: '',
-    mechanical: '',
-    cleaning: '',
-    photos: ''
-  },
-  customSections: {},
-  overallNotes: ''
-};
-
-// CRITICAL: Section key mapping to vehicle status
-const SECTION_TO_STATUS_MAP: Record<string, keyof Vehicle['status']> = {
-  'emissions': 'emissions',
-  'cosmetic': 'cosmetic', 
-  'mechanical': 'mechanical',
-  'cleaning': 'cleaned',  // 🎯 FIXED: cleaning maps to 'cleaned'
-  'photos': 'photos'
-  // Custom sections will be handled dynamically
-};
-
-// Helper function to get the status key for any section
-const getStatusKeyForSection = (sectionKey: string): keyof Vehicle['status'] => {
-  // Handle the cleaning -> cleaned mapping
-  if (sectionKey === 'cleaning') return 'cleaned';
-  
-  // Check if it's a standard section
-  const standardSections = ['emissions', 'cosmetic', 'mechanical', 'photos'];
-  if (standardSections.includes(sectionKey)) {
-    return sectionKey as keyof Vehicle['status'];
-  }
-  
-  // For custom sections, return the key as-is
-  return sectionKey as keyof Vehicle['status'];
-};
-
-const ItemRatingButton: React.FC<{
-  rating: ItemRating;
-  onClick: () => void;
-  isSelected: boolean;
-  compact?: boolean;
-}> = ({ rating, onClick, isSelected, compact = false }) => {
-  const getRatingConfig = (rating: ItemRating) => {
-    switch (rating) {
-      case 'G':
-        return {
-          icon: Star,
-          label: 'Great',
-          shortLabel: 'G',
-          selectedColor: 'bg-emerald-600 text-white ring-2 ring-emerald-300',
-          unselectedColor: 'bg-gray-100 text-emerald-600 border border-emerald-200 hover:bg-emerald-50'
-        };
-      case 'F':
-        return {
-          icon: CheckCircle,
-          label: 'Fair',
-          shortLabel: 'F',
-          selectedColor: 'bg-yellow-600 text-white ring-2 ring-yellow-300',
-          unselectedColor: 'bg-gray-100 text-yellow-600 border border-yellow-200 hover:bg-yellow-50'
-        };
-      case 'N':
-        return {
-          icon: AlertTriangle,
-          label: 'Needs Attention',
-          shortLabel: 'N',
-          selectedColor: 'bg-red-600 text-white ring-2 ring-red-300',
-          unselectedColor: 'bg-gray-100 text-red-600 border border-red-200 hover:bg-red-50'
-        };
-      default:
-        return {
-          icon: Circle,
-          label: 'Not Checked',
-          shortLabel: '?',
-          selectedColor: 'bg-gray-500 text-white',
-          unselectedColor: 'bg-gray-100 text-gray-500 border border-gray-200'
-        };
-    }
-  };
-
-  const config = getRatingConfig(rating);
-  const Icon = config.icon;
-
-  if (compact) {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        className={`
-          flex items-center justify-center w-8 h-8 rounded-lg text-xs font-bold transition-all duration-200
-          ${isSelected ? config.selectedColor : config.unselectedColor}
-          ${isSelected ? 'shadow-md' : 'shadow-sm'}
-        `}
-        title={config.label}
-      >
-        {config.shortLabel}
-      </button>
-    );
+    await this.saveSettings(dealershipId, defaultSettings);
   }
 
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`
-        flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all duration-200
-        ${isSelected ? config.selectedColor : config.unselectedColor}
-        ${isSelected ? 'shadow-md' : 'shadow-sm'}
-      `}
-    >
-      <Icon className="w-3 h-3" />
-      <span className="hidden sm:inline">{config.label}</span>
-    </button>
-  );
-};
-
-const CompactInspectionItem: React.FC<{
-  item: ChecklistItem;
-  onRatingChange: (rating: ItemRating) => void;
-}> = ({ item, onRatingChange }) => {
-  const ratings: ItemRating[] = ['G', 'F', 'N'];
-
-  return (
-    <div className="flex items-center justify-between py-2 px-3 bg-white/50 rounded-lg border border-gray-200">
-      <div className="flex-1 min-w-0 mr-3">
-        <h4 className="font-medium text-gray-900 text-sm truncate">{item.label}</h4>
-        {item.rating !== 'not-checked' && (
-          <div className="mt-1">
-            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-              item.rating === 'G' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
-              item.rating === 'F' ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' :
-              'bg-red-100 text-red-700 border border-red-200'
-            }`}>
-              {item.rating === 'G' ? 'Great' : item.rating === 'F' ? 'Fair' : 'Needs Attention'}
-            </span>
-          </div>
-        )}
-      </div>
-      
-      <div className="flex gap-1">
-        {ratings.map((rating) => (
-          <ItemRatingButton
-            key={rating}
-            rating={rating}
-            isSelected={item.rating === rating}
-            onClick={() => onRatingChange(rating)}
-            compact={true}
-          />
-        ))}
-      </div>
-    </div>
-  );
-};
-
-const ChecklistSection: React.FC<{
-  title: string;
-  sectionKey: string;
-  items: ChecklistItem[];
-  notes: string;
-  onItemChange: (key: string, rating: ItemRating) => void;
-  onNotesChange: (notes: string) => void;
-  onStatusUpdate: (sectionKey: string, status: InspectionStatus) => void;
-  onSectionComplete?: (sectionKey: string, userInitials: string) => void;
-  isFiltered?: boolean;
-}> = ({ title, sectionKey, items, notes, onItemChange, onNotesChange, onStatusUpdate, onSectionComplete, isFiltered = false }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const prevStatusRef = useRef<InspectionStatus | null>(null);
-  const { user } = useAuth ? useAuth() : { user: null };
-
-  const calculateSectionStatus = (): InspectionStatus => {
-    if (items.length === 0) return 'not-started';
-    const checkedItems = items.filter(item => item.rating !== 'not-checked');
-    if (checkedItems.length === 0) return 'not-started';
-    const needsAttentionItems = checkedItems.filter(item => item.rating === 'N');
-    if (needsAttentionItems.length > 0) return 'needs-attention';
-    const allGreat = checkedItems.every(item => item.rating === 'G');
-    if (allGreat) return 'completed';
-    return 'pending';
-  };
-
-  // Handle item change and update status
-  const handleItemChange = (key: string, rating: ItemRating) => {
-    onItemChange(key, rating);
-    // After updating the item, calculate and send new status
-    const newStatus = calculateSectionStatus();
-    onStatusUpdate(sectionKey, newStatus);
-  };
-
-  // Auto-expand if filtered
-  useEffect(() => {
-    if (isFiltered) {
-      setIsExpanded(true);
-    }
-  }, [isFiltered]);
-
-  const currentStatus = calculateSectionStatus();
-  const checkedItems = items.filter(item => item.rating !== 'not-checked').length;
-  const totalItems = items.length;
-  const progress = (checkedItems / totalItems) * 100;
-
-  // Call onSectionComplete when status transitions to 'completed'
-  useEffect(() => {
-    if (
-      prevStatusRef.current !== 'completed' &&
-      currentStatus === 'completed' &&
-      typeof onSectionComplete === 'function' &&
-      user && user.initials
-    ) {
-      onSectionComplete(sectionKey, user.initials);
-    }
-    prevStatusRef.current = currentStatus;
-  }, [currentStatus, onSectionComplete, sectionKey, user]);
-
-  return (
-    <div className={`bg-white/80 backdrop-blur-sm rounded-xl shadow-lg border transition-all duration-300 ${
-      isFiltered 
-        ? 'border-blue-300 ring-2 ring-blue-100 shadow-xl' 
-        : 'border-white/30 hover:shadow-xl hover:border-white/50'
-    } overflow-hidden`}>
-      {/* 🎯 FIXED: Compact Header - Prevents overlapping on mobile */}
-      <button
-        type="button"
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full p-3 sm:p-4 text-left hover:bg-gray-50/50 transition-colors"
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-            <div className="flex items-center gap-1 sm:gap-2 min-w-0">
-              <h3 className="text-sm sm:text-base lg:text-lg font-bold text-gray-900 truncate">{title}</h3>
-              {isFiltered && (
-                <div className="flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium border border-blue-200 flex-shrink-0">
-                  <Filter className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                  <span className="hidden sm:inline">Focused</span>
-                </div>
-              )}
-            </div>
-            
-            {/* 🎯 FIXED: Compact Status Info - Better mobile spacing */}
-            <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm flex-shrink-0">
-              <span className="text-gray-600 hidden sm:inline">{checkedItems}/{totalItems}</span>
-              <div className={`inline-flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs font-medium ${
-                currentStatus === 'completed' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
-                currentStatus === 'needs-attention' ? 'bg-red-100 text-red-800 border border-red-200' :
-                currentStatus === 'pending' ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' :
-                'bg-gray-100 text-gray-600 border border-gray-200'
-              }`}>
-                {currentStatus === 'completed' && <CheckCircle2 className="w-2.5 h-2.5 sm:w-3 sm:h-3" />}
-                {currentStatus === 'needs-attention' && <AlertTriangle className="w-2.5 h-2.5 sm:w-3 sm:h-3" />}
-                {currentStatus === 'pending' && <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3" />}
-                {currentStatus === 'not-started' && <Circle className="w-2.5 h-2.5 sm:w-3 sm:h-3" />}
-                <span className="hidden sm:inline">
-                  {currentStatus === 'completed' ? 'Done' :
-                   currentStatus === 'needs-attention' ? 'Issues' :
-                   currentStatus === 'pending' ? 'Working' : 'Start'}
-                </span>
-              </div>
-            </div>
-          </div>
-          
-          {/* 🎯 FIXED: Progress Section - Compact mobile layout */}
-          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0 ml-2">
-            {/* 🎯 FIXED: Percentage Display - Smaller on mobile, positioned correctly */}
-            <div className="text-right">
-              <div className="text-sm sm:text-lg lg:text-xl font-bold text-gray-900">{Math.round(progress)}%</div>
-              <div className="text-xs text-gray-500 hidden sm:block">complete</div>
-            </div>
-            
-            {/* 🎯 FIXED: Progress Circle - Smaller on mobile */}
-            <div className="relative w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12">
-              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                <circle
-                  cx="18"
-                  cy="18"
-                  r="16"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                  fill="none"
-                  className="text-gray-200"
-                />
-                <circle
-                  cx="18"
-                  cy="18"
-                  r="16"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                  fill="none"
-                  strokeDasharray={`${progress * 1.005} 100.5`}
-                  className={
-                    currentStatus === 'completed' ? 'text-emerald-500' :
-                    currentStatus === 'needs-attention' ? 'text-red-500' :
-                    currentStatus === 'pending' ? 'text-yellow-500' : 'text-gray-400'
-                  }
-                  strokeLinecap="round"
-                />
-              </svg>
-              {/* Status Icon in Center of Circle - Smaller on mobile */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                {currentStatus === 'completed' && <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5 text-emerald-600" />}
-                {currentStatus === 'needs-attention' && <AlertTriangle className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5 text-red-600" />}
-                {currentStatus === 'pending' && <Clock className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5 text-yellow-600" />}
-                {currentStatus === 'not-started' && <Circle className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5 text-gray-400" />}
-              </div>
-            </div>
-            
-            {/* Expand/Collapse Icon */}
-            {isExpanded ? (
-              <ChevronUp className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
-            ) : (
-              <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
-            )}
-          </div>
-        </div>
-      </button>
-
-      {/* Expandable Content */}
-      {isExpanded && (
-        <div className="px-3 sm:px-4 pb-3 sm:pb-4 space-y-3 sm:space-y-4">
-          {/* Progress Bar */}
-          <div className="w-full bg-gray-200 rounded-full h-1.5 sm:h-2">
-            <div 
-              className={`h-1.5 sm:h-2 rounded-full transition-all duration-300 ${
-                currentStatus === 'completed' ? 'bg-emerald-600' :
-                currentStatus === 'needs-attention' ? 'bg-red-500' :
-                currentStatus === 'pending' ? 'bg-yellow-500' : 'bg-gray-400'
-              }`}
-              style={{ width: `${progress}%` }}
-            ></div>
-          </div>
-
-          {/* Status Message */}
-          <div className={`p-3 rounded-lg border text-sm ${
-            currentStatus === 'completed' ? 'bg-emerald-50/80 border-emerald-200/60 text-emerald-700' :
-            currentStatus === 'needs-attention' ? 'bg-red-50/80 border-red-200/60 text-red-700' :
-            currentStatus === 'pending' ? 'bg-yellow-50/80 border-yellow-200/60 text-yellow-700' :
-            'bg-blue-50/80 border-blue-200/60 text-blue-700'
-          }`}>
-            <strong>Status:</strong> {
-              currentStatus === 'completed' ? '✅ Section completed! All items rated as Great.' :
-              currentStatus === 'needs-attention' ? '⚠️ Some items need attention - address issues to proceed.' :
-              currentStatus === 'pending' ? '🔄 Section in progress - continue rating items.' :
-              '📝 Rate all items to proceed.'
-            }
-          </div>
-
-          {/* Compact Inspection Items */}
-          <div className="space-y-2">
-            {items.map((item) => (
-              <CompactInspectionItem
-                key={item.key}
-                item={item}
-                onRatingChange={(rating) => handleItemChange(item.key, rating)}
-              />
-            ))}
-          </div>
-
-          {/* Section Notes */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Section Notes</label>
-            <textarea
-              value={notes}
-              onChange={(e) => onNotesChange(e.target.value)}
-              placeholder="Add any overall observations or notes for this section..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
-              rows={2}
-            />
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-const InspectionChecklist: React.FC<InspectionChecklistProps> = ({ 
-  vehicle, 
-  onStatusUpdate, 
-  onSectionComplete, 
-  onAddTeamNote, 
-  activeFilter,
-  onGeneratePdf,
-  onInspectionDataChange,
-  onTeamNoteAdded
-}) => {
-  const instanceId = React.useRef(Math.random().toString(36).substr(2, 5)).current;
-  // console.log(`[InspectionChecklist] Instance ${instanceId} Render`, { vehicle, activeFilter });
-  const { user, dealership } = useAuth();
-  const [inspectionData, setInspectionData] = useState<InspectionData>(DEFAULT_INSPECTION_DATA);
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [inspectionSettings, setInspectionSettings] = useState<InspectionSettings | null>(null);
-
-  // Load inspection settings when component mounts
-  // console.log('[InspectionChecklist] useEffect: Load inspection settings', { dealership });
-  useEffect(() => {
-    if (!dealership) return;
-    let isMounted = true;
-    (async () => {
-      await InspectionSettingsManager.initializeDefaultSettings(dealership.id);
-      const settings = await InspectionSettingsManager.getSettings(dealership.id);
-      if (isMounted) {
-        setInspectionSettings(settings);
-      }
-      // console.log('[InspectionChecklist] Inspection settings loaded', settings);
-    })();
-
-    const handleStorageChange = async (e: StorageEvent) => {
-      if (e.key === `dealership_inspection_settings_${dealership.id}`) {
-        const updated = await InspectionSettingsManager.getSettings(dealership.id);
-        if (isMounted) {
-          setInspectionSettings(updated);
-        }
-        // console.log('[InspectionChecklist] Inspection settings updated from storage event', updated);
-      }
-    };
-    window.addEventListener('storage', handleStorageChange);
-    return () => {
-      isMounted = false;
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, [dealership]);
-
-  // Load inspection data only once per vehicle/user
-  // console.log(`[InspectionChecklist] Instance ${instanceId} useEffect: Load inspection data`, { vehicle, user });
-  useEffect(() => {
-    if (!vehicle || !user) return;
-    let cancelled = false;
-    (async () => {
-      // console.log('🔄 Loading inspection data for vehicle:', vehicle.id);
-      try {
-        const savedData = await InspectionDataManager.loadInspectionData(vehicle.id, user.id);
-        if (!cancelled && savedData) {
-          setInspectionData(savedData);
-          setIsLoaded(true);
-          // console.log('✅ Loaded inspection data from database', savedData);
-        } else if (!cancelled) {
-          setInspectionData(DEFAULT_INSPECTION_DATA);
-          setIsLoaded(true);
-          // console.log('ℹ️ No inspection data found in DB, using default state');
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setInspectionData(DEFAULT_INSPECTION_DATA);
-          setIsLoaded(true);
-          // console.error('❌ Error loading inspection data:', error);
-        }
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [vehicle?.id, user?.id]);
-
-  // Track if we should auto-save after a button click
-  const shouldAutoSaveRef = useRef(false);
-
-  // Update inspection item and trigger auto-save
-  const updateInspectionItem = (section: keyof InspectionData, key: string, rating: ItemRating) => {
-    setInspectionData(prev => {
-      const arr = (prev[section] as ChecklistItem[]) || [];
-      const updatedArr = arr.map(item => {
-        if (item.key === key) {
-          // Directly insert a team note into the database (no UI/state update)
-          if (item.rating !== rating && rating !== 'not-checked' && user && user.dealershipId && vehicle?.id) {
-            const prevLabel =
-              item.rating === 'G' ? 'Great' :
-              item.rating === 'F' ? 'Fair' :
-              item.rating === 'N' ? 'Needs Attention' :
-              'Not Checked';
-            const newLabel =
-              rating === 'G' ? 'Great' :
-              rating === 'F' ? 'Fair' :
-              rating === 'N' ? 'Needs Attention' :
-              'Not Checked';
-            const note = {
-              id: Date.now().toString(),
-              text: `Changed "${item.label}" from "${prevLabel}" to "${newLabel}".`,
-              userInitials: user.initials,
-              timestamp: new Date().toISOString(),
-              category: String(section)
-            };
-            VehicleManager.addTeamNote(user.dealershipId, vehicle.id, note);
-            if (typeof onTeamNoteAdded === 'function') {
-              onTeamNoteAdded(note);
-            }
-          }
-          return { ...item, rating };
-        }
-        return item;
-      });
-      const newData = { ...prev, [section]: updatedArr } as InspectionData;
-      return newData;
-    });
-    shouldAutoSaveRef.current = true;
-  };
-
-  // Auto-save when inspectionData changes due to a button click
-  useEffect(() => {
-    if (shouldAutoSaveRef.current) {
-      (async () => {
-        const ok = await saveInspectionData();
-        if (ok) console.log('Saved Inspection');
-        shouldAutoSaveRef.current = false;
-      })();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inspectionData]);
-
-  // Notify parent of inspectionData changes
-  useEffect(() => {
-    if (typeof onInspectionDataChange === 'function') {
-      onInspectionDataChange(inspectionData);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inspectionData]);
-
-  // Update section notes and trigger save
-  const updateSectionNotes = (section: keyof InspectionData['sectionNotes'], notes: string) => {
-    // console.log(`[InspectionChecklist] updateSectionNotes: User updated notes for ${section}`);
-    setInspectionData(prev => {
-      const newData = {
-        ...prev,
-        sectionNotes: { ...prev.sectionNotes, [section]: notes }
-      } as InspectionData;
-      // console.log('[InspectionChecklist] setInspectionData (from updateSectionNotes)', newData);
-      return newData;
-    });
-  };
-
-  // Bulletproof status update with correct mapping
-  const handleSectionStatusUpdate = (sectionKey: string, status: InspectionStatus) => {
-    // console.log('[InspectionChecklist] handleSectionStatusUpdate', { sectionKey, status });
-    // No longer update the parent at all
-  };
-
-  // Save inspection data to database (manual only)
-  const saveInspectionData = async (): Promise<boolean> => {
-    // console.log('[InspectionChecklist] saveInspectionData called');
-    if (!vehicle || !user) return false;
+  static async getSettings(dealershipId: string): Promise<InspectionSettings | null> {
     try {
-      await InspectionDataManager.saveInspectionData(vehicle.id, user.id, inspectionData);
-      // console.log('[InspectionChecklist] saveInspectionData: Data saved');
+      const { data, error } = await supabase
+        .from('inspection_settings')
+        .select('settings')
+        .eq('dealership_id', dealershipId)
+        .maybeSingle();
+      
+      if (error) {
+        console.error('Error fetching settings from Supabase:', error);
+        // Return properly structured default settings
+        return {
+          ...DEFAULT_INSPECTION_SETTINGS,
+          id: `settings-${Date.now()}`,
+          dealershipId,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+      }
+      
+      if (!data || !data.settings) {
+        // No settings found, return properly structured default settings
+        return {
+          ...DEFAULT_INSPECTION_SETTINGS,
+          id: `settings-${Date.now()}`,
+          dealershipId,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+      }
+      
+      // Ensure the returned settings have all required properties
+      const settings = data.settings;
+      return {
+        ...DEFAULT_INSPECTION_SETTINGS,
+        ...settings,
+        dealershipId,
+        // Ensure nested objects are properly merged
+        customerPdfSettings: {
+          ...DEFAULT_INSPECTION_SETTINGS.customerPdfSettings,
+          ...(settings.customerPdfSettings || {})
+        },
+        globalSettings: {
+          ...DEFAULT_INSPECTION_SETTINGS.globalSettings,
+          ...(settings.globalSettings || {})
+        },
+        ratingLabels: settings.ratingLabels && Array.isArray(settings.ratingLabels) && settings.ratingLabels.length > 0 
+          ? settings.ratingLabels 
+          : DEFAULT_INSPECTION_SETTINGS.ratingLabels,
+        sections: settings.sections && Array.isArray(settings.sections)
+          ? settings.sections 
+          : DEFAULT_INSPECTION_SETTINGS.sections
+      };
+    } catch (err) {
+      console.error('Error in getSettings:', err);
+      // On any error, return properly structured default settings
+      return {
+        ...DEFAULT_INSPECTION_SETTINGS,
+        id: `settings-${Date.now()}`,
+        dealershipId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+    }
+  }
+
+  private static getFromLocalStorage(dealershipId: string): InspectionSettings | null {
+    const key = `${this.STORAGE_KEY}_${dealershipId}`;
+    const data = localStorage.getItem(key);
+    
+    if (!data) return null;
+    
+    try {
+      const storedSettings = JSON.parse(data);
+      
+      // Deep merge with default settings to ensure all properties exist
+      const mergedSettings: InspectionSettings = {
+        ...DEFAULT_INSPECTION_SETTINGS,
+        ...storedSettings,
+        // Ensure nested objects are properly merged
+        customerPdfSettings: {
+          ...DEFAULT_INSPECTION_SETTINGS.customerPdfSettings,
+          ...(storedSettings.customerPdfSettings || {})
+        },
+        globalSettings: {
+          ...DEFAULT_INSPECTION_SETTINGS.globalSettings,
+          ...(storedSettings.globalSettings || {})
+        },
+        ratingLabels: storedSettings.ratingLabels && storedSettings.ratingLabels.length > 0 
+          ? storedSettings.ratingLabels 
+          : DEFAULT_INSPECTION_SETTINGS.ratingLabels,
+        sections: storedSettings.sections || DEFAULT_INSPECTION_SETTINGS.sections
+      };
+      
+      return mergedSettings;
+    } catch (error) {
+      console.error('Error parsing inspection settings from localStorage:', error);
+      return null;
+    }
+  }
+
+  private static saveToLocalStorage(dealershipId: string, settings: InspectionSettings): void {
+    const key = `${this.STORAGE_KEY}_${dealershipId}`;
+    const updatedSettings = {
+      ...settings,
+      updatedAt: new Date().toISOString()
+    };
+    localStorage.setItem(key, JSON.stringify(updatedSettings));
+    
+    // Trigger storage event for real-time updates
+    window.dispatchEvent(new StorageEvent('storage', {
+      key,
+      newValue: JSON.stringify(updatedSettings)
+    }));
+  }
+
+  static async saveSettings(dealershipId: string, settings: InspectionSettings): Promise<void> {
+    const updatedSettings = {
+      ...settings,
+      updatedAt: new Date().toISOString()
+    };
+
+    // Always save to localStorage first (as default)
+    this.saveToLocalStorage(dealershipId, updatedSettings);
+
+    try {
+      // Then try to save to Supabase (database priority)
+      const { error } = await supabase
+        .from('inspection_settings')
+        .upsert({
+          dealership_id: dealershipId,
+          settings: updatedSettings,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'dealership_id'
+        });
+
+      if (error) {
+        console.error('Error saving settings to Supabase:', error);
+        // Don't throw error, localStorage is the fallback
+      }
+    } catch (error) {
+      console.error('Error saving settings to Supabase:', error);
+      // Continue with localStorage as backup
+    }
+  }
+
+  // Section Management
+  static async addSection(dealershipId: string, sectionData: Omit<InspectionSection, 'id' | 'createdAt' | 'updatedAt'>): Promise<InspectionSection> {
+    const settings = await this.getSettings(dealershipId);
+    if (!settings) throw new Error('Settings not found');
+
+    const newSection: InspectionSection = {
+      ...sectionData,
+      id: `section-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    settings.sections.push(newSection);
+    settings.sections.sort((a, b) => a.order - b.order);
+    
+    await this.saveSettings(dealershipId, settings);
+    return newSection;
+  }
+
+  static async updateSection(dealershipId: string, sectionId: string, updates: Partial<InspectionSection>): Promise<InspectionSection | null> {
+    const settings = await this.getSettings(dealershipId);
+    if (!settings) return null;
+
+    const sectionIndex = settings.sections.findIndex(s => s.id === sectionId);
+    if (sectionIndex === -1) return null;
+
+    settings.sections[sectionIndex] = {
+      ...settings.sections[sectionIndex],
+      ...updates,
+      updatedAt: new Date().toISOString()
+    };
+
+    // Re-sort if order changed
+    if (updates.order !== undefined) {
+      settings.sections.sort((a, b) => a.order - b.order);
+    }
+
+    await this.saveSettings(dealershipId, settings);
+    return settings.sections[sectionIndex];
+  }
+
+  static async deleteSection(dealershipId: string, sectionId: string): Promise<boolean> {
+    const settings = await this.getSettings(dealershipId);
+    if (!settings) return false;
+
+    const initialLength = settings.sections.length;
+    settings.sections = settings.sections.filter(s => s.id !== sectionId);
+    
+    if (settings.sections.length < initialLength) {
+      await this.saveSettings(dealershipId, settings);
       return true;
-    } catch (e) {
-      // console.error('[InspectionChecklist] saveInspectionData: Error', e);
+    }
+    return false;
+  }
+
+  // Item Management
+  static async addItem(dealershipId: string, sectionId: string, itemData: Omit<InspectionItem, 'id' | 'createdAt' | 'updatedAt'>): Promise<InspectionItem | null> {
+    const settings = await this.getSettings(dealershipId);
+    if (!settings) return null;
+
+    const sectionIndex = settings.sections.findIndex(s => s.id === sectionId);
+    if (sectionIndex === -1) return null;
+
+    const newItem: InspectionItem = {
+      ...itemData,
+      id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    settings.sections[sectionIndex].items.push(newItem);
+    settings.sections[sectionIndex].items.sort((a, b) => a.order - b.order);
+    
+    await this.saveSettings(dealershipId, settings);
+    return newItem;
+  }
+
+  static async updateItem(dealershipId: string, sectionId: string, itemId: string, updates: Partial<InspectionItem>): Promise<InspectionItem | null> {
+    const settings = await this.getSettings(dealershipId);
+    if (!settings) return null;
+
+    const sectionIndex = settings.sections.findIndex(s => s.id === sectionId);
+    if (sectionIndex === -1) return null;
+
+    const itemIndex = settings.sections[sectionIndex].items.findIndex(i => i.id === itemId);
+    if (itemIndex === -1) return null;
+
+    settings.sections[sectionIndex].items[itemIndex] = {
+      ...settings.sections[sectionIndex].items[itemIndex],
+      ...updates,
+      updatedAt: new Date().toISOString()
+    };
+
+    // Re-sort if order changed
+    if (updates.order !== undefined) {
+      settings.sections[sectionIndex].items.sort((a, b) => a.order - b.order);
+    }
+
+    await this.saveSettings(dealershipId, settings);
+    return settings.sections[sectionIndex].items[itemIndex];
+  }
+
+  static async deleteItem(dealershipId: string, sectionId: string, itemId: string): Promise<boolean> {
+    const settings = await this.getSettings(dealershipId);
+    if (!settings) return false;
+
+    const sectionIndex = settings.sections.findIndex(s => s.id === sectionId);
+    if (sectionIndex === -1) return false;
+
+    const initialLength = settings.sections[sectionIndex].items.length;
+    settings.sections[sectionIndex].items = settings.sections[sectionIndex].items.filter(i => i.id !== itemId);
+    
+    if (settings.sections[sectionIndex].items.length < initialLength) {
+      await this.saveSettings(dealershipId, settings);
+      return true;
+    }
+    return false;
+  }
+
+  static async reorderItems(dealershipId: string, sectionId: string, itemIds: string[]): Promise<boolean> {
+    const settings = await this.getSettings(dealershipId);
+    if (!settings) return false;
+
+    const sectionIndex = settings.sections.findIndex(s => s.id === sectionId);
+    if (sectionIndex === -1) return false;
+
+    // Update order based on the provided array
+    itemIds.forEach((itemId, index) => {
+      const item = settings.sections[sectionIndex].items.find(i => i.id === itemId);
+      if (item) {
+        item.order = index + 1;
+        item.updatedAt = new Date().toISOString();
+      }
+    });
+
+    // Re-sort items
+    settings.sections[sectionIndex].items.sort((a, b) => a.order - b.order);
+    
+    await this.saveSettings(dealershipId, settings);
+    return true;
+  }
+
+  // Rating Labels Management
+  static async updateRatingLabel(dealershipId: string, labelKey: 'great' | 'fair' | 'needs-attention' | 'not-checked', updates: Partial<RatingLabel>): Promise<RatingLabel | null> {
+    const settings = await this.getSettings(dealershipId);
+    if (!settings) return null;
+
+    const labelIndex = settings.ratingLabels.findIndex(l => l.key === labelKey);
+    if (labelIndex === -1) return null;
+
+    settings.ratingLabels[labelIndex] = {
+      ...settings.ratingLabels[labelIndex],
+      ...updates
+    };
+
+    await this.saveSettings(dealershipId, settings);
+    return settings.ratingLabels[labelIndex];
+  }
+
+  // Customer PDF Settings Management
+  static async updateCustomerPdfSettings(dealershipId: string, updates: Partial<InspectionSettings['customerPdfSettings']>): Promise<boolean> {
+    const settings = await this.getSettings(dealershipId);
+    if (!settings) return false;
+
+    settings.customerPdfSettings = {
+      ...settings.customerPdfSettings,
+      ...updates
+    };
+
+    await this.saveSettings(dealershipId, settings);
+    return true;
+  }
+
+  // Global Settings Management
+  static async updateGlobalSettings(dealershipId: string, updates: Partial<InspectionSettings['globalSettings']>): Promise<boolean> {
+    const settings = await this.getSettings(dealershipId);
+    if (!settings) return false;
+
+    settings.globalSettings = {
+      ...settings.globalSettings,
+      ...updates
+    };
+
+    await this.saveSettings(dealershipId, settings);
+    return true;
+  }
+
+  // Utility Methods
+  static async getActiveSection(dealershipId: string): Promise<InspectionSection[]> {
+    const settings = await this.getSettings(dealershipId);
+    if (!settings) return [];
+
+    return settings.sections
+      .filter(s => s.isActive)
+      .sort((a, b) => a.order - b.order);
+  }
+
+  static async getActiveSectionItems(dealershipId: string, sectionId: string): Promise<InspectionItem[]> {
+    const settings = await this.getSettings(dealershipId);
+    if (!settings) return [];
+
+    const section = settings.sections.find(s => s.id === sectionId);
+    if (!section) return [];
+
+    return section.items
+      .filter(i => i.isActive)
+      .sort((a, b) => a.order - b.order);
+  }
+
+  static async getRatingLabel(dealershipId: string, labelKey: 'great' | 'fair' | 'needs-attention' | 'not-checked'): Promise<RatingLabel | null> {
+    const settings = await this.getSettings(dealershipId);
+    if (!settings) return null;
+
+    return settings.ratingLabels.find(l => l.key === labelKey) || null;
+  }
+
+  // Reset to Defaults
+  static async resetToDefaults(dealershipId: string): Promise<boolean> {
+    try {
+      const defaultSettings: InspectionSettings = {
+        ...DEFAULT_INSPECTION_SETTINGS,
+        id: `settings-${Date.now()}`,
+        dealershipId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      await this.saveSettings(dealershipId, defaultSettings);
+      return true;
+    } catch (error) {
+      console.error('Error resetting to defaults:', error);
       return false;
     }
-  };
-
-  const handleSave = async () => {
-    // console.log('[InspectionChecklist] handleSave called');
-    const ok = await saveInspectionData();
-    if (ok) alert('✅ Inspection data saved successfully!');
-  };
-
-  // Convert inspection settings to inspection data format
-  const getInspectionDataFromSettings = (settings: InspectionSettings): InspectionData => {
-    // console.log('[InspectionChecklist] getInspectionDataFromSettings', settings);
-    
-    if (!settings || !settings.sections || !Array.isArray(settings.sections)) {
-      return DEFAULT_INSPECTION_DATA;
-    }
-
-    const data: InspectionData = {
-      emissions: [],
-      cosmetic: [],
-      mechanical: [],
-      cleaning: [],
-      photos: [],
-      customSections: {},
-      sectionNotes: {
-        emissions: '',
-        cosmetic: '',
-        mechanical: '',
-        cleaning: '',
-        photos: ''
-      },
-      overallNotes: ''
-    };
-    
-    // Map active sections and their items to the inspection data
-    settings.sections.filter(section => section.isActive).forEach(section => {
-      const sectionKey = section.key as keyof InspectionData;
-
-      // Standard sections
-      if (['emissions', 'cosmetic', 'mechanical', 'cleaning', 'photos'].includes(section.key)) {
-        // Map active items to inspection items
-        data[sectionKey] = section.items
-          .filter(item => item.isActive)
-          .map(item => ({
-            key: item.id,
-            label: item.label,
-            rating: 'not-checked' as ItemRating
-          }));
-      } 
-      // Custom sections
-      else {
-        if (!data.customSections) {
-          data.customSections = {};
-        }
-        
-        data.customSections[section.key] = section.items
-          .filter(item => item.isActive)
-          .map(item => ({
-            key: item.id,
-            label: item.label,
-            rating: 'not-checked' as ItemRating
-          }));
-          
-        // Add section to sectionNotes
-        if (data.sectionNotes && !data.sectionNotes[section.key]) {
-          data.sectionNotes[section.key] = '';
-        }
-      }
-    });
-    
-    // console.log('[InspectionChecklist] getInspectionDataFromSettings result', data);
-    return data;
-  };
-
-  // Helper to calculate section progress from inspectionData
-  const getSectionProgress = (sectionKey: keyof InspectionData): number => {
-    const items = (inspectionData[sectionKey] as ChecklistItem[]) || [];
-    if (items.length === 0) return 0;
-    const checkedItems = items.filter(item => item.rating !== 'not-checked').length;
-    return Math.round((checkedItems / items.length) * 100);
-  };
-
-  // Helper to calculate overall progress from inspectionData
-  const getOverallProgress = (): number => {
-    const sectionKeys: (keyof InspectionData)[] = ['emissions', 'cosmetic', 'mechanical', 'cleaning', 'photos'];
-    let totalItems = 0;
-    let checkedItems = 0;
-    sectionKeys.forEach(key => {
-      const items = (inspectionData[key] as ChecklistItem[]) || [];
-      totalItems += items.length;
-      checkedItems += items.filter(item => item.rating !== 'not-checked').length;
-    });
-    if (totalItems === 0) return 0;
-    return Math.round((checkedItems / totalItems) * 100);
-  };
-
-  // Show loading state until data is loaded
-  if (!isLoaded) {
-    // console.log('[InspectionChecklist] Not loaded yet, showing loading UI');
-    return (
-      <div className="space-y-4">
-        <div className="bg-white/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 p-4 text-center">
-          <div className="animate-pulse">
-            <div className="w-8 h-8 bg-blue-200 rounded-full mx-auto mb-4"></div>
-            <div className="h-4 bg-gray-200 rounded w-1/2 mx-auto mb-2"></div>
-            <div className="h-3 bg-gray-200 rounded w-1/3 mx-auto"></div>
-          </div>
-          <p className="text-sm text-gray-600 mt-4">Loading inspection data...</p>
-        </div>
-      </div>
-    );
   }
 
-  // Get sections from settings if available, otherwise use default
-  const getSections = () => {
-    // console.log('[InspectionChecklist] getSections called', { inspectionSettings, inspectionData });
-    const result = [];
-    
-    if (inspectionSettings && inspectionSettings.sections && Array.isArray(inspectionSettings.sections)) {
-      // Get all active sections from settings
-      const standardSections = inspectionSettings.sections
-        .filter(section => section.isActive)
-        .sort((a, b) => a.order - b.order)
-        .map(section => {
-          const sectionKey = section.key;
-          let sectionItems: ChecklistItem[] = [];
-          
-          // Handle standard sections
-          if (['emissions', 'cosmetic', 'mechanical', 'cleaning', 'photos'].includes(sectionKey)) {
-            sectionItems = (inspectionData[sectionKey] as ChecklistItem[]) || [];
-          } 
-          // Handle custom sections
-          else if (inspectionData.customSections && inspectionData.customSections[sectionKey]) {
-            sectionItems = inspectionData.customSections[sectionKey] || [];
-          }
-          
-          // Return the section with existing data or empty array
-          return {
-            key: section.key,
-            title: section.label,
-            data: sectionItems,
-            notes: inspectionData.sectionNotes[sectionKey] || ''
-          };
-        });
-        
-      return standardSections;
+  // Export/Import
+  static async exportSettings(dealershipId: string): Promise<string | null> {
+    const settings = await this.getSettings(dealershipId);
+    if (!settings) return null;
+
+    try {
+      return JSON.stringify(settings, null, 2);
+    } catch (error) {
+      console.error('Error exporting settings:', error);
+      return null;
     }
-    
-    // Fallback to default sections if no settings
-    return [
-      {
-        key: 'emissions',
-        title: 'Emissions',
-        data: inspectionData.emissions || [],
-        notes: inspectionData.sectionNotes.emissions || ''
-      },
-      {
-        key: 'cosmetic',
-        title: 'Cosmetic',
-        data: inspectionData.cosmetic || [],
-        notes: inspectionData.sectionNotes.cosmetic || ''
-      },
-      {
-        key: 'mechanical',
-        title: 'Mechanical',
-        data: inspectionData.mechanical || [],
-        notes: inspectionData.sectionNotes.mechanical || ''
-      },
-      {
-        key: 'cleaning',
-        title: 'Cleaning',
-        data: inspectionData.cleaning || [],
-        notes: inspectionData.sectionNotes.cleaning || ''
-      },
-      {
-        key: 'photos',
-        title: 'Photos',
-        data: inspectionData.photos || [],
-        notes: inspectionData.sectionNotes.photos || ''
+  }
+
+  static async importSettings(dealershipId: string, settingsJson: string): Promise<boolean> {
+    try {
+      const importedSettings = JSON.parse(settingsJson);
+      
+      // Validate the imported settings structure
+      if (!importedSettings.sections || !importedSettings.ratingLabels || !importedSettings.globalSettings || !importedSettings.customerPdfSettings) {
+        throw new Error('Invalid settings format');
       }
-    ];
-  };
 
-  // Get sections and filter based on activeFilter
-  const sections = getSections();
-  const filteredSections = activeFilter 
-    ? sections.filter(section => {
-        // Map the filter to section key
-        const filterMap: Record<string, string> = {
-          'emissions': 'emissions',
-          'cosmetic': 'cosmetic',
-          'mechanical': 'mechanical',
-          'cleaned': 'cleaning',
-          'photos': 'photos'
-        };
-        return section.key === filterMap[activeFilter] || section.key === activeFilter;
-      })
-    : sections;
+      // Merge with defaults to ensure all properties exist
+      const mergedSettings: InspectionSettings = {
+        ...DEFAULT_INSPECTION_SETTINGS,
+        ...importedSettings,
+        id: `settings-${Date.now()}`,
+        dealershipId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        // Ensure nested objects are properly merged
+        customerPdfSettings: {
+          ...DEFAULT_INSPECTION_SETTINGS.customerPdfSettings,
+          ...(importedSettings.customerPdfSettings || {})
+        },
+        globalSettings: {
+          ...DEFAULT_INSPECTION_SETTINGS.globalSettings,
+          ...(importedSettings.globalSettings || {})
+        },
+        ratingLabels: importedSettings.ratingLabels && importedSettings.ratingLabels.length > 0 
+          ? importedSettings.ratingLabels 
+          : DEFAULT_INSPECTION_SETTINGS.ratingLabels,
+        sections: importedSettings.sections || DEFAULT_INSPECTION_SETTINGS.sections
+      };
 
-  // console.log('[InspectionChecklist] Rendered sections', filteredSections);
-
-  return (
-    <div className="space-y-4">
-      {/* Filter Indicator */}
-      {activeFilter && (
-        <div className="bg-blue-50/80 backdrop-blur-sm border border-blue-200 rounded-xl p-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Filter className="w-3 h-3 text-blue-600" />
-              </div>
-              <div>
-                <h4 className="text-sm font-semibold text-blue-800">Focused Inspection Mode</h4>
-                <p className="text-xs text-blue-700">
-                  Showing only {activeFilter === 'cleaning' ? 'cleaning' : activeFilter} section for faster completion
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* User Info Display */}
-      {user && (
-        <div className="bg-green-50/80 backdrop-blur-sm border border-green-200 rounded-xl p-3">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-              <span className="text-green-700 font-bold text-sm">{user.initials}</span>
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold text-green-800">Working as: {user.firstName} {user.lastName}</h4>
-              <p className="text-xs text-green-700">
-                All task updates will be automatically recorded with your initials
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Compact Inspection Section Cards */}
-      <div className="space-y-3">
-        {filteredSections.map((section) => (
-          <ChecklistSection
-            key={section.key}
-            title={section.title}
-            sectionKey={section.key}
-            items={section.data}
-            notes={section.notes}
-            onItemChange={(key, rating) => updateInspectionItem(section.key as keyof InspectionData, key, rating)}
-            onNotesChange={(notes) => updateSectionNotes(section.key as keyof InspectionData['sectionNotes'], notes)}
-            onStatusUpdate={handleSectionStatusUpdate}
-            onSectionComplete={onSectionComplete}
-            isFiltered={!!activeFilter}
-          />
-        ))}
-      </div>
-
-      {/* Overall Notes */}
-      <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg border border-white/30 p-4">
-        <h3 className="text-base font-bold text-gray-900 mb-3">Overall Inspection Notes</h3>
-        <textarea
-          value={inspectionData.overallNotes}
-          onChange={(e) => setInspectionData(prev => ({ ...prev, overallNotes: e.target.value }))}
-          placeholder="Add any overall observations or notes about the vehicle inspection..."
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
-          rows={3}
-        />
-      </div>
-
-      {/* Action Buttons */}
-      <div className="flex justify-end gap-3">
-        {/* Generate PDF Button - Now positioned to the left of Save */}
-        {onGeneratePdf && (
-          <button
-            type="button"
-            onClick={onGeneratePdf}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
-          >
-            <FileText className="w-4 h-4" />
-            Generate Customer PDF
-          </button>
-        )}
-        
-        {/* Save Button */}
-        <button
-          type="button"
-          onClick={handleSave}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
-        >
-          <Save className="w-4 h-4" />
-          Save Inspection
-        </button>
-      </div>
-    </div>
-  );
-};
-
-export default InspectionChecklist;
+      await this.saveSettings(dealershipId, mergedSettings);
+      return true;
+    } catch (error) {
+      console.error('Error importing settings:', error);
+      return false;
+    }
+  }
+}

@@ -8,7 +8,10 @@ import { CheckCircle2, Circle, Save, Star, AlertTriangle, CheckCircle, Clock, Fi
 import { InspectionDataManager } from '../utils/inspectionDataManager';
 import { VehicleManager } from '../utils/vehicleManager';
 
-// console.log('[InspectionChecklist] File loaded');
+// Define a type for custom sections
+interface CustomSectionData {
+  [key: string]: ChecklistItem[];
+}
 
 interface InspectionChecklistProps {
   vehicle: Vehicle;
@@ -37,6 +40,7 @@ interface InspectionData {
   mechanical: ChecklistItem[];
   cleaning: ChecklistItem[];
   photos: ChecklistItem[];
+  customSections?: CustomSectionData;
   sectionNotes: Record<string, string>;
   overallNotes: string;
   lastSaved?: string;
@@ -84,6 +88,7 @@ export const DEFAULT_INSPECTION_DATA: InspectionData = {
     cleaning: '',
     photos: ''
   },
+  customSections: {},
   overallNotes: ''
 };
 
@@ -468,22 +473,30 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
   // console.log('[InspectionChecklist] useEffect: Load inspection settings', { dealership });
   useEffect(() => {
     if (!dealership) return;
+    let isMounted = true;
     (async () => {
       await InspectionSettingsManager.initializeDefaultSettings(dealership.id);
       const settings = await InspectionSettingsManager.getSettings(dealership.id);
-      setInspectionSettings(settings);
+      if (isMounted) {
+        setInspectionSettings(settings);
+      }
       // console.log('[InspectionChecklist] Inspection settings loaded', settings);
     })();
 
     const handleStorageChange = async (e: StorageEvent) => {
       if (e.key === `dealership_inspection_settings_${dealership.id}`) {
         const updated = await InspectionSettingsManager.getSettings(dealership.id);
-        setInspectionSettings(updated);
+        if (isMounted) {
+          setInspectionSettings(updated);
+        }
         // console.log('[InspectionChecklist] Inspection settings updated from storage event', updated);
       }
     };
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, [dealership]);
 
   // Load inspection data only once per vehicle/user
@@ -620,7 +633,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
   // Convert inspection settings to inspection data format
   const getInspectionDataFromSettings = (settings: InspectionSettings): InspectionData => {
     // console.log('[InspectionChecklist] getInspectionDataFromSettings', settings);
-    // If settings is null/undefined or doesn't have sections, return default data
+    
     if (!settings || !settings.sections || !Array.isArray(settings.sections)) {
       return DEFAULT_INSPECTION_DATA;
     }
@@ -631,6 +644,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       mechanical: [],
       cleaning: [],
       photos: [],
+      customSections: {},
       sectionNotes: {
         emissions: '',
         cosmetic: '',
@@ -644,9 +658,9 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
     // Map active sections and their items to the inspection data
     settings.sections.filter(section => section.isActive).forEach(section => {
       const sectionKey = section.key as keyof InspectionData;
-      
-      // Only process if it's one of our known section keys
-      if (sectionKey in data) {
+
+      // Standard sections
+      if (['emissions', 'cosmetic', 'mechanical', 'cleaning', 'photos'].includes(section.key)) {
         // Map active items to inspection items
         data[sectionKey] = section.items
           .filter(item => item.isActive)
@@ -655,6 +669,25 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
             label: item.label,
             rating: 'not-checked' as ItemRating
           }));
+      } 
+      // Custom sections
+      else {
+        if (!data.customSections) {
+          data.customSections = {};
+        }
+        
+        data.customSections[section.key] = section.items
+          .filter(item => item.isActive)
+          .map(item => ({
+            key: item.id,
+            label: item.label,
+            rating: 'not-checked' as ItemRating
+          }));
+          
+        // Add section to sectionNotes
+        if (data.sectionNotes && !data.sectionNotes[section.key]) {
+          data.sectionNotes[section.key] = '';
+        }
       }
     });
     
@@ -704,14 +737,25 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
   // Get sections from settings if available, otherwise use default
   const getSections = () => {
     // console.log('[InspectionChecklist] getSections called', { inspectionSettings, inspectionData });
+    const result = [];
+    
     if (inspectionSettings && inspectionSettings.sections && Array.isArray(inspectionSettings.sections)) {
       // Get all active sections from settings
-      return inspectionSettings.sections
+      const standardSections = inspectionSettings.sections
         .filter(section => section.isActive)
         .sort((a, b) => a.order - b.order)
         .map(section => {
           const sectionKey = section.key;
-          const sectionItems = (inspectionData[sectionKey] as ChecklistItem[]) || [];
+          let sectionItems: ChecklistItem[] = [];
+          
+          // Handle standard sections
+          if (['emissions', 'cosmetic', 'mechanical', 'cleaning', 'photos'].includes(sectionKey)) {
+            sectionItems = (inspectionData[sectionKey] as ChecklistItem[]) || [];
+          } 
+          // Handle custom sections
+          else if (inspectionData.customSections && inspectionData.customSections[sectionKey]) {
+            sectionItems = inspectionData.customSections[sectionKey] || [];
+          }
           
           // Return the section with existing data or empty array
           return {
@@ -721,6 +765,8 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
             notes: inspectionData.sectionNotes[sectionKey] || ''
           };
         });
+        
+      return standardSections;
     }
     
     // Fallback to default sections if no settings
@@ -767,10 +813,10 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
           'emissions': 'emissions',
           'cosmetic': 'cosmetic',
           'mechanical': 'mechanical',
-          'cleaning': 'cleaning',
+          'cleaned': 'cleaning',
           'photos': 'photos'
         };
-        return section.key === filterMap[activeFilter];
+        return section.key === filterMap[activeFilter] || section.key === activeFilter;
       })
     : sections;
 

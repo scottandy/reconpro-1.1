@@ -1,6 +1,17 @@
 import { supabase } from './supabaseClient';
 import { InspectionData } from '../types/inspectionSettings';
 
+interface ChecklistItem {
+  key: string;
+  label: string;
+  rating: string;
+  notes?: string;
+}
+
+interface CustomSectionData {
+  [key: string]: ChecklistItem[];
+}
+
 export class InspectionDataManager {
   static async saveInspectionData(
     vehicleId: string, 

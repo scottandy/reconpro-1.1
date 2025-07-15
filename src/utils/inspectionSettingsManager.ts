@@ -52,6 +52,17 @@ export class InspectionSettingsManager {
       
       // Ensure the returned settings have all required properties
       const settings = data.settings;
+      
+      // Ensure each section has an items array
+      if (settings.sections && Array.isArray(settings.sections)) {
+        settings.sections = settings.sections.map(section => {
+          if (!section.items || !Array.isArray(section.items)) {
+            section.items = [];
+          }
+          return section;
+        });
+      }
+      
       return {
         ...DEFAULT_INSPECTION_SETTINGS,
         ...settings,

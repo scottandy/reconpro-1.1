@@ -563,7 +563,6 @@ const VehicleDetail: React.FC = () => {
     const status = allSectionStatuses[key];
     return status === 'completed' || status === 'pending' || status === 'needs-attention';
   }).length;
-  const overallProgress = Math.round((completedSections / allSectionKeys.length) * 100);
 
   // Guard: show loading state until inspectionData is loaded
   if (inspectionLoading || !sectionsLoaded) {

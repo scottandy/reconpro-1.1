@@ -53,6 +53,10 @@ const VehicleDetail: React.FC = () => {
   const [isEditingLocation, setIsEditingLocation] = useState(false);
   const [editedLocation, setEditedLocation] = useState('');
 
+  // NEW: All sections state (default + custom)
+  const [allSections, setAllSections] = useState<Array<{ key: string; label: string }>>([]);
+  const [sectionsLoaded, setSectionsLoaded] = useState(false);
+
   const [inspectionData, setInspectionData] = useState<any>(null);
   const [inspectionLoading, setInspectionLoading] = useState(true);
   const [customSections, setCustomSections] = useState<any[]>([]);
@@ -73,6 +77,62 @@ const VehicleDetail: React.FC = () => {
       .then(data => setInspectionData(data || {}))
       .finally(() => setInspectionLoading(false));
   }, [vehicle?.id, user?.id]);
+
+  // Load inspection settings and build allSections array
+  useEffect(() => {
+    const loadSections = async () => {
+      if (!user?.dealershipId) {
+        setAllSections([
+          { key: 'emissions', label: 'Emissions' },
+          { key: 'cosmetic', label: 'Cosmetic' },
+          { key: 'mechanical', label: 'Mechanical' },
+          { key: 'cleaning', label: 'Cleaning' },
+          { key: 'photos', label: 'Photos' }
+        ]);
+        setSectionsLoaded(true);
+        return;
+      }
+
+      try {
+        const settings = await InspectionDataManager.getSettings(user.dealershipId);
+        if (settings) {
+          // Get all active sections from settings
+          const activeSections = settings.sections
+            .filter(section => section.isActive)
+            .sort((a, b) => a.order - b.order)
+            .map(section => ({
+              key: section.key,
+              label: section.label
+            }));
+          
+          setAllSections(activeSections);
+        } else {
+          // Fallback to default sections
+          setAllSections([
+            { key: 'emissions', label: 'Emissions' },
+            { key: 'cosmetic', label: 'Cosmetic' },
+            { key: 'mechanical', label: 'Mechanical' },
+            { key: 'cleaning', label: 'Cleaning' },
+            { key: 'photos', label: 'Photos' }
+          ]);
+        }
+      } catch (error) {
+        console.error('Error loading sections:', error);
+        // Fallback to default sections on error
+        setAllSections([
+          { key: 'emissions', label: 'Emissions' },
+          { key: 'cosmetic', label: 'Cosmetic' },
+          { key: 'mechanical', label: 'Mechanical' },
+          { key: 'cleaning', label: 'Cleaning' },
+          { key: 'photos', label: 'Photos' }
+        ]);
+      } finally {
+        setSectionsLoaded(true);
+      }
+    };
+
+    loadSections();
+  }, [user?.dealershipId]);
 
   // Load custom sections from inspection settings
   useEffect(() => {
@@ -485,7 +545,7 @@ const VehicleDetail: React.FC = () => {
   const locationStyle = getLocationStyle(vehicle.location);
 
   // Section status and progress logic
-  const sectionKeys = ['emissions', 'cosmetic', 'mechanical', 'cleaning', 'photos'];
+  const sectionKeys = allSections.map(section => section.key);
   const allSectionKeys = [...sectionKeys, ...customSections.map(s => s.key)];
   const sectionStatuses = sectionKeys.reduce((acc, key) => {
     acc[key] = getSectionStatus(key, inspectionData);
@@ -497,7 +557,7 @@ const VehicleDetail: React.FC = () => {
   customSections.forEach(section => {
     allSectionStatuses[section.key] = getSectionStatus(section.key, inspectionData);
   });
-
+  const overallProgress = sectionKeys.length > 0 ? Math.round((completedSections / sectionKeys.length) * 100) : 0;
   // Count sections that are 'completed', 'pending', or 'needs-attention' as completed for progress
   const completedSections = allSectionKeys.filter(key => {
     const status = allSectionStatuses[key];
@@ -506,7 +566,7 @@ const VehicleDetail: React.FC = () => {
   const overallProgress = Math.round((completedSections / allSectionKeys.length) * 100);
 
   // Guard: show loading state until inspectionData is loaded
-  if (inspectionLoading) {
+  if (inspectionLoading || !sectionsLoaded) {
     return <div>Loading inspection data...</div>;
   }
 

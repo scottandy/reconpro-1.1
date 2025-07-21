@@ -1004,61 +1004,22 @@ const VehicleDetail: React.FC = () => {
 
               {/* Status Buttons in Two Columns */}
               <div className="grid grid-cols-2 gap-3 mb-6">
-                <button
-                  onClick={() => setActiveFilter(activeFilter === 'emissions' ? null : 'emissions')}
-                  className={`p-3 rounded-lg border transition-all duration-200 ${
-                    activeFilter === 'emissions'
-                      ? 'border-green-300 bg-green-50 shadow-md'
-                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  <StatusBadge status={allSectionStatuses['emissions']} label="Emissions" section="emissions" size="sm" />
-                </button>
-                
-                <button
-                  onClick={() => setActiveFilter(activeFilter === 'cosmetic' ? null : 'cosmetic')}
-                  className={`p-3 rounded-lg border transition-all duration-200 ${
-                    activeFilter === 'cosmetic'
-                      ? 'border-purple-300 bg-purple-50 shadow-md'
-                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  <StatusBadge status={allSectionStatuses['cosmetic']} label="Cosmetic" section="cosmetic" size="sm" />
-                </button>
-                
-                <button
-                  onClick={() => setActiveFilter(activeFilter === 'mechanical' ? null : 'mechanical')}
-                  className={`p-3 rounded-lg border transition-all duration-200 ${
-                    activeFilter === 'mechanical'
-                      ? 'border-blue-300 bg-blue-50 shadow-md'
-                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  <StatusBadge status={allSectionStatuses['mechanical']} label="Mechanical" section="mechanical" size="sm" />
-                </button>
-                
-                <button
-                  onClick={() => setActiveFilter(activeFilter === 'cleaning' ? null : 'cleaning')}
-                  className={`p-3 rounded-lg border transition-all duration-200 ${
-                    activeFilter === 'cleaning'
-                      ? 'border-cyan-300 bg-cyan-50 shadow-md'
-                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  <StatusBadge status={allSectionStatuses['cleaning']} label="Cleaning" section="cleaning" size="sm" />
-                </button>
-                
-                <button
-                  onClick={() => setActiveFilter(activeFilter === 'photos' ? null : 'photos')}
-                  className={`p-3 rounded-lg border transition-all duration-200 ${
-                    activeFilter === 'photos'
-                      ? 'border-orange-300 bg-orange-50 shadow-md'
-                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  <StatusBadge status={allSectionStatuses['photos']} label="Photos" section="photos" size="sm" />
-                </button>
-                
+                {allSections.map((section, index) => (
+                  <button
+                    key={section.key}
+                    onClick={() => setActiveFilter(activeFilter === section.key ? null : section.key)}
+                    className={`p-3 rounded-lg border transition-all duration-200 ${
+                      allSections.length % 2 !== 0 && index === allSections.length - 1 ? 'col-span-2' : ''
+                    } ${
+                      activeFilter === section.key
+                        ? 'border-blue-300 bg-blue-50 shadow-md'
+                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <StatusBadge status={sectionStatuses[section.key]} label={section.label} section={section.key} size="sm" />
+                  </button>
+                ))}
+              </div>
                 {/* Custom sections */}
                 {customSections.map((section) => (
                   <button
@@ -1245,62 +1206,23 @@ const VehicleDetail: React.FC = () => {
                     <p className="text-sm text-gray-900">{formatPrice(vehicle.price)}</p>
                   </div>
                 </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-gray-500" />
-                    <p className="text-sm text-gray-900">{vehicle.location || 'N/A'}</p>
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Date Acquired</label>
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-gray-500" />
-                    <p className="text-sm text-gray-900">{formatDate(vehicle.dateAcquired)}</p>
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Stock Number</label>
-                  <div className="flex items-center gap-2">
-                    <Hash className="w-4 h-4 text-gray-500" />
-                    <p className="text-sm text-gray-900">{getStockNumber(vehicle.vin)}</p>
-                  </div>
-                </div>
-              </div>
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              {allSections.map((section, index) => (
+                <button
+                  key={section.key}
+                  onClick={() => handleMobileSectionClick(section.key)}
+                  className={`p-3 rounded-lg border transition-all duration-200 ${
+                    allSections.length % 2 !== 0 && index === allSections.length - 1 ? 'col-span-2' : ''
+                  } ${
+                    activeFilter === section.key
+                      ? 'border-blue-300 bg-blue-50 shadow-md'
+                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  <StatusBadge status={sectionStatuses[section.key]} label={section.label} section={section.key} size="sm" />
+                </button>
+              ))}
             </div>
-          </div>
-
-          {/* Right Column - 2/3 width */}
-          <div className="flex-1 space-y-6">
-            {/* Desktop Toggle */}
-            <div className="bg-white/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 p-4">
-              <div className="flex bg-gray-100 rounded-lg p-1">
-                <button
-                  onClick={() => setRightPanelView('inspection')}
-                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium transition-all duration-200 ${
-                    rightPanelView === 'inspection'
-                      ? 'bg-white text-blue-600 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  <ClipboardList className="w-4 h-4" />
-                  Mechanical Inspection
-                </button>
-                <button
-                  onClick={() => setRightPanelView('team-notes')}
-                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium transition-all duration-200 ${
-                    rightPanelView === 'team-notes'
-                      ? 'bg-white text-blue-600 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  Team Notes
-                </button>
-              </div>
             </div>
 
             {/* Desktop Content */}

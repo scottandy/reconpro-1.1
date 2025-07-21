@@ -290,28 +290,33 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
           {/* Status Badges - Now Read-Only */}
           <div className="space-y-2">
             <div className="flex flex-wrap gap-2">
-              <StatusBadge status={sectionStatuses['emissions']} label="Emissions" section="emissions" size="sm" />
-              <StatusBadge status={sectionStatuses['cosmetic']} label="Cosmetic" section="cosmetic" size="sm" />
-              <StatusBadge status={sectionStatuses['mechanical']} label="Mechanical" section="mechanical" size="sm" />
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <StatusBadge status={sectionStatuses['cleaning']} label="Cleaning" section="cleaning" size="sm" />
-              <StatusBadge status={sectionStatuses['photos']} label="Photos" section="photos" size="sm" />
-              
-              {/* Custom sections from settings - using inspection data */}
-              {customSections.map(section => {
-                // Get status from inspection data for custom sections
-                const customSectionStatus = getSectionStatus(section.key, inspectionData);
-                return (
-                  <StatusBadge 
-                    key={section.key} 
-                    status={customSectionStatus} 
-                    label={section.label} 
-                    section={section.key as any} 
-                    size="sm" 
-                  />
-                );
-              })}
+              {/* Get all sections (default + custom) and display them */}
+              {(() => {
+                // Default sections
+                const defaultSections = [
+                  { key: 'emissions', label: 'Emissions' },
+                  { key: 'cosmetic', label: 'Cosmetic' },
+                  { key: 'mechanical', label: 'Mechanical' },
+                  { key: 'cleaning', label: 'Cleaning' },
+                  { key: 'photos', label: 'Photos' }
+                ];
+                
+                // Combine with custom sections
+                const allSections = [...defaultSections, ...customSections.map(s => ({ key: s.key, label: s.label }))];
+                
+                return allSections.map(section => {
+                  const sectionStatus = getSectionStatus(section.key, inspectionData);
+                  return (
+                    <StatusBadge 
+                      key={section.key} 
+                      status={sectionStatus} 
+                      label={section.label} 
+                      section={section.key as any} 
+                      size="sm" 
+                    />
+                  );
+                });
+              })()}
             </div>
           </div>
         </div>

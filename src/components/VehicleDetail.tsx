@@ -969,7 +969,8 @@ const VehicleDetail: React.FC = () => {
         {/* Desktop Layout */}
         <div className="hidden lg:flex gap-8">
           {/* Left Column - 1/3 width */}
-          <div className="w-1/3 space-y-6">
+          <div className="w-1/3 lg:sticky lg:top-6 lg:self-start lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto">
+            <div className="space-y-6">
             {/* Desktop Reconditioning Progress */}
             <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">
               <div className="flex items-center justify-between mb-6">
@@ -1203,6 +1204,7 @@ const VehicleDetail: React.FC = () => {
                   </div>
                 </div>
               </div>
+            </div>
             </div>
           </div>
 

@@ -1,8 +1,7 @@
 import { Vehicle } from '../types/vehicle';
 import { InspectionSettings } from '../types/inspectionSettings';
 import { ProgressCalculator } from '../utils/progressCalculator';
-import { InspectionDataManager } from './inspectionDataManager';
-import { DEFAULT_INSPECTION_DATA } from '../components/InspectionChecklist';
+import { InspectionDataManager, DEFAULT_INSPECTION_DATA } from './inspectionDataManager';
 
 export interface CustomerComment {
   id: string;

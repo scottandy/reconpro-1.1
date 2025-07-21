@@ -1,6 +1,16 @@
 import { InspectionSettings, InspectionSection, InspectionItem, RatingLabel, DEFAULT_INSPECTION_SETTINGS } from '../types/inspectionSettings';
 import { supabase } from './supabaseClient';
 
+export const DEFAULT_INSPECTION_DATA = {
+  emissions: [],
+  cosmetic: [],
+  mechanical: [],
+  cleaning: [],
+  photos: [],
+  customSections: {},
+  sectionNotes: {}
+};
+
 export class InspectionDataManager {
   private static readonly STORAGE_KEY = 'dealership_inspection_settings';
 

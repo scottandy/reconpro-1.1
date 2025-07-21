@@ -100,8 +100,8 @@ const VehicleDetail: React.FC = () => {
         const settings = await InspectionDataManager.getSettings(user.dealershipId);
         if (settings) {
           const customSectionsList = settings.sections
-            .filter((section: any) => section.isActive)
-            .sort((a: any, b: any) => a.order - b.order);
+            .filter(section => section.isActive)
+            .sort((a, b) => a.order - b.order);
           setCustomSections(customSectionsList);
         }
       } catch (error) {
@@ -715,7 +715,7 @@ const VehicleDetail: React.FC = () => {
 
             {/* Status Buttons in Two Columns - Mobile with Scroll */}
             <div className="grid grid-cols-2 gap-3 mb-6">
-              {allSections.map((section: any, index: number) => {
+              {allSections.map((section, index) => {
                 const isLastOdd = allSections.length % 2 === 1 && index === allSections.length - 1;
                 return (
                   <button
@@ -733,7 +733,7 @@ const VehicleDetail: React.FC = () => {
               })}
               
               {/* Custom sections */}
-              {customSections.map((section: any) => (
+              {customSections.map((section) => (
                 <button
                   key={section.key}
                   onClick={() => handleMobileSectionClick(section.key)}
@@ -965,7 +965,7 @@ const VehicleDetail: React.FC = () => {
         </div>
 
         {/* Desktop Layout */}
-        <div className="hidden lg:flex gap-6">
+        <div className="hidden lg:flex gap-8">
           {/* Left Column - 1/3 width */}
           <div className="w-1/3 space-y-6">
             {/* Desktop Reconditioning Progress */}
@@ -988,7 +988,7 @@ const VehicleDetail: React.FC = () => {
 
               {/* Status Buttons in Two Columns */}
               <div className="grid grid-cols-2 gap-3 mb-6">
-                {allSections.map((section: any, index: number) => {
+                {allSections.map((section, index) => {
                   const isLastOdd = allSections.length % 2 === 1 && index === allSections.length - 1;
                   return (
                     <button
@@ -1006,7 +1006,7 @@ const VehicleDetail: React.FC = () => {
                 })}
                 
                 {/* Custom sections */}
-                {customSections.map((section: any) => (
+                {customSections.map((section) => (
                   <button
                     key={section.key}
                     onClick={() => setActiveFilter(activeFilter === section.key ? null : section.key)}

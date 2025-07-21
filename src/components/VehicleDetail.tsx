@@ -55,6 +55,8 @@ const VehicleDetail: React.FC = () => {
 
   const [inspectionData, setInspectionData] = useState<any>(null);
   const [inspectionLoading, setInspectionLoading] = useState(true);
+  const [inspectionSettings, setInspectionSettings] = useState<any>(null);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [customSections, setCustomSections] = useState<any[]>([]);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
@@ -73,6 +75,22 @@ const VehicleDetail: React.FC = () => {
       .then(data => setInspectionData(data || {}))
       .finally(() => setInspectionLoading(false));
   }, [vehicle?.id, user?.id]);
+
+  // Load inspection settings
+  useEffect(() => {
+    if (!user?.dealershipId) return;
+    setSettingsLoaded(false);
+    InspectionDataManager.getSettings(user.dealershipId)
+      .then(settings => {
+        setInspectionSettings(settings);
+        setSettingsLoaded(true);
+      })
+      .catch(error => {
+        console.error('Error loading inspection settings:', error);
+        setInspectionSettings(null);
+        setSettingsLoaded(true);
+      });
+  }, [user?.dealershipId]);
 
   // Load custom sections from inspection settings
   useEffect(() => {
@@ -484,8 +502,13 @@ const VehicleDetail: React.FC = () => {
   
   const locationStyle = getLocationStyle(vehicle.location);
 
+  // Get all sections from inspection settings
+  const allSections = inspectionSettings?.sections
+    ?.filter((section: any) => section.isActive)
+    ?.sort((a: any, b: any) => a.order - b.order) || [];
+
   // Section status and progress logic
-  const sectionKeys = ['emissions', 'cosmetic', 'mechanical', 'cleaning', 'photos'];
+  const sectionKeys = allSections.map((section: any) => section.key);
   const allSectionKeys = [...sectionKeys, ...customSections.map(s => s.key)];
   const sectionStatuses = sectionKeys.reduce((acc, key) => {
     acc[key] = getSectionStatus(key, inspectionData);
@@ -506,7 +529,7 @@ const VehicleDetail: React.FC = () => {
   const overallProgress = Math.round((completedSections / allSectionKeys.length) * 100);
 
   // Guard: show loading state until inspectionData is loaded
-  if (inspectionLoading) {
+  if (inspectionLoading || !settingsLoaded) {
     return <div>Loading inspection data...</div>;
   }
 

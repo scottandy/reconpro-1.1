@@ -96,27 +96,20 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
     // Find existing item or create new one
     const existingItemIndex = updatedData[sectionKey].findIndex((item: any) => item.id === itemId);
     
+    let oldRating = undefined;
+    let isNewItem = false;
+    
     if (existingItemIndex >= 0) {
-      const oldRating = updatedData[sectionKey][existingItemIndex].rating;
+      oldRating = updatedData[sectionKey][existingItemIndex].rating;
       updatedData[sectionKey][existingItemIndex] = {
         ...updatedData[sectionKey][existingItemIndex],
         rating,
         updatedBy: user.initials,
         updatedAt: new Date().toISOString()
       };
-      
-      // Record analytics for the change
-      AnalyticsManager.recordTaskUpdate(
-        vehicleId,
-        vehicleName,
-        sectionKey as any,
-        user.initials,
-        itemLabel,
-        oldRating,
-        rating
-      );
     } else {
       // Create new item
+      isNewItem = true;
       const newItem = {
         id: itemId,
         label: itemLabel,
@@ -125,17 +118,57 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
         updatedAt: new Date().toISOString()
       };
       updatedData[sectionKey].push(newItem);
-      
-      // Record analytics for the new item
-      AnalyticsManager.recordTaskUpdate(
-        vehicleId,
-        vehicleName,
-        sectionKey as any,
-        user.initials,
-        itemLabel,
-        undefined,
-        rating
-      );
+    }
+
+    // Record analytics for the change
+    AnalyticsManager.recordTaskUpdate(
+      vehicleId,
+      vehicleName,
+      sectionKey as any,
+      user.initials,
+      itemLabel,
+      oldRating,
+      rating
+    );
+
+    // Create team note for the inspection update
+    const getRatingLabel = (ratingCode: string) => {
+      switch (ratingCode) {
+        case 'G': return 'Great';
+        case 'F': return 'Fair';
+        case 'N': return 'Needs Attention';
+        case 'not-checked': return 'Not Checked';
+        default: return ratingCode;
+      }
+    };
+
+    const getSectionDisplayName = (key: string) => {
+      switch (key) {
+        case 'emissions': return 'Emissions';
+        case 'cosmetic': return 'Cosmetic';
+        case 'mechanical': return 'Mechanical';
+        case 'cleaning': return 'Cleaning';
+        case 'photos': return 'Photos';
+        default: return key.charAt(0).toUpperCase() + key.slice(1);
+      }
+    };
+
+    // Generate team note text
+    let noteText = '';
+    if (isNewItem) {
+      noteText = `${getSectionDisplayName(sectionKey)}: ${itemLabel} rated as "${getRatingLabel(rating)}"`;
+    } else if (oldRating !== rating) {
+      noteText = `${getSectionDisplayName(sectionKey)}: ${itemLabel} updated from "${getRatingLabel(oldRating)}" to "${getRatingLabel(rating)}"`;
+    }
+
+    // Only add team note if there's a meaningful change
+    if (noteText && onAddTeamNote) {
+      const teamNote = {
+        text: noteText,
+        userInitials: user.initials,
+        category: sectionKey as any
+      };
+      onAddTeamNote(teamNote);
     }
 
     setInspectionData(updatedData);

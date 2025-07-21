@@ -55,7 +55,7 @@ export class InspectionSettingsManager {
       
       // Ensure each section has an items array
       if (settings.sections && Array.isArray(settings.sections)) {
-        settings.sections = settings.sections.map(section => {
+        settings.sections = settings.sections.map((section: any) => {
           if (!section.items || !Array.isArray(section.items)) {
             section.items = [];
           }
@@ -186,7 +186,8 @@ export class InspectionSettingsManager {
       ...sectionData,
       id: `section-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      items: []
     };
 
     settings.sections.push(newSection);

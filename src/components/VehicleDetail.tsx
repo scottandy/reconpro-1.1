@@ -693,60 +693,22 @@ const VehicleDetail: React.FC = () => {
 
             {/* Status Buttons in Two Columns - Mobile with Scroll */}
             <div className="grid grid-cols-2 gap-3 mb-6">
-              <button
-                onClick={() => handleMobileSectionClick('emissions')}
-                className={`p-3 rounded-lg border transition-all duration-200 ${
-                  activeFilter === 'emissions'
-                    ? 'border-green-300 bg-green-50 shadow-md'
-                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                }`}
-              >
-                <StatusBadge status={allSectionStatuses['emissions']} label="Emissions" section="emissions" size="sm" />
-              </button>
-              
-              <button
-                onClick={() => handleMobileSectionClick('cosmetic')}
-                className={`p-3 rounded-lg border transition-all duration-200 ${
-                  activeFilter === 'cosmetic'
-                    ? 'border-purple-300 bg-purple-50 shadow-md'
-                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                }`}
-              >
-                <StatusBadge status={allSectionStatuses['cosmetic']} label="Cosmetic" section="cosmetic" size="sm" />
-              </button>
-              
-              <button
-                onClick={() => handleMobileSectionClick('mechanical')}
-                className={`p-3 rounded-lg border transition-all duration-200 ${
-                  activeFilter === 'mechanical'
-                    ? 'border-blue-300 bg-blue-50 shadow-md'
-                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                }`}
-              >
-                <StatusBadge status={allSectionStatuses['mechanical']} label="Mechanical" section="mechanical" size="sm" />
-              </button>
-              
-              <button
-                onClick={() => handleMobileSectionClick('cleaning')}
-                className={`p-3 rounded-lg border transition-all duration-200 ${
-                  activeFilter === 'cleaning'
-                    ? 'border-cyan-300 bg-cyan-50 shadow-md'
-                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                }`}
-              >
-                <StatusBadge status={allSectionStatuses['cleaning']} label="Cleaning" section="cleaning" size="sm" />
-              </button>
-              
-              <button
-                onClick={() => handleMobileSectionClick('photos')}
-                className={`p-3 rounded-lg border transition-all duration-200 ${
-                  activeFilter === 'photos'
-                    ? 'border-orange-300 bg-orange-50 shadow-md'
-                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                }`}
-              >
-                <StatusBadge status={allSectionStatuses['photos']} label="Photos" section="photos" size="sm" />
-              </button>
+              {allSections.map((section, index) => {
+                const isLastOdd = allSections.length % 2 === 1 && index === allSections.length - 1;
+                return (
+                  <button
+                    key={section.key}
+                    onClick={() => handleMobileSectionClick(section.key)}
+                    className={`p-3 rounded-lg border transition-all duration-200 ${isLastOdd ? 'col-span-2' : ''} ${
+                      activeFilter === section.key
+                        ? 'border-blue-300 bg-blue-50 shadow-md'
+                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <StatusBadge status={sectionStatuses[section.key]} label={section.label} section={section.key} size="sm" />
+                  </button>
+                );
+              })}
               
               {/* Custom sections */}
               {customSections.map((section) => (
@@ -1004,60 +966,22 @@ const VehicleDetail: React.FC = () => {
 
               {/* Status Buttons in Two Columns */}
               <div className="grid grid-cols-2 gap-3 mb-6">
-                <button
-                  onClick={() => setActiveFilter(activeFilter === 'emissions' ? null : 'emissions')}
-                  className={`p-3 rounded-lg border transition-all duration-200 ${
-                    activeFilter === 'emissions'
-                      ? 'border-green-300 bg-green-50 shadow-md'
-                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  <StatusBadge status={allSectionStatuses['emissions']} label="Emissions" section="emissions" size="sm" />
-                </button>
-                
-                <button
-                  onClick={() => setActiveFilter(activeFilter === 'cosmetic' ? null : 'cosmetic')}
-                  className={`p-3 rounded-lg border transition-all duration-200 ${
-                    activeFilter === 'cosmetic'
-                      ? 'border-purple-300 bg-purple-50 shadow-md'
-                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  <StatusBadge status={allSectionStatuses['cosmetic']} label="Cosmetic" section="cosmetic" size="sm" />
-                </button>
-                
-                <button
-                  onClick={() => setActiveFilter(activeFilter === 'mechanical' ? null : 'mechanical')}
-                  className={`p-3 rounded-lg border transition-all duration-200 ${
-                    activeFilter === 'mechanical'
-                      ? 'border-blue-300 bg-blue-50 shadow-md'
-                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  <StatusBadge status={allSectionStatuses['mechanical']} label="Mechanical" section="mechanical" size="sm" />
-                </button>
-                
-                <button
-                  onClick={() => setActiveFilter(activeFilter === 'cleaning' ? null : 'cleaning')}
-                  className={`p-3 rounded-lg border transition-all duration-200 ${
-                    activeFilter === 'cleaning'
-                      ? 'border-cyan-300 bg-cyan-50 shadow-md'
-                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  <StatusBadge status={allSectionStatuses['cleaning']} label="Cleaning" section="cleaning" size="sm" />
-                </button>
-                
-                <button
-                  onClick={() => setActiveFilter(activeFilter === 'photos' ? null : 'photos')}
-                  className={`p-3 rounded-lg border transition-all duration-200 ${
-                    activeFilter === 'photos'
-                      ? 'border-orange-300 bg-orange-50 shadow-md'
-                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  <StatusBadge status={allSectionStatuses['photos']} label="Photos" section="photos" size="sm" />
-                </button>
+                {allSections.map((section, index) => {
+                  const isLastOdd = allSections.length % 2 === 1 && index === allSections.length - 1;
+                  return (
+                    <button
+                      key={section.key}
+                      onClick={() => setActiveFilter(activeFilter === section.key ? null : section.key)}
+                      className={`p-3 rounded-lg border transition-all duration-200 ${isLastOdd ? 'col-span-2' : ''} ${
+                        activeFilter === section.key
+                          ? 'border-blue-300 bg-blue-50 shadow-md'
+                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      <StatusBadge status={sectionStatuses[section.key]} label={section.label} section={section.key} size="sm" />
+                    </button>
+                  );
+                })}
                 
                 {/* Custom sections */}
                 {customSections.map((section) => (

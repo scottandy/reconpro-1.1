@@ -731,21 +731,6 @@ const VehicleDetail: React.FC = () => {
                   </button>
                 );
               })}
-              
-              {/* Custom sections */}
-              {customSections.map((section) => (
-                <button
-                  key={section.key}
-                  onClick={() => handleMobileSectionClick(section.key)}
-                  className={`p-3 rounded-lg border transition-all duration-200 ${
-                    activeFilter === section.key
-                      ? 'border-indigo-300 bg-indigo-50 shadow-md'
-                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  <StatusBadge status={allSectionStatuses[section.key]} label={section.label} section={section.key} size="sm" />
-                </button>
-              ))}
             </div>
 
             {/* Vehicle Notes Section - SMALLER HEADER */}
@@ -1004,21 +989,6 @@ const VehicleDetail: React.FC = () => {
                     </button>
                   );
                 })}
-                
-                {/* Custom sections */}
-                {customSections.map((section) => (
-                  <button
-                    key={section.key}
-                    onClick={() => setActiveFilter(activeFilter === section.key ? null : section.key)}
-                    className={`p-3 rounded-lg border transition-all duration-200 ${
-                      activeFilter === section.key
-                        ? 'border-indigo-300 bg-indigo-50 shadow-md'
-                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    <StatusBadge status={allSectionStatuses[section.key]} label={section.label} section={section.key} size="sm" />
-                  </button>
-                ))}
               </div>
 
               {/* Sold/Pending Actions */}

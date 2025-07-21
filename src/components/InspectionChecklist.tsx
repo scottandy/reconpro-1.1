@@ -175,6 +175,10 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
         text: noteText,
         userInitials: user.initials,
         category: sectionKey as any
+      };
+      onAddTeamNote(teamNote);
+    }
+    
     // Notify parent component of changes after all processing
     if (onInspectionDataChange) {
       onInspectionDataChange(updatedData);

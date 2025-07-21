@@ -1,5 +1,5 @@
 import { InspectionSettings, InspectionSection, InspectionItem, RatingLabel, DEFAULT_INSPECTION_SETTINGS } from '../types/inspectionSettings';
-import { supabase } from './supabaseClient';
+import { supabase } from '../utils/supabaseClient';
 
 export class InspectionSettingsManager {
   private static readonly STORAGE_KEY = 'dealership_inspection_settings';
@@ -175,7 +175,8 @@ export class InspectionSettingsManager {
       ...sectionData,
       id: `section-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      items: []
     };
 
     settings.sections.push(newSection);

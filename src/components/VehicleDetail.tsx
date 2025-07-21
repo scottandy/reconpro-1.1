@@ -55,6 +55,8 @@ const VehicleDetail: React.FC = () => {
 
   const [inspectionData, setInspectionData] = useState<any>(null);
   const [inspectionLoading, setInspectionLoading] = useState(true);
+  const [customSections, setCustomSections] = useState<any[]>([]);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   // console.log('[VehicleDetail] Render', { vehicle });
 
@@ -71,6 +73,30 @@ const VehicleDetail: React.FC = () => {
       .then(data => setInspectionData(data || {}))
       .finally(() => setInspectionLoading(false));
   }, [vehicle?.id, user?.id]);
+
+  // Load custom sections from inspection settings
+  useEffect(() => {
+    const loadCustomSections = async () => {
+      if (!user?.dealershipId) return;
+      
+      try {
+        const settings = await InspectionDataManager.getSettings(user.dealershipId);
+        if (settings) {
+          const customSectionsList = settings.sections
+            .filter(section => section.isActive)
+            .sort((a, b) => a.order - b.order);
+          setCustomSections(customSectionsList);
+        }
+      } catch (error) {
+        console.error('Error loading custom sections:', error);
+        setCustomSections([]);
+      } finally {
+        setSettingsLoaded(true);
+      }
+    };
+
+    loadCustomSections();
+  }, [user?.dealershipId]);
 
   const loadVehicle = async (vehicleId: string, dealershipId: string) => {
     setIsLoading(true);
@@ -460,17 +486,24 @@ const VehicleDetail: React.FC = () => {
 
   // Section status and progress logic
   const sectionKeys = ['emissions', 'cosmetic', 'mechanical', 'cleaning', 'photos'];
+  const allSectionKeys = [...sectionKeys, ...customSections.map(s => s.key)];
   const sectionStatuses = sectionKeys.reduce((acc, key) => {
     acc[key] = getSectionStatus(key, inspectionData);
     return acc;
   }, {} as Record<string, InspectionStatus>);
 
+  // Add custom section statuses
+  const allSectionStatuses = { ...sectionStatuses };
+  customSections.forEach(section => {
+    allSectionStatuses[section.key] = getSectionStatus(section.key, inspectionData);
+  });
+
   // Count sections that are 'completed', 'pending', or 'needs-attention' as completed for progress
-  const completedSections = sectionKeys.filter(key => {
-    const status = sectionStatuses[key];
+  const completedSections = allSectionKeys.filter(key => {
+    const status = allSectionStatuses[key];
     return status === 'completed' || status === 'pending' || status === 'needs-attention';
   }).length;
-  const overallProgress = Math.round((completedSections / sectionKeys.length) * 100);
+  const overallProgress = Math.round((completedSections / allSectionKeys.length) * 100);
 
   // Guard: show loading state until inspectionData is loaded
   if (inspectionLoading) {
@@ -668,7 +701,7 @@ const VehicleDetail: React.FC = () => {
                     : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                <StatusBadge status={sectionStatuses['emissions']} label="Emissions" section="emissions" size="sm" />
+                <StatusBadge status={allSectionStatuses['emissions']} label="Emissions" section="emissions" size="sm" />
               </button>
               
               <button
@@ -679,7 +712,7 @@ const VehicleDetail: React.FC = () => {
                     : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                <StatusBadge status={sectionStatuses['cosmetic']} label="Cosmetic" section="cosmetic" size="sm" />
+                <StatusBadge status={allSectionStatuses['cosmetic']} label="Cosmetic" section="cosmetic" size="sm" />
               </button>
               
               <button
@@ -690,7 +723,7 @@ const VehicleDetail: React.FC = () => {
                     : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                <StatusBadge status={sectionStatuses['mechanical']} label="Mechanical" section="mechanical" size="sm" />
+                <StatusBadge status={allSectionStatuses['mechanical']} label="Mechanical" section="mechanical" size="sm" />
               </button>
               
               <button
@@ -701,19 +734,34 @@ const VehicleDetail: React.FC = () => {
                     : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                <StatusBadge status={sectionStatuses['cleaning']} label="Cleaning" section="cleaning" size="sm" />
+                <StatusBadge status={allSectionStatuses['cleaning']} label="Cleaning" section="cleaning" size="sm" />
               </button>
               
               <button
                 onClick={() => handleMobileSectionClick('photos')}
-                className={`p-3 rounded-lg border transition-all duration-200 col-span-2 ${
+                className={`p-3 rounded-lg border transition-all duration-200 ${
                   activeFilter === 'photos'
                     ? 'border-orange-300 bg-orange-50 shadow-md'
                     : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                <StatusBadge status={sectionStatuses['photos']} label="Photos" section="photos" size="sm" />
+                <StatusBadge status={allSectionStatuses['photos']} label="Photos" section="photos" size="sm" />
               </button>
+              
+              {/* Custom sections */}
+              {customSections.map((section) => (
+                <button
+                  key={section.key}
+                  onClick={() => handleMobileSectionClick(section.key)}
+                  className={`p-3 rounded-lg border transition-all duration-200 ${
+                    activeFilter === section.key
+                      ? 'border-indigo-300 bg-indigo-50 shadow-md'
+                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  <StatusBadge status={allSectionStatuses[section.key]} label={section.label} section={section.key} size="sm" />
+                </button>
+              ))}
             </div>
 
             {/* Vehicle Notes Section - SMALLER HEADER */}
@@ -964,7 +1012,7 @@ const VehicleDetail: React.FC = () => {
                       : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                   }`}
                 >
-                  <StatusBadge status={sectionStatuses['emissions']} label="Emissions" section="emissions" size="sm" />
+                  <StatusBadge status={allSectionStatuses['emissions']} label="Emissions" section="emissions" size="sm" />
                 </button>
                 
                 <button
@@ -975,7 +1023,7 @@ const VehicleDetail: React.FC = () => {
                       : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                   }`}
                 >
-                  <StatusBadge status={sectionStatuses['cosmetic']} label="Cosmetic" section="cosmetic" size="sm" />
+                  <StatusBadge status={allSectionStatuses['cosmetic']} label="Cosmetic" section="cosmetic" size="sm" />
                 </button>
                 
                 <button
@@ -986,7 +1034,7 @@ const VehicleDetail: React.FC = () => {
                       : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                   }`}
                 >
-                  <StatusBadge status={sectionStatuses['mechanical']} label="Mechanical" section="mechanical" size="sm" />
+                  <StatusBadge status={allSectionStatuses['mechanical']} label="Mechanical" section="mechanical" size="sm" />
                 </button>
                 
                 <button
@@ -997,19 +1045,34 @@ const VehicleDetail: React.FC = () => {
                       : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                   }`}
                 >
-                  <StatusBadge status={sectionStatuses['cleaning']} label="Cleaning" section="cleaning" size="sm" />
+                  <StatusBadge status={allSectionStatuses['cleaning']} label="Cleaning" section="cleaning" size="sm" />
                 </button>
                 
                 <button
                   onClick={() => setActiveFilter(activeFilter === 'photos' ? null : 'photos')}
-                  className={`p-3 rounded-lg border transition-all duration-200 col-span-2 ${
+                  className={`p-3 rounded-lg border transition-all duration-200 ${
                     activeFilter === 'photos'
                       ? 'border-orange-300 bg-orange-50 shadow-md'
                       : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                   }`}
                 >
-                  <StatusBadge status={sectionStatuses['photos']} label="Photos" section="photos" size="sm" />
+                  <StatusBadge status={allSectionStatuses['photos']} label="Photos" section="photos" size="sm" />
                 </button>
+                
+                {/* Custom sections */}
+                {customSections.map((section) => (
+                  <button
+                    key={section.key}
+                    onClick={() => setActiveFilter(activeFilter === section.key ? null : section.key)}
+                    className={`p-3 rounded-lg border transition-all duration-200 ${
+                      activeFilter === section.key
+                        ? 'border-indigo-300 bg-indigo-50 shadow-md'
+                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <StatusBadge status={allSectionStatuses[section.key]} label={section.label} section={section.key} size="sm" />
+                  </button>
+                ))}
               </div>
 
               {/* Sold/Pending Actions */}

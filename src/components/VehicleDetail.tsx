@@ -169,6 +169,15 @@ const VehicleDetail: React.FC = () => {
     saveVehicleUpdate(updatedVehicle);
   };
 
+  const handleTeamNoteAdded = (note: TeamNote) => {
+    if (!vehicle) return;
+    const updatedVehicle = {
+      ...vehicle,
+      teamNotes: [note, ...(vehicle.teamNotes || [])]
+    };
+    setVehicle(updatedVehicle);
+  };
+
   const handleSaveNotes = () => {
     console.log('[VehicleDetail] handleSaveNotes');
     if (!vehicle) return;
@@ -457,6 +466,10 @@ const VehicleDetail: React.FC = () => {
     return 'not-started';
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 flex items-center justify-center">
+        <div className="text-center">
           <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 animate-pulse">
             <Car className="w-8 h-8 text-white" />
           </div>
@@ -860,10 +873,7 @@ const VehicleDetail: React.FC = () => {
                   activeFilter={activeFilter}
                   onGeneratePdf={() => setShowPdfModal(true)}
                   onInspectionDataChange={setInspectionData}
-                  onTeamNoteAdded={(note: TeamNote) => {
-                    if (!vehicle) return;
-                    setVehicle(prev => prev ? { ...prev, teamNotes: [note, ...(prev.teamNotes || [])] } : prev);
-                  }}
+                  onTeamNoteAdded={handleTeamNoteAdded}
                 />
               ) : (
                 <div className="text-center py-8 text-gray-500">
@@ -1245,10 +1255,7 @@ const VehicleDetail: React.FC = () => {
                   activeFilter={activeFilter}
                   onGeneratePdf={() => setShowPdfModal(true)}
                   onInspectionDataChange={setInspectionData}
-                  onTeamNoteAdded={(note: TeamNote) => {
-                    if (!vehicle) return;
-                    setVehicle(prev => prev ? { ...prev, teamNotes: [note, ...(prev.teamNotes || [])] } : prev);
-                  }}
+                  onTeamNoteAdded={handleTeamNoteAdded}
                 />
               ) : (
                 <div className="text-center py-8 text-gray-500">

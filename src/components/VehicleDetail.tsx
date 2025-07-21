@@ -45,6 +45,10 @@ const VehicleDetail: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
+  // Initialize progress variables with default values
+  let completedSections = 0;
+  let overallProgress = 0;
+
   const [editedNotes, setEditedNotes] = useState('');
   const [rightPanelView, setRightPanelView] = useState<'inspection' | 'team-notes'>('inspection');
   const [showPdfModal, setShowPdfModal] = useState(false);
@@ -543,26 +547,29 @@ const VehicleDetail: React.FC = () => {
   })();
   
   const locationStyle = getLocationStyle(vehicle.location);
-
-  // Section status and progress logic
-  const sectionKeys = allSections.map(section => section.key);
-  const allSectionKeys = [...sectionKeys, ...customSections.map(s => s.key)];
-  const sectionStatuses = sectionKeys.reduce((acc, key) => {
-    acc[key] = getSectionStatus(key, inspectionData);
-    return acc;
-  }, {} as Record<string, InspectionStatus>);
-
-  // Add custom section statuses
-  const allSectionStatuses = { ...sectionStatuses };
-  customSections.forEach(section => {
-    allSectionStatuses[section.key] = getSectionStatus(section.key, inspectionData);
-  });
-  const overallProgress = sectionKeys.length > 0 ? Math.round((completedSections / sectionKeys.length) * 100) : 0;
-  // Count sections that are 'completed', 'pending', or 'needs-attention' as completed for progress
-  const completedSections = allSectionKeys.filter(key => {
-    const status = allSectionStatuses[key];
-    return status === 'completed' || status === 'pending' || status === 'needs-attention';
-  }).length;
+  if (sectionsLoaded && inspectionData) {
+    const allSectionKeys = allSections.map(s => s.key);
+    const getSectionStatus = (sectionKey: string, inspectionData: any): InspectionStatus => {
+      const items = inspectionData?.[sectionKey] || [];
+      if (!Array.isArray(items) || items.length === 0) return 'not-started';
+      // If any item is 'not-checked', return 'not-started' (grey)
+      if (items.some((item: any) => item.rating === 'not-checked')) return 'not-started';
+      if (items.some((item: any) => item.rating === 'N')) return 'needs-attention';
+      if (items.some((item: any) => item.rating === 'F')) return 'pending';
+      if (items.every((item: any) => item.rating === 'G')) return 'completed';
+      return 'not-started';
+    };
+    const sectionStatuses: Record<string, InspectionStatus> = allSectionKeys.reduce((acc, key) => {
+      acc[key] = getSectionStatus(key, inspectionData);
+      return acc;
+    }, {} as Record<string, InspectionStatus>);
+    // Count sections that are 'completed', 'pending', or 'needs-attention' as completed for progress
+    completedSections = allSectionKeys.filter(key => {
+      const status = sectionStatuses[key];
+      return status === 'completed' || status === 'pending' || status === 'needs-attention';
+    }).length;
+    overallProgress = Math.round((completedSections / allSectionKeys.length) * 100);
+  }
 
   // Guard: show loading state until inspectionData is loaded
   if (inspectionLoading || !sectionsLoaded) {

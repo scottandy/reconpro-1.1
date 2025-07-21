@@ -466,6 +466,14 @@ export class InspectionDataManager {
 
   // Load inspection data for a specific vehicle
   static async loadInspectionData(vehicleId: string, inspectorId: string): Promise<any> {
+    // Validate parameters
+    if (!vehicleId || vehicleId === 'undefined' || typeof vehicleId !== 'string') {
+      throw new Error('Invalid vehicleId provided to loadInspectionData');
+    }
+    if (!inspectorId || inspectorId === 'undefined' || typeof inspectorId !== 'string') {
+      throw new Error('Invalid inspectorId provided to loadInspectionData');
+    }
+
     try {
       // First try to get from vehicles table
       const { data: vehicleData, error: vehicleError } = await supabase
@@ -507,6 +515,14 @@ export class InspectionDataManager {
     inspectorId: string, 
     inspectionData: InspectionData
   ): Promise<boolean> {
+    // Validate parameters
+    if (!vehicleId || vehicleId === 'undefined' || typeof vehicleId !== 'string') {
+      throw new Error('Invalid vehicleId provided to saveInspectionData');
+    }
+    if (!inspectorId || inspectorId === 'undefined' || typeof inspectorId !== 'string') {
+      throw new Error('Invalid inspectorId provided to saveInspectionData');
+    }
+
     try {
       // Ensure customSections and sectionNotes are properly initialized
       const dataToSave = {

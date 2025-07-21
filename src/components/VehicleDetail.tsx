@@ -822,16 +822,24 @@ const VehicleDetail: React.FC = () => {
           {/* Mobile Content with ID for scrolling */}
           <div id="mobile-inspection-content">
             {rightPanelView === 'inspection' ? (
-              <InspectionChecklist
-                vehicle={vehicle}
-                onStatusUpdate={handleStatusUpdate}
-                onSectionComplete={handleSectionComplete}
-                onAddTeamNote={handleAddTeamNote}
-                activeFilter={activeFilter}
-                onGeneratePdf={() => setShowPdfModal(true)}
-                onInspectionDataChange={setInspectionData}
-                onTeamNoteAdded={handleTeamNoteAdded}
-              />
+              vehicle?.id ? (
+                <InspectionChecklist
+                  vehicleId={vehicle.id}
+                  vehicleName={`${vehicle.year} ${vehicle.make} ${vehicle.model}`}
+                  vehicle={vehicle}
+                  onStatusUpdate={handleStatusUpdate}
+                  onSectionComplete={handleSectionComplete}
+                  onAddTeamNote={handleAddTeamNote}
+                  activeFilter={activeFilter}
+                  onGeneratePdf={() => setShowPdfModal(true)}
+                  onInspectionDataChange={setInspectionData}
+                  onTeamNoteAdded={handleTeamNoteAdded}
+                />
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  Vehicle ID not available
+                </div>
+              )
             ) : (
               <TeamNotes
                 notes={vehicle.teamNotes || []}
@@ -1234,16 +1242,24 @@ const VehicleDetail: React.FC = () => {
 
             {/* Desktop Content */}
             {rightPanelView === 'inspection' ? (
-              <InspectionChecklist
-                vehicle={vehicle}
-                onStatusUpdate={handleStatusUpdate}
-                onSectionComplete={handleSectionComplete}
-                onAddTeamNote={handleAddTeamNote}
-                activeFilter={activeFilter}
-                onGeneratePdf={() => setShowPdfModal(true)}
-                onInspectionDataChange={setInspectionData}
-                onTeamNoteAdded={handleTeamNoteAdded}
-              />
+              vehicle?.id ? (
+                <InspectionChecklist
+                  vehicleId={vehicle.id}
+                  vehicleName={`${vehicle.year} ${vehicle.make} ${vehicle.model}`}
+                  vehicle={vehicle}
+                  onStatusUpdate={handleStatusUpdate}
+                  onSectionComplete={handleSectionComplete}
+                  onAddTeamNote={handleAddTeamNote}
+                  activeFilter={activeFilter}
+                  onGeneratePdf={() => setShowPdfModal(true)}
+                  onInspectionDataChange={setInspectionData}
+                  onTeamNoteAdded={handleTeamNoteAdded}
+                />
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  Vehicle ID not available
+                </div>
+              )
             ) : (
               <TeamNotes
                 notes={vehicle.teamNotes || []}

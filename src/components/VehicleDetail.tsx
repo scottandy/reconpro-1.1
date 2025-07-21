@@ -75,6 +75,10 @@ const VehicleDetail: React.FC = () => {
       .finally(() => setInspectionLoading(false));
   }, [vehicle?.id, user?.id]);
 
+  // Listen for inspection data changes to update status badges in real-time
+  const handleInspectionDataChange = (newData: any) => {
+    setInspectionData(newData);
+  };
   // Load inspection settings
   useEffect(() => {
     if (!user?.dealershipId) return;

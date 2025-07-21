@@ -120,6 +120,14 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       updatedData[sectionKey].push(newItem);
     }
 
+    // Update local state immediately for instant UI feedback
+    setInspectionData(updatedData);
+    setHasChanges(true);
+    
+    // Notify parent component of changes immediately
+    if (onInspectionDataChange) {
+      onInspectionDataChange(updatedData);
+    }
     // Record analytics for the change
     AnalyticsManager.recordTaskUpdate(
       vehicleId,
@@ -171,17 +179,10 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       onAddTeamNote(teamNote);
     }
 
-    setInspectionData(updatedData);
-    setHasChanges(true);
     
     // Auto-save if enabled
     if (inspectionSettings?.globalSettings?.autoSaveProgress) {
       await saveInspectionData(updatedData);
-    }
-    
-    // Notify parent component of changes
-    if (onInspectionDataChange) {
-      onInspectionDataChange(updatedData);
     }
   };
 

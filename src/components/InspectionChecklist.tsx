@@ -124,6 +124,14 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
     setInspectionData(updatedData);
     setHasChanges(true);
 
+    // Force immediate save to database
+    try {
+      await InspectionDataManager.saveInspectionData(vehicleId, user.id, updatedData);
+      setHasChanges(false);
+      setLastSaved(new Date());
+    } catch (error) {
+      console.error('Error saving inspection data:', error);
+    }
     // Update local state
     setInspectionData(updatedData);
     setHasChanges(true);
@@ -182,11 +190,6 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
     // Notify parent component of changes after all processing
     if (onInspectionDataChange) {
       onInspectionDataChange(updatedData);
-    }
-    
-    // Auto-save if enabled
-    if (inspectionSettings?.globalSettings?.autoSaveProgress) {
-      await saveInspectionData(updatedData);
     }
   };
 
@@ -366,15 +369,22 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
                           <div className="flex items-center gap-2 ml-4">
                             {['great', 'fair', 'needs-attention', 'not-checked'].map((rating) => {
                               const config = getRatingConfig(rating);
-                              const isSelected = currentRating === rating || 
-                                               (currentRating === 'G' && rating === 'great') ||
+                              // Map database values to display values for proper selection
+                              const isSelected = (currentRating === 'G' && rating === 'great') ||
                                                (currentRating === 'F' && rating === 'fair') ||
-                                               (currentRating === 'N' && rating === 'needs-attention');
+                                               (currentRating === 'N' && rating === 'needs-attention') ||
+                                               (currentRating === 'not-checked' && rating === 'not-checked');
                               
                               return (
                                 <button
                                   key={rating}
-                                  onClick={() => handleRatingChange(section.key, item.id, rating === 'great' ? 'G' : rating === 'fair' ? 'F' : rating === 'needs-attention' ? 'N' : 'not-checked', item.label)}
+                                  onClick={() => {
+                                    const dbRating = rating === 'great' ? 'G' : 
+                                                   rating === 'fair' ? 'F' : 
+                                                   rating === 'needs-attention' ? 'N' : 
+                                                   'not-checked';
+                                    handleRatingChange(section.key, item.id, dbRating, item.label);
+                                  }}
                                   className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                                     isSelected 
                                       ? config.color 

@@ -932,60 +932,6 @@ const VehicleDetail: React.FC = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Price</label>
                 <div className="flex items-center gap-2">
-                  <DollarSign className="w-4 h-4 text-gray-500" />
-                  <p className="text-sm text-gray-900">{formatPrice(vehicle.price)}</p>
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-gray-500" />
-                  <p className="text-sm text-gray-900">{vehicle.location || 'N/A'}</p>
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Date Acquired</label>
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-gray-500" />
-                  <p className="text-sm text-gray-900">{formatDate(vehicle.dateAcquired)}</p>
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Stock Number</label>
-                <div className="flex items-center gap-2">
-                  <Hash className="w-4 h-4 text-gray-500" />
-                  <p className="text-sm text-gray-900">{getStockNumber(vehicle.vin)}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Desktop Layout */}
-        <div className="hidden lg:flex gap-8">
-          {/* Left Column - 1/3 width */}
-          <div className="w-1/3 space-y-6">
-            {/* Desktop Reconditioning Progress */}
-            <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-gray-900">Reconditioning Progress</h2>
-                <span className="text-2xl font-bold text-gray-900">{overallProgress}%</span>
-              </div>
-              
-              <div className="w-full bg-gray-200 rounded-full h-3 mb-6">
-                <div 
-                  className={`h-3 rounded-full transition-all duration-500 ${
-                    overallProgress === 100 
-                      ? 'bg-gradient-to-r from-emerald-500 to-green-600' 
-                      : 'bg-gradient-to-r from-blue-500 to-indigo-600'
-                  }`}
-                  style={{ width: `${overallProgress}%` }}
-                ></div>
-              </div>
-
               {/* Status Buttons in Two Columns */}
               <div className="grid grid-cols-2 gap-3 mb-6">
                 {allSections.map((section, index) => {

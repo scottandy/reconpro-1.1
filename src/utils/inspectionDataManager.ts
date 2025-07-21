@@ -523,6 +523,7 @@ export class InspectionDataManager {
       throw new Error('Invalid inspectorId provided to saveInspectionData');
     }
 
+    console.log('saveInspectionData called with:', { vehicleId, inspectorId, inspectionData });
     try {
       // Ensure customSections and sectionNotes are properly initialized
       const dataToSave = {
@@ -530,6 +531,8 @@ export class InspectionDataManager {
         customSections: inspectionData.customSections || {},
         sectionNotes: inspectionData.sectionNotes || {}
       };
+      
+      console.log('Data to save:', dataToSave);
       
       // First, update the vehicles table with the inspection data
       const { error: vehicleUpdateError } = await supabase
@@ -543,6 +546,8 @@ export class InspectionDataManager {
       if (vehicleUpdateError) {
         console.error('Error updating vehicle inspection data:', vehicleUpdateError);
         // Continue with checklist update even if vehicle update fails
+      } else {
+        console.log('Successfully updated vehicle inspection data');
       }
 
       // First, check if a checklist already exists for this vehicle
@@ -559,6 +564,7 @@ export class InspectionDataManager {
 
       if (existingChecklist) {
         // Update existing checklist
+        console.log('Updating existing checklist:', existingChecklist.id);
         const { error: updateError } = await supabase
           .from('inspection_checklists')
           .update({
@@ -572,9 +578,12 @@ export class InspectionDataManager {
         if (updateError) {
           console.error('Error updating checklist:', updateError);
           return false;
+        } else {
+          console.log('Successfully updated existing checklist');
         }
       } else {
         // Insert new checklist
+        console.log('Creating new checklist');
         const { error: insertError } = await supabase
           .from('inspection_checklists')
           .insert({
@@ -588,6 +597,8 @@ export class InspectionDataManager {
         if (insertError) {
           console.error('Error inserting checklist:', insertError);
           return false;
+        } else {
+          console.log('Successfully created new checklist');
         }
       }
 

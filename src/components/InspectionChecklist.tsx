@@ -52,6 +52,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
   const [hasChanges, setHasChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (dealership) {
@@ -74,12 +75,22 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
   const loadInspectionData = async () => {
     if (!user) return;
     
+    setIsLoading(true);
     try {
       const data = await InspectionDataManager.loadInspectionData(vehicleId, user.id);
-      setInspectionData(data || {});
+      const loadedData = data || {};
+      console.log('Loaded inspection data from database:', loadedData);
+      setInspectionData(loadedData);
+      
+      // Notify parent component of loaded data
+      if (onInspectionDataChange) {
+        onInspectionDataChange(loadedData);
+      }
     } catch (error) {
       console.error('Error loading inspection data:', error);
       setInspectionData({});
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -121,25 +132,28 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       updatedData[sectionKey].push(newItem);
     }
 
-   console.log('Updated data:', updatedData);
-    // Update local state immediately for instant UI feedback
-    setInspectionData(updatedData);
+   console.log('Updated data before save:', updatedData);
+   
+   // Update local state immediately for instant UI feedback
+   setInspectionData(updatedData);
 
-   // Force immediate save to database and update parent
-    try {
-      await InspectionDataManager.saveInspectionData(vehicleId, user.id, updatedData);
-      setLastSaved(new Date());
+   // Immediately save to database
+   try {
+     console.log('Saving to database...');
+     await InspectionDataManager.saveInspectionData(vehicleId, user.id, updatedData);
+     console.log('Successfully saved to database');
+     setLastSaved(new Date());
      
      // Notify parent component immediately
      if (onInspectionDataChange) {
        onInspectionDataChange(updatedData);
      }
-    } catch (error) {
-      console.error('Error saving inspection data:', error);
-    }
-    // Update local state
-    setInspectionData(updatedData);
-    setHasChanges(true);
+   } catch (error) {
+     console.error('Error saving inspection data:', error);
+     // Revert local state if save failed
+     setInspectionData(inspectionData);
+     return;
+   }
     
     // Record analytics for the change
     AnalyticsManager.recordTaskUpdate(
@@ -362,6 +376,8 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
                       const existingData = sectionData.find((data: any) => data.id === item.id);
                       const currentRating = existingData?.rating || 'not-checked';
                       
+                      console.log(`Item ${item.id} current rating:`, currentRating, 'from data:', existingData);
+                      
                       return (
                         <div key={item.id} className="flex items-center justify-between p-4 bg-gray-50/80 rounded-lg border border-gray-200/60">
                           <div className="flex-1">
@@ -375,13 +391,14 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
                             {['great', 'fair', 'needs-attention', 'not-checked'].map((rating) => {
                               const config = getRatingConfig(rating);
                               // Map database values to display values for proper selection
-                             const isSelected = (() => {
-                               console.log('Checking selection:', { currentRating, rating, itemId: item.id });
-                               return (currentRating === 'G' && rating === 'great') ||
-                                      (currentRating === 'F' && rating === 'fair') ||
-                                      (currentRating === 'N' && rating === 'needs-attention') ||
-                                      (currentRating === 'not-checked' && rating === 'not-checked');
-                             })();
+                              const isSelected = (() => {
+                                const selected = (currentRating === 'G' && rating === 'great') ||
+                                       (currentRating === 'F' && rating === 'fair') ||
+                                       (currentRating === 'N' && rating === 'needs-attention') ||
+                                       (currentRating === 'not-checked' && rating === 'not-checked');
+                                console.log('Checking selection:', { currentRating, rating, itemId: item.id, selected });
+                                return selected;
+                              })();
                               
                               return (
                                 <button
@@ -391,7 +408,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
                                                    rating === 'fair' ? 'F' : 
                                                    rating === 'needs-attention' ? 'N' : 
                                                    'not-checked';
-                                   console.log('Button clicked:', { rating, dbRating, itemId: item.id });
+                                    console.log('Button clicked:', { rating, dbRating, itemId: item.id });
                                     handleRatingChange(section.key, item.id, dbRating, item.label);
                                   }}
                                   className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
@@ -430,8 +447,16 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
         </div>
       )}
       
+      {/* Loading State */}
+      {isLoading && (
+        <div className="bg-white/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 p-8 text-center">
+          <div className="w-8 h-8 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading inspection data...</p>
+        </div>
+      )}
+      
       {/* Print Customer Inspection PDF Button */}
-      {activeSections.length > 0 && (
+      {activeSections.length > 0 && !isLoading && (
         <div className="bg-white/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 p-4 sm:p-6 text-center">
           <button
             onClick={onGeneratePdf}

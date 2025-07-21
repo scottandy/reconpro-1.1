@@ -45,10 +45,6 @@ const VehicleDetail: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
-  // Initialize progress variables with default values
-  let completedSections = 0;
-  let overallProgress = 0;
-
   const [editedNotes, setEditedNotes] = useState('');
   const [rightPanelView, setRightPanelView] = useState<'inspection' | 'team-notes'>('inspection');
   const [showPdfModal, setShowPdfModal] = useState(false);
@@ -56,10 +52,6 @@ const VehicleDetail: React.FC = () => {
   // NEW: Location editing state
   const [isEditingLocation, setIsEditingLocation] = useState(false);
   const [editedLocation, setEditedLocation] = useState('');
-
-  // NEW: All sections state (default + custom)
-  const [allSections, setAllSections] = useState<Array<{ key: string; label: string }>>([]);
-  const [sectionsLoaded, setSectionsLoaded] = useState(false);
 
   const [inspectionData, setInspectionData] = useState<any>(null);
   const [inspectionLoading, setInspectionLoading] = useState(true);
@@ -81,62 +73,6 @@ const VehicleDetail: React.FC = () => {
       .then(data => setInspectionData(data || {}))
       .finally(() => setInspectionLoading(false));
   }, [vehicle?.id, user?.id]);
-
-  // Load inspection settings and build allSections array
-  useEffect(() => {
-    const loadSections = async () => {
-      if (!user?.dealershipId) {
-        setAllSections([
-          { key: 'emissions', label: 'Emissions' },
-          { key: 'cosmetic', label: 'Cosmetic' },
-          { key: 'mechanical', label: 'Mechanical' },
-          { key: 'cleaning', label: 'Cleaning' },
-          { key: 'photos', label: 'Photos' }
-        ]);
-        setSectionsLoaded(true);
-        return;
-      }
-
-      try {
-        const settings = await InspectionDataManager.getSettings(user.dealershipId);
-        if (settings) {
-          // Get all active sections from settings
-          const activeSections = settings.sections
-            .filter(section => section.isActive)
-            .sort((a, b) => a.order - b.order)
-            .map(section => ({
-              key: section.key,
-              label: section.label
-            }));
-          
-          setAllSections(activeSections);
-        } else {
-          // Fallback to default sections
-          setAllSections([
-            { key: 'emissions', label: 'Emissions' },
-            { key: 'cosmetic', label: 'Cosmetic' },
-            { key: 'mechanical', label: 'Mechanical' },
-            { key: 'cleaning', label: 'Cleaning' },
-            { key: 'photos', label: 'Photos' }
-          ]);
-        }
-      } catch (error) {
-        console.error('Error loading sections:', error);
-        // Fallback to default sections on error
-        setAllSections([
-          { key: 'emissions', label: 'Emissions' },
-          { key: 'cosmetic', label: 'Cosmetic' },
-          { key: 'mechanical', label: 'Mechanical' },
-          { key: 'cleaning', label: 'Cleaning' },
-          { key: 'photos', label: 'Photos' }
-        ]);
-      } finally {
-        setSectionsLoaded(true);
-      }
-    };
-
-    loadSections();
-  }, [user?.dealershipId]);
 
   // Load custom sections from inspection settings
   useEffect(() => {
@@ -547,32 +483,30 @@ const VehicleDetail: React.FC = () => {
   })();
   
   const locationStyle = getLocationStyle(vehicle.location);
-  if (sectionsLoaded && inspectionData) {
-    const allSectionKeys = allSections.map(s => s.key);
-    const getSectionStatus = (sectionKey: string, inspectionData: any): InspectionStatus => {
-      const items = inspectionData?.[sectionKey] || [];
-      if (!Array.isArray(items) || items.length === 0) return 'not-started';
-      // If any item is 'not-checked', return 'not-started' (grey)
-      if (items.some((item: any) => item.rating === 'not-checked')) return 'not-started';
-      if (items.some((item: any) => item.rating === 'N')) return 'needs-attention';
-      if (items.some((item: any) => item.rating === 'F')) return 'pending';
-      if (items.every((item: any) => item.rating === 'G')) return 'completed';
-      return 'not-started';
-    };
-    const sectionStatuses: Record<string, InspectionStatus> = allSectionKeys.reduce((acc, key) => {
-      acc[key] = getSectionStatus(key, inspectionData);
-      return acc;
-    }, {} as Record<string, InspectionStatus>);
-    // Count sections that are 'completed', 'pending', or 'needs-attention' as completed for progress
-    completedSections = allSectionKeys.filter(key => {
-      const status = sectionStatuses[key];
-      return status === 'completed' || status === 'pending' || status === 'needs-attention';
-    }).length;
-    overallProgress = Math.round((completedSections / allSectionKeys.length) * 100);
-  }
+
+  // Section status and progress logic
+  const sectionKeys = ['emissions', 'cosmetic', 'mechanical', 'cleaning', 'photos'];
+  const allSectionKeys = [...sectionKeys, ...customSections.map(s => s.key)];
+  const sectionStatuses = sectionKeys.reduce((acc, key) => {
+    acc[key] = getSectionStatus(key, inspectionData);
+    return acc;
+  }, {} as Record<string, InspectionStatus>);
+
+  // Add custom section statuses
+  const allSectionStatuses = { ...sectionStatuses };
+  customSections.forEach(section => {
+    allSectionStatuses[section.key] = getSectionStatus(section.key, inspectionData);
+  });
+
+  // Count sections that are 'completed', 'pending', or 'needs-attention' as completed for progress
+  const completedSections = allSectionKeys.filter(key => {
+    const status = allSectionStatuses[key];
+    return status === 'completed' || status === 'pending' || status === 'needs-attention';
+  }).length;
+  const overallProgress = Math.round((completedSections / allSectionKeys.length) * 100);
 
   // Guard: show loading state until inspectionData is loaded
-  if (inspectionLoading || !sectionsLoaded) {
+  if (inspectionLoading) {
     return <div>Loading inspection data...</div>;
   }
 

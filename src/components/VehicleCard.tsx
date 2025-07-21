@@ -18,7 +18,6 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
   const [inspectionData, setInspectionData] = useState<any>(null);
   const [inspectionLoaded, setInspectionLoaded] = useState(false);
-  const [allSections, setAllSections] = useState<Array<{ key: string; label: string }>>([]);
   
   // Load custom sections asynchronously
   useEffect(() => {
@@ -37,40 +36,12 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
                     section.key !== 'mechanical' && section.key !== 'cleaning' && section.key !== 'photos')
             .sort((a, b) => a.order - b.order);
           setCustomSections(sections);
-          
-          // Create allSections array combining default and custom sections
-          const defaultSections = [
-            { key: 'emissions', label: 'Emissions' },
-            { key: 'cosmetic', label: 'Cosmetic' },
-            { key: 'mechanical', label: 'Mechanical' },
-            { key: 'cleaning', label: 'Cleaning' },
-            { key: 'photos', label: 'Photos' }
-          ];
-          
-          const customSectionsMapped = sections.map(s => ({ key: s.key, label: s.label }));
-          setAllSections([...defaultSections, ...customSectionsMapped]);
         } else {
           setCustomSections([]);
-          // Set default sections only
-          setAllSections([
-            { key: 'emissions', label: 'Emissions' },
-            { key: 'cosmetic', label: 'Cosmetic' },
-            { key: 'mechanical', label: 'Mechanical' },
-            { key: 'cleaning', label: 'Cleaning' },
-            { key: 'photos', label: 'Photos' }
-          ]);
         }
       } catch (error) {
         console.error('Error loading custom sections:', error);
         setCustomSections([]);
-        // Set default sections only on error
-        setAllSections([
-          { key: 'emissions', label: 'Emissions' },
-          { key: 'cosmetic', label: 'Cosmetic' },
-          { key: 'mechanical', label: 'Mechanical' },
-          { key: 'cleaning', label: 'Cleaning' },
-          { key: 'photos', label: 'Photos' }
-        ]);
       } finally {
         setIsLoadingSettings(false);
       }
@@ -320,18 +291,32 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
           <div className="space-y-2">
             <div className="flex flex-wrap gap-2">
               {/* Get all sections (default + custom) and display them */}
-              {allSections.map(section => {
-                const sectionStatus = getSectionStatus(section.key, inspectionData);
-                return (
-                  <StatusBadge 
-                    key={section.key} 
-                    status={sectionStatus} 
-                    label={section.label} 
-                    section={section.key as any} 
-                    size="sm" 
-                  />
-                );
-              })}
+              {(() => {
+                // Default sections
+                const defaultSections = [
+                  { key: 'emissions', label: 'Emissions' },
+                  { key: 'cosmetic', label: 'Cosmetic' },
+                  { key: 'mechanical', label: 'Mechanical' },
+                  { key: 'cleaning', label: 'Cleaning' },
+                  { key: 'photos', label: 'Photos' }
+                ];
+                
+                // Combine with custom sections
+                const allSections = [...defaultSections, ...customSections.map(s => ({ key: s.key, label: s.label }))];
+                
+                return allSections.map(section => {
+                  const sectionStatus = getSectionStatus(section.key, inspectionData);
+                  return (
+                    <StatusBadge 
+                      key={section.key} 
+                      status={sectionStatus} 
+                      label={section.label} 
+                      section={section.key as any} 
+                      size="sm" 
+                    />
+                  );
+                });
+              })()}
             </div>
           </div>
         </div>

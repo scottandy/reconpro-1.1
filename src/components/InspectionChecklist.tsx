@@ -86,6 +86,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
   const handleRatingChange = async (sectionKey: string, itemId: string, rating: string, itemLabel: string) => {
     if (!user) return;
 
+   console.log('Rating change:', { sectionKey, itemId, rating, itemLabel });
     const updatedData = { ...inspectionData };
     
     // Initialize section if it doesn't exist
@@ -120,15 +121,19 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       updatedData[sectionKey].push(newItem);
     }
 
+   console.log('Updated data:', updatedData);
     // Update local state immediately for instant UI feedback
     setInspectionData(updatedData);
-    setHasChanges(true);
 
-    // Force immediate save to database
+   // Force immediate save to database and update parent
     try {
       await InspectionDataManager.saveInspectionData(vehicleId, user.id, updatedData);
-      setHasChanges(false);
       setLastSaved(new Date());
+     
+     // Notify parent component immediately
+     if (onInspectionDataChange) {
+       onInspectionDataChange(updatedData);
+     }
     } catch (error) {
       console.error('Error saving inspection data:', error);
     }
@@ -370,10 +375,13 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
                             {['great', 'fair', 'needs-attention', 'not-checked'].map((rating) => {
                               const config = getRatingConfig(rating);
                               // Map database values to display values for proper selection
-                              const isSelected = (currentRating === 'G' && rating === 'great') ||
-                                               (currentRating === 'F' && rating === 'fair') ||
-                                               (currentRating === 'N' && rating === 'needs-attention') ||
-                                               (currentRating === 'not-checked' && rating === 'not-checked');
+                             const isSelected = (() => {
+                               console.log('Checking selection:', { currentRating, rating, itemId: item.id });
+                               return (currentRating === 'G' && rating === 'great') ||
+                                      (currentRating === 'F' && rating === 'fair') ||
+                                      (currentRating === 'N' && rating === 'needs-attention') ||
+                                      (currentRating === 'not-checked' && rating === 'not-checked');
+                             })();
                               
                               return (
                                 <button
@@ -383,6 +391,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
                                                    rating === 'fair' ? 'F' : 
                                                    rating === 'needs-attention' ? 'N' : 
                                                    'not-checked';
+                                   console.log('Button clicked:', { rating, dbRating, itemId: item.id });
                                     handleRatingChange(section.key, item.id, dbRating, item.label);
                                   }}
                                   className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${

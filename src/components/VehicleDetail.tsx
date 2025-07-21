@@ -429,8 +429,9 @@ const VehicleDetail: React.FC = () => {
   const getSectionStatus = (sectionKey: string, inspectionData: any): InspectionStatus => {
     const items = inspectionData?.[sectionKey] || [];
     if (!Array.isArray(items) || items.length === 0) return 'not-started';
-    // If any item is 'not-checked', return 'not-started' (grey)
-    if (items.some((item: any) => item.rating === 'not-checked')) return 'not-started';
+    // If ANY item is 'not-checked', return 'not-started' (grey) - section not fully inspected
+    if (items.some((item: any) => item.rating === 'not-checked' || !item.rating)) return 'not-started';
+    // Priority logic for fully inspected sections:
     if (items.some((item: any) => item.rating === 'N')) return 'needs-attention';
     if (items.some((item: any) => item.rating === 'F')) return 'pending';
     if (items.every((item: any) => item.rating === 'G')) return 'completed';

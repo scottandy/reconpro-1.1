@@ -284,7 +284,9 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       </div>
 
       {/* Inspection Sections */}
-      {activeSections.map((section) => {
+      {activeSections
+        .filter(section => !activeFilter || section.key === activeFilter)
+        .map((section) => {
         const SectionIcon = getSectionIcon(section.key);
         const sectionData = inspectionData[section.key] || [];
         

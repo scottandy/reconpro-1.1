@@ -299,14 +299,6 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
                 </div>
                 <div>
                   <h4 className="text-lg font-bold text-gray-900">{section.label}</h4>
-                
-                <button
-                  onClick={onGeneratePdf}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-                >
-                  <FileText className="w-4 h-4" />
-                  Generate PDF
-                </button>
                   {section.description && (
                     <p className="text-sm text-gray-600">{section.description}</p>
                   )}

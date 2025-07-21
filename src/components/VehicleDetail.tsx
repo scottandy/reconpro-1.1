@@ -5,6 +5,7 @@ import { mockVehicles } from '../data/mockVehicles';
 import { Vehicle, TeamNote, InspectionStatus } from '../types/vehicle';
 import { AnalyticsManager } from '../utils/analytics';
 import StatusBadge from './StatusBadge';
+import InspectionChecklist from './InspectionChecklist';
 import TeamNotes from './TeamNotes';
 import CustomerInspectionPDF from './CustomerInspectionPDF';
 import { ProgressCalculator } from '../utils/progressCalculator';

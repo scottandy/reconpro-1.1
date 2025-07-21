@@ -178,7 +178,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       };
       onAddTeamNote(teamNote);
     }
-    
+
     // Notify parent component of changes after all processing
     if (onInspectionDataChange) {
       onInspectionDataChange(updatedData);
@@ -366,23 +366,15 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
                           <div className="flex items-center gap-2 ml-4">
                             {['great', 'fair', 'needs-attention', 'not-checked'].map((rating) => {
                               const config = getRatingConfig(rating);
-                              // Map database values to display values for comparison
-                              const normalizedCurrentRating = currentRating === 'G' ? 'great' : 
-                                                             currentRating === 'F' ? 'fair' : 
-                                                             currentRating === 'N' ? 'needs-attention' : 
-                                                             'not-checked';
-                              const isSelected = normalizedCurrentRating === rating;
+                              const isSelected = currentRating === rating || 
+                                               (currentRating === 'G' && rating === 'great') ||
+                                               (currentRating === 'F' && rating === 'fair') ||
+                                               (currentRating === 'N' && rating === 'needs-attention');
                               
                               return (
                                 <button
                                   key={rating}
-                                  onClick={() => {
-                                    const dbRating = rating === 'great' ? 'G' : 
-                                                   rating === 'fair' ? 'F' : 
-                                                   rating === 'needs-attention' ? 'N' : 
-                                                   'not-checked';
-                                    handleRatingChange(section.key, item.id, dbRating, item.label);
-                                  }}
+                                  onClick={() => handleRatingChange(section.key, item.id, rating === 'great' ? 'G' : rating === 'fair' ? 'F' : rating === 'needs-attention' ? 'N' : 'not-checked', item.label)}
                                   className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                                     isSelected 
                                       ? config.color 

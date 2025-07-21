@@ -380,6 +380,22 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
           <p className="text-gray-600">No active inspection sections are configured. Contact your administrator to set up inspection sections.</p>
         </div>
       )}
+      
+      {/* Print Customer Inspection PDF Button */}
+      {activeSections.length > 0 && (
+        <div className="bg-white/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 p-4 sm:p-6 text-center">
+          <button
+            onClick={onGeneratePdf}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-200 font-semibold shadow-lg text-sm sm:text-base"
+          >
+            <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
+            Print Customer Inspection PDF
+          </button>
+          <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-2">
+            Generate a professional inspection report for the customer
+          </p>
+        </div>
+      )}
     </div>
   );
 };

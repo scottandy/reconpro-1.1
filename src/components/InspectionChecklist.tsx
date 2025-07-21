@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Vehicle, TeamNote, InspectionStatus } from '../types/vehicle';
 import { useAuth } from '../contexts/AuthContext';
 import { InspectionDataManager } from '../utils/inspectionDataManager';
 import { InspectionSettings, InspectionSection } from '../types/inspectionSettings';
@@ -14,19 +15,36 @@ import {
   Palette,
   Wrench,
   Sparkles,
-  Camera
+  Camera,
+  FileText
 } from 'lucide-react';
 
 interface InspectionChecklistProps {
   vehicleId: string;
   vehicleName: string;
   onDataChange?: (data: any) => void;
+  vehicle: Vehicle;
+  onStatusUpdate: (section: string, status: InspectionStatus) => void;
+  onSectionComplete: (section: string, userInitials: string) => void;
+  onAddTeamNote: (note: Omit<TeamNote, 'id' | 'timestamp'>) => void;
+  activeFilter: string | null;
+  onGeneratePdf: () => void;
+  onInspectionDataChange: (data: any) => void;
+  onTeamNoteAdded: (note: TeamNote) => void;
 }
 
 const InspectionChecklist: React.FC<InspectionChecklistProps> = ({ 
-  vehicleId, 
-  vehicleName, 
-  onDataChange 
+  vehicleId,
+  vehicleName,
+  onDataChange,
+  vehicle,
+  onStatusUpdate,
+  onSectionComplete,
+  onAddTeamNote,
+  activeFilter,
+  onGeneratePdf,
+  onInspectionDataChange,
+  onTeamNoteAdded
 }) => {
   const { dealership, user } = useAuth();
   const [inspectionSettings, setInspectionSettings] = useState<InspectionSettings | null>(null);
@@ -129,8 +147,8 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
     }
     
     // Notify parent component of changes
-    if (onDataChange) {
-      onDataChange(updatedData);
+    if (onInspectionDataChange) {
+      onInspectionDataChange(updatedData);
     }
   };
 
@@ -279,6 +297,14 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
                 </div>
                 <div>
                   <h4 className="text-lg font-bold text-gray-900">{section.label}</h4>
+                
+                <button
+                  onClick={onGeneratePdf}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+                >
+                  <FileText className="w-4 h-4" />
+                  Generate PDF
+                </button>
                   {section.description && (
                     <p className="text-sm text-gray-600">{section.description}</p>
                   )}

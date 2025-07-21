@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Vehicle } from '../types/vehicle';
 import { InspectionSettings } from '../types/inspectionSettings';
-import { InspectionSettingsManager } from '../utils/inspectionSettingsManager';
+import { InspectionDataManager } from '../utils/inspectionDataManager';
 import { PDFGenerator, CustomerComment } from '../utils/pdfGenerator';
 import { 
   FileText, 
@@ -47,8 +47,8 @@ const CustomerInspectionPDF: React.FC<CustomerInspectionPDFProps> = ({
     const loadSettings = async () => {
       setSettingsLoaded(false);
       if (dealership && isOpen) {
-        await InspectionSettingsManager.initializeDefaultSettings(dealership.id);
-        const settings = await InspectionSettingsManager.getSettings(dealership.id);
+        await InspectionDataManager.initializeDefaultSettings(dealership.id);
+        const settings = await InspectionDataManager.getSettings(dealership.id);
         if (!cancelled) {
           setInspectionSettings(settings);
           setSettingsLoaded(true);

@@ -464,6 +464,44 @@ export class InspectionDataManager {
     }
   }
 
+  // Load inspection data for a specific vehicle
+  static async loadInspectionData(vehicleId: string, inspectorId: string): Promise<any> {
+    try {
+      // First try to get from vehicles table
+      const { data: vehicleData, error: vehicleError } = await supabase
+        .from('vehicles')
+        .select('inspection_data')
+        .eq('id', vehicleId)
+        .maybeSingle();
+
+      if (vehicleError) {
+        console.error('Error loading vehicle inspection data:', vehicleError);
+      }
+
+      // If we have inspection data in the vehicle record, return it
+      if (vehicleData?.inspection_data) {
+        return vehicleData.inspection_data;
+      }
+
+      // Otherwise, try to get from inspection_checklists table
+      const { data: checklistData, error: checklistError } = await supabase
+        .from('inspection_checklists')
+        .select('checklist_data')
+        .eq('vehicle_id', vehicleId)
+        .maybeSingle();
+
+      if (checklistError) {
+        console.error('Error loading checklist inspection data:', checklistError);
+        return DEFAULT_INSPECTION_DATA;
+      }
+
+      return checklistData?.checklist_data || DEFAULT_INSPECTION_DATA;
+    } catch (error) {
+      console.error('Error in loadInspectionData:', error);
+      return DEFAULT_INSPECTION_DATA;
+    }
+  }
+
   static async saveInspectionData(
     vehicleId: string, 
     inspectorId: string, 
@@ -477,6 +515,20 @@ export class InspectionDataManager {
         sectionNotes: inspectionData.sectionNotes || {}
       };
       
+      // First, update the vehicles table with the inspection data
+      const { error: vehicleUpdateError } = await supabase
+        .from('vehicles')
+        .update({
+          inspection_data: dataToSave,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', vehicleId);
+
+      if (vehicleUpdateError) {
+        console.error('Error updating vehicle inspection data:', vehicleUpdateError);
+        // Continue with checklist update even if vehicle update fails
+      }
+
       // First, check if a checklist already exists for this vehicle
       const { data: existingChecklist, error: selectError } = await supabase
         .from('inspection_checklists')
@@ -530,6 +582,3 @@ export class InspectionDataManager {
     }
   }
 }
-
-// Keep the old export for backward compatibility
-export { InspectionDataManager as InspectionSettingsManager };

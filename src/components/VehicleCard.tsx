@@ -4,10 +4,9 @@ import { Vehicle, getStockNumber, InspectionStatus } from '../types/vehicle';
 import StatusBadge from './StatusBadge';
 import { MapPin, Gauge, Clock, FileText, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { InspectionSettingsManager } from '../utils/inspectionSettingsManager';
+import { InspectionDataManager } from '../utils/inspectionDataManager';
 import { ProgressCalculator } from '../utils/progressCalculator';
 import { InspectionSection } from '../types/inspectionSettings';
-import { InspectionDataManager } from '../utils/inspectionDataManager';
 
 interface VehicleCardProps {
   vehicle: Vehicle;
@@ -30,7 +29,7 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
       }
 
       try {
-        const settings = await InspectionSettingsManager.getSettings(dealership.id);
+        const settings = await InspectionDataManager.getSettings(dealership.id);
         if (settings) {
           const sections = settings.sections
             .filter(section => section.isActive && section.key !== 'emissions' && section.key !== 'cosmetic' && 

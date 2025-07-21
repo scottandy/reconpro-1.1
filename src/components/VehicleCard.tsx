@@ -156,6 +156,73 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
     return text.substring(0, maxLength).trim() + '...';
   };
 
+  // Helper function to categorize a vehicle based on inspection status
+  const categorizeVehicle = (vehicle: Vehicle) => {
+    // First check vehicle.status - if sold or pending, don't categorize by inspection
+    if (vehicle.status === 'sold' || vehicle.status === 'pending') {
+      console.log(`Vehicle ${vehicle.id} skipped categorization - status is ${vehicle.status}`);
+      return null; // Don't count in Ready/Working/Issues
+    }
+
+    const inspectionData = vehicleInspectionData[vehicle.id] || {};
+    const sectionKeys = ['emissions', 'cosmetic', 'mechanical', 'cleaning', 'photos'];
+    
+    // Collect all ratings from all sections (same as VehicleCard logic)
+    const allRatings: string[] = [];
+    
+    for (const sectionKey of sectionKeys) {
+      const items = inspectionData[sectionKey] || [];
+      if (Array.isArray(items)) {
+        items.forEach((item: any) => {
+          if (item.rating) {
+            allRatings.push(item.rating);
+          }
+        });
+      }
+    }
+     
+    console.log(`Vehicle ${vehicle.id} (${vehicle.year} ${vehicle.make} ${vehicle.model}):`, {
+      allRatings,
+      inspectionData,
+      vehicleStatus: vehicle.status
+    });
+
+    // If no ratings at all, it's pending/working (not started)
+    if (allRatings.length === 0) {
+      console.log(`Vehicle ${vehicle.id} categorized as: pending (no ratings)`);
+      return 'pending';
+    }
+    
+    // If ANY rating is 'not-checked', it's pending/working (not fully inspected)
+    if (allRatings.some(rating => rating === 'not-checked')) {
+      console.log(`Vehicle ${vehicle.id} categorized as: pending (has not-checked items)`);
+      return 'pending';
+    }
+    
+    // Priority logic:
+    // 1. If ANY rating is 'N' (needs attention), it's needs-attention
+    if (allRatings.some(rating => rating === 'N')) {
+      console.log(`Vehicle ${vehicle.id} categorized as: needs-attention`);
+      return 'needs-attention';
+    }
+     
+    // 2. If ALL ratings are 'G' (great), it's completed
+    if (allRatings.every(rating => rating === 'G')) {
+      console.log(`Vehicle ${vehicle.id} categorized as: completed`);
+      return 'completed';
+    }
+     
+    // 3. If has 'F' ratings, it's pending/working
+    if (allRatings.some(rating => rating === 'F')) {
+      console.log(`Vehicle ${vehicle.id} categorized as: pending (has F or not-checked)`);
+      return 'pending';
+    }
+     
+    // 4. Default to active
+    console.log(`Vehicle ${vehicle.id} categorized as: active (default)`);
+    return 'active';
+  };
+
   const stockNumber = getStockNumber(vehicle.vin);
   const daysInInventory = getDaysInInventory();
   

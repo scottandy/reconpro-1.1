@@ -58,7 +58,6 @@ const VehicleDetail: React.FC = () => {
   const [inspectionSettings, setInspectionSettings] = useState<any>(null);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [customSections, setCustomSections] = useState<any[]>([]);
-  const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   // console.log('[VehicleDetail] Render', { vehicle });
 

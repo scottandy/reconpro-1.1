@@ -433,25 +433,30 @@ const VehicleDetail: React.FC = () => {
   const getSectionStatus = (sectionKey: string, inspectionData: any): InspectionStatus => {
     const items = inspectionData?.[sectionKey] || [];
     if (!Array.isArray(items) || items.length === 0) return 'not-started';
-    // If ANY item is 'not-checked', return 'not-started' (grey) - section not fully inspected
+    
+    // Get all items for this section from inspection settings
+    const sectionSettings = allSections.find(s => s.key === sectionKey);
+    if (!sectionSettings) return 'not-started';
+    
+    const allSectionItems = sectionSettings.items || [];
+    
+    // Check if ALL items have been inspected (no missing items and no 'not-checked' ratings)
+    const inspectedItems = items.filter((item: any) => item.rating && item.rating !== 'not-checked');
+    
+    // If not all items have been inspected, stay gray
+    if (inspectedItems.length < allSectionItems.length) return 'not-started';
+    
+    // If any inspected item is 'not-checked', return 'not-started' (grey)
     if (items.some((item: any) => item.rating === 'not-checked' || !item.rating)) return 'not-started';
     // Priority logic for fully inspected sections:
+    
+    // Now check the actual ratings since all items are inspected
     if (items.some((item: any) => item.rating === 'N')) return 'needs-attention';
     if (items.some((item: any) => item.rating === 'F')) return 'pending';
     if (items.every((item: any) => item.rating === 'G')) return 'completed';
     return 'not-started';
   };
 
-  // Handler to append a new team note to local state
-  const handleTeamNoteAdded = (note: TeamNote) => {
-    if (!vehicle) return;
-    setVehicle(prev => prev ? { ...prev, teamNotes: [note, ...(prev.teamNotes || [])] } : prev);
-  };
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 flex items-center justify-center">
-        <div className="text-center">
           <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 animate-pulse">
             <Car className="w-8 h-8 text-white" />
           </div>
@@ -855,7 +860,10 @@ const VehicleDetail: React.FC = () => {
                   activeFilter={activeFilter}
                   onGeneratePdf={() => setShowPdfModal(true)}
                   onInspectionDataChange={setInspectionData}
-                  onTeamNoteAdded={handleTeamNoteAdded}
+                  onTeamNoteAdded={(note: TeamNote) => {
+                    if (!vehicle) return;
+                    setVehicle(prev => prev ? { ...prev, teamNotes: [note, ...(prev.teamNotes || [])] } : prev);
+                  }}
                 />
               ) : (
                 <div className="text-center py-8 text-gray-500">
@@ -1237,7 +1245,10 @@ const VehicleDetail: React.FC = () => {
                   activeFilter={activeFilter}
                   onGeneratePdf={() => setShowPdfModal(true)}
                   onInspectionDataChange={setInspectionData}
-                  onTeamNoteAdded={handleTeamNoteAdded}
+                  onTeamNoteAdded={(note: TeamNote) => {
+                    if (!vehicle) return;
+                    setVehicle(prev => prev ? { ...prev, teamNotes: [note, ...(prev.teamNotes || [])] } : prev);
+                  }}
                 />
               ) : (
                 <div className="text-center py-8 text-gray-500">

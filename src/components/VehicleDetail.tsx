@@ -104,8 +104,8 @@ const VehicleDetail: React.FC = () => {
         const settings = await InspectionDataManager.getSettings(user.dealershipId);
         if (settings) {
           const customSectionsList = settings.sections
-            .filter(section => section.isActive)
-            .sort((a, b) => a.order - b.order);
+            .filter((section: any) => section.isActive)
+            .sort((a: any, b: any) => a.order - b.order);
           setCustomSections(customSectionsList);
         }
       } catch (error) {
@@ -167,15 +167,6 @@ const VehicleDetail: React.FC = () => {
       teamNotes: [newNote, ...(vehicle.teamNotes || [])]
     };
     saveVehicleUpdate(updatedVehicle);
-  };
-
-  const handleTeamNoteAdded = (note: TeamNote) => {
-    if (!vehicle) return;
-    const updatedVehicle = {
-      ...vehicle,
-      teamNotes: [note, ...(vehicle.teamNotes || [])]
-    };
-    setVehicle(updatedVehicle);
   };
 
   const handleSaveNotes = () => {
@@ -444,7 +435,7 @@ const VehicleDetail: React.FC = () => {
     if (!Array.isArray(items) || items.length === 0) return 'not-started';
     
     // Get all items for this section from inspection settings
-    const sectionSettings = allSections.find(s => s.key === sectionKey);
+    const sectionSettings = allSections.find((s: any) => s.key === sectionKey);
     if (!sectionSettings) return 'not-started';
     
     const allSectionItems = sectionSettings.items || [];
@@ -738,7 +729,7 @@ const VehicleDetail: React.FC = () => {
 
             {/* Status Buttons in Two Columns - Mobile with Scroll */}
             <div className="grid grid-cols-2 gap-3 mb-6">
-              {allSections.map((section, index) => {
+              {allSections.map((section: any, index: number) => {
                 const isLastOdd = allSections.length % 2 === 1 && index === allSections.length - 1;
                 return (
                   <button
@@ -873,7 +864,10 @@ const VehicleDetail: React.FC = () => {
                   activeFilter={activeFilter}
                   onGeneratePdf={() => setShowPdfModal(true)}
                   onInspectionDataChange={setInspectionData}
-                  onTeamNoteAdded={handleTeamNoteAdded}
+                  onTeamNoteAdded={(note: TeamNote) => {
+                    if (!vehicle) return;
+                    setVehicle(prev => prev ? { ...prev, teamNotes: [note, ...(prev.teamNotes || [])] } : prev);
+                  }}
                 />
               ) : (
                 <div className="text-center py-8 text-gray-500">
@@ -996,7 +990,7 @@ const VehicleDetail: React.FC = () => {
 
               {/* Status Buttons in Two Columns */}
               <div className="grid grid-cols-2 gap-3 mb-6">
-                {allSections.map((section, index) => {
+                {allSections.map((section: any, index: number) => {
                   const isLastOdd = allSections.length % 2 === 1 && index === allSections.length - 1;
                   return (
                     <button
@@ -1255,7 +1249,10 @@ const VehicleDetail: React.FC = () => {
                   activeFilter={activeFilter}
                   onGeneratePdf={() => setShowPdfModal(true)}
                   onInspectionDataChange={setInspectionData}
-                  onTeamNoteAdded={handleTeamNoteAdded}
+                  onTeamNoteAdded={(note: TeamNote) => {
+                    if (!vehicle) return;
+                    setVehicle(prev => prev ? { ...prev, teamNotes: [note, ...(prev.teamNotes || [])] } : prev);
+                  }}
                 />
               ) : (
                 <div className="text-center py-8 text-gray-500">

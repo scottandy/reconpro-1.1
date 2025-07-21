@@ -1,7 +1,7 @@
 import { InspectionSettings, InspectionSection, InspectionItem, RatingLabel, DEFAULT_INSPECTION_SETTINGS } from '../types/inspectionSettings';
 import { supabase } from './supabaseClient';
 
-export class InspectionSettingsManager {
+export class InspectionDataManager {
   private static readonly STORAGE_KEY = 'dealership_inspection_settings';
 
   static async initializeDefaultSettings(dealershipId: string): Promise<void> {
@@ -520,3 +520,6 @@ export class InspectionSettingsManager {
     }
   }
 }
+
+// Keep the old export for backward compatibility
+export { InspectionDataManager as InspectionSettingsManager };

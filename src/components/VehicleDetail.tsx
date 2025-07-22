@@ -1,3 +1,5 @@
+Looking at this React component file, I can see several missing closing brackets. Here's the corrected version with all the necessary closing brackets added:
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -1029,7 +1031,7 @@ const VehicleDetail: React.FC = () => {
               </button>
               <button
                 onClick={handleTeamNotesClick}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium transition-all duration-200 ${
+                className={\`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium transition-all duration-200 ${
                   rightPanelView === 'team-notes'
                     ? 'bg-white text-blue-600 shadow-sm'
                     : 'text-gray-600 hover:text-gray-900'
@@ -1047,7 +1049,7 @@ const VehicleDetail: React.FC = () => {
               vehicle?.id ? (
                 <InspectionChecklist
                   vehicleId={vehicle.id}
-                  vehicleName={`${vehicle.year} ${vehicle.make} ${vehicle.model}`}
+                  vehicleName={\`${vehicle.year} ${vehicle.make} ${vehicle.model}`}
                   vehicle={vehicle}
                   onStatusUpdate={handleStatusUpdate}
                   onSectionComplete={handleSectionComplete}
@@ -1121,7 +1123,7 @@ const VehicleDetail: React.FC = () => {
                   <p className="text-sm text-gray-900">{vehicle.color}</p>
                 </div>
               </div>
-              
+        \      
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Price</label>
                 <div className="flex items-center gap-2">
@@ -1223,7 +1225,7 @@ const VehicleDetail: React.FC = () => {
                         : 'border-gray-200 hover:border-red-300 hover:bg-red-50 bg-white'
                     }`}
                   >
-                    <div className={`flex items-center justify-center gap-2 font-medium text-sm ${
+                    <div className={\`flex items-center justify-center gap-2 font-medium text-sm ${
                       vehicle.status === 'sold' ? 'text-red-700' : 'text-red-600'
                     }`}>
                       <Archive className="w-3 h-3" />
@@ -1232,13 +1234,13 @@ const VehicleDetail: React.FC = () => {
                   </button>
                   <button
                     onClick={() => handleMarkAsPending()}
-                    className={`flex-1 p-2 rounded-lg border transition-all duration-200 hover:shadow-md ${
+                    className={\`flex-1 p-2 rounded-lg border transition-all duration-200 hover:shadow-md ${
                       vehicle.status === 'pending'
                         ? 'border-purple-300 bg-purple-50 shadow-md'
                         : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50 bg-white'
                     }`}
                   >
-                    <div className={`flex items-center justify-center gap-2 font-medium text-sm ${
+                    <div className={\`flex items-center justify-center gap-2 font-medium text-sm ${
                       vehicle.status === 'pending' ? 'text-purple-700' : 'text-purple-600'
                     }`}>
                       <Clock className="w-3 h-3" />
@@ -1433,7 +1435,7 @@ const VehicleDetail: React.FC = () => {
                           value={editFormData.vin}
                           onChange={(e) => handleEditInputChange('vin', e.target.value.toUpperCase())}
                           maxLength={17}
-                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm font-mono bg-white text-gray-900 ${
+                          className={\`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm font-mono bg-white text-gray-900 ${
                             editErrors.vin ? 'border-red-300' : 'border-gray-300'
                           }`}
                         />
@@ -1448,7 +1450,7 @@ const VehicleDetail: React.FC = () => {
                           onChange={(e) => handleEditInputChange('year', parseInt(e.target.value) || 0)}
                           min="1900"
                           max={new Date().getFullYear() + 1}
-                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white text-gray-900 ${
+                          className={\`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white text-gray-900 ${
                             editErrors.year ? 'border-red-300' : 'border-gray-300'
                           }`}
                         />
@@ -1461,7 +1463,7 @@ const VehicleDetail: React.FC = () => {
                           type="text"
                           value={editFormData.make}
                           onChange={(e) => handleEditInputChange('make', e.target.value)}
-                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white text-gray-900 ${
+                          className={\`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white text-gray-900 ${
                             editErrors.make ? 'border-red-300' : 'border-gray-300'
                           }`}
                         />
@@ -1474,7 +1476,7 @@ const VehicleDetail: React.FC = () => {
                           type="text"
                           value={editFormData.model}
                           onChange={(e) => handleEditInputChange('model', e.target.value)}
-                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white text-gray-900 ${
+                          className={\`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white text-gray-900 ${
                             editErrors.model ? 'border-red-300' : 'border-gray-300'
                           }`}
                         />
@@ -1498,7 +1500,7 @@ const VehicleDetail: React.FC = () => {
                           value={editFormData.mileage}
                           onChange={(e) => handleEditInputChange('mileage', parseInt(e.target.value) || 0)}
                           min="0"
-                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white text-gray-900 ${
+                          className={\`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white text-gray-900 ${
                             editErrors.mileage ? 'border-red-300' : 'border-gray-300'
                           }`}
                         />
@@ -1511,7 +1513,7 @@ const VehicleDetail: React.FC = () => {
                           type="text"
                           value={editFormData.color}
                           onChange={(e) => handleEditInputChange('color', e.target.value)}
-                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white text-gray-900 ${
+                          className={\`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white text-gray-900 ${
                             editErrors.color ? 'border-red-300' : 'border-gray-300'
                           }`}
                         />
@@ -1546,7 +1548,7 @@ const VehicleDetail: React.FC = () => {
                           onChange={(e) => handleEditInputChange('price', parseFloat(e.target.value) || 0)}
                           min="0"
                           step="0.01"
-                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white text-gray-900 ${
+                          className={\`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white text-gray-900 ${
                             editErrors.price ? 'border-red-300' : 'border-gray-300'
                           }`}
                         />
@@ -1559,7 +1561,7 @@ const VehicleDetail: React.FC = () => {
                           type="text"
                           value={editFormData.location}
                           onChange={(e) => handleEditInputChange('location', e.target.value)}
-                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white text-gray-900 ${
+                          className={\`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white text-gray-900 ${
                             editErrors.location ? 'border-red-300' : 'border-gray-300'
                           }`}
                         />
@@ -1611,7 +1613,7 @@ const VehicleDetail: React.FC = () => {
               <div className="flex bg-gray-100 rounded-lg p-1">
                 <button
                   onClick={() => setRightPanelView('inspection')}
-                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium transition-all duration-200 ${
+                  className={\`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium transition-all duration-200 ${
                     rightPanelView === 'inspection'
                       ? 'bg-white text-blue-600 shadow-sm'
                       : 'text-gray-600 hover:text-gray-900'
@@ -1622,7 +1624,7 @@ const VehicleDetail: React.FC = () => {
                 </button>
                 <button
                   onClick={handleTeamNotesClick}
-                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium transition-all duration-200 ${
+                  className={\`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium transition-all duration-200 ${
                     rightPanelView === 'team-notes'
                       ? 'bg-white text-blue-600 shadow-sm'
                       : 'text-gray-600 hover:text-gray-900'
@@ -1675,6 +1677,3 @@ const VehicleDetail: React.FC = () => {
       />
     </div>
   );
-};
-
-export default VehicleDetail;

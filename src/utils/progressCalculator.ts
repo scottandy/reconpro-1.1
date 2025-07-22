@@ -5,7 +5,7 @@ export class ProgressCalculator {
    * Calculate the overall progress percentage based on individual inspection items
    * rather than just counting completed sections
    */
-  static calculateDetailedProgress(vehicleId: string, vehicle: Vehicle): number {
+  static calculateDetailedProgress(vehicleId: string, vehicle: Vehicle, sections?: Array<{key: string}>): number {
     // Get inspection data from localStorage
     const savedInspections = localStorage.getItem('vehicleInspections');
     if (!savedInspections) return this.calculateSectionProgress(vehicle);
@@ -16,8 +16,8 @@ export class ProgressCalculator {
       
       if (!vehicleInspection) return this.calculateSectionProgress(vehicle);
       
-      // Only count a section as complete if ALL items are 'G'
-      const sectionKeys = ['emissions', 'cosmetic', 'mechanical', 'cleaning', 'photos'];
+      // Use provided sections or fall back to default hardcoded sections
+      const sectionKeys = sections ? sections.map(s => s.key) : ['emissions', 'cosmetic', 'mechanical', 'cleaning', 'photos'];
       let completedSections = 0;
       sectionKeys.forEach(sectionKey => {
         const items = vehicleInspection[sectionKey];

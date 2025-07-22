@@ -2,11 +2,6 @@ import { InspectionSettings, InspectionSection, InspectionItem, RatingLabel, DEF
 import { supabase } from './supabaseClient';
 
 export const DEFAULT_INSPECTION_DATA = {
-  emissions: [],
-  cosmetic: [],
-  mechanical: [],
-  cleaning: [],
-  photos: [],
   customSections: {},
   sectionNotes: {}
 };

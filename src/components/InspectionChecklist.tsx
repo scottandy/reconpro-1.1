@@ -75,13 +75,9 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       const data = await InspectionDataManager.loadInspectionData(vehicleId, user.id);
       console.log('📊 Raw inspection data loaded:', data);
       
-      // Ensure data structure is correct
+      // Ensure data structure is correct - preserve ALL sections dynamically
       const normalizedData = {
-        emissions: data?.emissions || [],
-        cosmetic: data?.cosmetic || [],
-        mechanical: data?.mechanical || [],
-        cleaning: data?.cleaning || [],
-        photos: data?.photos || [],
+        ...data, // Preserve all existing sections (including dynamic ones like "bananas")
         customSections: data?.customSections || {},
         sectionNotes: data?.sectionNotes || {}
       };

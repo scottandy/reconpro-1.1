@@ -361,8 +361,8 @@ const VehicleDetail: React.FC = () => {
   const getOverallProgress = () => {
     if (!vehicle) return 0;
     
-    // Use the new detailed progress calculator
-    return ProgressCalculator.calculateDetailedProgress(vehicle.id, vehicle);
+    // Use the new detailed progress calculator with dynamic sections
+    return ProgressCalculator.calculateDetailedProgress(vehicle.id, vehicle, allSections);
   };
 
   const getStockNumber = (vin: string): string => {
@@ -493,9 +493,14 @@ const VehicleDetail: React.FC = () => {
 
   const summaryNotes = getSummaryNotes();
   
+  // Get all sections from inspection settings first
+  const allSections = inspectionSettings?.sections
+    ?.filter((section: any) => section.isActive)
+    ?.sort((a: any, b: any) => a.order - b.order) || [];
+
   // Check if vehicle is ready for sale based on inspection data (all ratings are 'G')
-  const isReadyForSale = inspectionData && (() => {
-    const sectionKeys = ['emissions', 'cosmetic', 'mechanical', 'cleaning', 'photos'];
+  const isReadyForSale = inspectionData && allSections.length > 0 && (() => {
+    const sectionKeys = allSections.map((section: any) => section.key);
     const allRatings: string[] = [];
     
     for (const sectionKey of sectionKeys) {
@@ -515,15 +520,10 @@ const VehicleDetail: React.FC = () => {
   
   const locationStyle = getLocationStyle(vehicle.location);
 
-  // Get all sections from inspection settings
-  const allSections = inspectionSettings?.sections
-    ?.filter((section: any) => section.isActive)
-    ?.sort((a: any, b: any) => a.order - b.order) || [];
-
   // Section status and progress logic
   const sectionKeys = allSections.map((section: any) => section.key);
   const allSectionKeys = [...sectionKeys, ...customSections.map(s => s.key)];
-  const sectionStatuses = sectionKeys.reduce((acc, key) => {
+  const sectionStatuses = sectionKeys.reduce((acc: Record<string, InspectionStatus>, key: string) => {
     acc[key] = getSectionStatus(key, inspectionData);
     return acc;
   }, {} as Record<string, InspectionStatus>);

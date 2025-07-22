@@ -14,16 +14,16 @@ interface VehicleCardProps {
 
 const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
   const { dealership, user } = useAuth();
-  const [customSections, setCustomSections] = useState<InspectionSection[]>([]);
+  const [allSections, setAllSections] = useState<InspectionSection[]>([]);
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
   const [inspectionData, setInspectionData] = useState<any>(null);
   const [inspectionLoaded, setInspectionLoaded] = useState(false);
   
-  // Load custom sections asynchronously
+  // Load all sections asynchronously
   useEffect(() => {
-    const loadCustomSections = async () => {
+    const loadAllSections = async () => {
       if (!dealership) {
-        setCustomSections([]);
+        setAllSections([]);
         setIsLoadingSettings(false);
         return;
       }
@@ -32,22 +32,21 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
         const settings = await InspectionDataManager.getSettings(dealership.id);
         if (settings) {
           const sections = settings.sections
-            .filter(section => section.isActive && section.key !== 'emissions' && section.key !== 'cosmetic' && 
-                    section.key !== 'mechanical' && section.key !== 'cleaning' && section.key !== 'photos')
+            .filter(section => section.isActive)
             .sort((a, b) => a.order - b.order);
-          setCustomSections(sections);
+          setAllSections(sections);
         } else {
-          setCustomSections([]);
+          setAllSections([]);
         }
       } catch (error) {
-        console.error('Error loading custom sections:', error);
-        setCustomSections([]);
+        console.error('Error loading sections:', error);
+        setAllSections([]);
       } finally {
         setIsLoadingSettings(false);
       }
     };
 
-    loadCustomSections();
+    loadAllSections();
   }, [dealership]);
 
   // Load inspection data for this vehicle
@@ -71,28 +70,52 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
     return () => { cancelled = true; };
   }, [vehicle?.id, user?.id]);
 
-  // Section status and progress logic (copied from VehicleDetail)
-  const sectionKeys = ['emissions', 'cosmetic', 'mechanical', 'cleaning', 'photos'];
+  // Section status and progress logic - now dynamic based on inspection settings
   const getSectionStatus = (sectionKey: string, inspectionData: any): InspectionStatus => {
     const items = inspectionData?.[sectionKey] || [];
     if (!Array.isArray(items) || items.length === 0) return 'not-started';
-    // If any item is 'not-checked', return 'not-started' (grey)
-    if (items.some((item: any) => item.rating === 'not-checked')) return 'not-started';
+    
+    // Get all items for this section from inspection settings
+    const sectionSettings = allSections.find(s => s.key === sectionKey);
+    if (!sectionSettings) return 'not-started';
+    
+    const allSectionItems = sectionSettings.items || [];
+    
+    // Check if ALL items have been inspected (no missing items and no 'not-checked' ratings)
+    const inspectedItems = items.filter((item: any) => item.rating && item.rating !== 'not-checked');
+    
+    // If not all items have been inspected, stay gray
+    if (inspectedItems.length < allSectionItems.length) return 'not-started';
+    
+    // If any inspected item is 'not-checked', return 'not-started' (grey)
+    if (items.some((item: any) => item.rating === 'not-checked' || !item.rating)) return 'not-started';
+    
+    // Now check the actual ratings since all items are inspected
     if (items.some((item: any) => item.rating === 'N')) return 'needs-attention';
     if (items.some((item: any) => item.rating === 'F')) return 'pending';
     if (items.every((item: any) => item.rating === 'G')) return 'completed';
     return 'not-started';
   };
-  const sectionStatuses: Record<string, InspectionStatus> = sectionKeys.reduce((acc, key) => {
+
+  // Use dynamic sections for status calculation (only when sections are loaded)
+  const sectionKeys = allSections.map(section => section.key);
+  const sectionStatuses: Record<string, InspectionStatus> = sectionKeys.reduce((acc: Record<string, InspectionStatus>, key: string) => {
     acc[key] = getSectionStatus(key, inspectionData);
     return acc;
   }, {} as Record<string, InspectionStatus>);
+  
   // Count sections that are 'completed', 'pending', or 'needs-attention' as completed for progress
   const completedSections = sectionKeys.filter(key => {
     const status = sectionStatuses[key];
     return status === 'completed' || status === 'pending' || status === 'needs-attention';
   }).length;
-  const overallProgress = Math.round((completedSections / sectionKeys.length) * 100);
+  
+  // Only show progress when both inspection data and sections are loaded
+  const overallProgress = Math.round(
+    (inspectionLoaded && !isLoadingSettings && sectionKeys.length > 0) 
+      ? (completedSections / sectionKeys.length) * 100 
+      : 0
+  );
 
   const getDaysInInventory = () => {
     const acquiredDate = new Date(vehicle.dateAcquired);
@@ -164,10 +187,7 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
       return null; // Don't count in Ready/Working/Issues
     }
 
-    const inspectionData = vehicleInspectionData[vehicle.id] || {};
-    const sectionKeys = ['emissions', 'cosmetic', 'mechanical', 'cleaning', 'photos'];
-    
-    // Collect all ratings from all sections (same as VehicleCard logic)
+    // Use the same dynamic sectionKeys as the rest of the component
     const allRatings: string[] = [];
     
     for (const sectionKey of sectionKeys) {
@@ -227,8 +247,8 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
   const daysInInventory = getDaysInInventory();
   
   // Check if vehicle is ready for sale based on inspection data (all ratings are 'G')
-  const isReadyForSale = inspectionLoaded && inspectionData && (() => {
-    const sectionKeys = ['emissions', 'cosmetic', 'mechanical', 'cleaning', 'photos'];
+  const isReadyForSale = inspectionLoaded && inspectionData && allSections.length > 0 && (() => {
+    const sectionKeys = allSections.map(section => section.key);
     const allRatings: string[] = [];
     
     for (const sectionKey of sectionKeys) {
@@ -341,44 +361,44 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
         <div className="mb-5">
           <div className="flex justify-between items-center mb-3">
             <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">Reconditioning Progress</span>
-            <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{inspectionLoaded ? overallProgress : 0}%</span>
+            <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{overallProgress}%</span>
           </div>
           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 mb-4 shadow-inner">
             <div 
               className={`h-3 rounded-full transition-all duration-500 shadow-sm ${
-                inspectionLoaded && overallProgress === 100 
+                overallProgress === 100 
                   ? 'bg-gradient-to-r from-emerald-500 to-green-600 dark:from-emerald-400 dark:to-green-700' 
                   : 'bg-gradient-to-r from-blue-500 to-indigo-600 dark:from-blue-400 dark:to-indigo-700'
               }`}
-              style={{ width: `${inspectionLoaded ? overallProgress : 0}%` }}
+              style={{ width: `${overallProgress}%` }}
             ></div>
           </div>
           
-          {/* Status Badges - Now Read-Only */}
+          {/* Status Badges - Now Dynamic from Inspection Settings */}
           <div className="space-y-2">
             <div className="flex flex-wrap gap-2">
-              <StatusBadge status={sectionStatuses['emissions']} label="Emissions" section="emissions" size="sm" />
-              <StatusBadge status={sectionStatuses['cosmetic']} label="Cosmetic" section="cosmetic" size="sm" />
-              <StatusBadge status={sectionStatuses['mechanical']} label="Mechanical" section="mechanical" size="sm" />
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <StatusBadge status={sectionStatuses['cleaning']} label="Cleaning" section="cleaning" size="sm" />
-              <StatusBadge status={sectionStatuses['photos']} label="Photos" section="photos" size="sm" />
-              
-              {/* Custom sections from settings - using inspection data */}
-              {customSections.map(section => {
-                // Get status from inspection data for custom sections
-                const customSectionStatus = getSectionStatus(section.key, inspectionData);
+              {/* Show only sections from inspection settings - no hardcoding */}
+              {!isLoadingSettings && allSections.map(section => {
+                const sectionStatus = getSectionStatus(section.key, inspectionData);
                 return (
                   <StatusBadge 
                     key={section.key} 
-                    status={customSectionStatus} 
+                    status={sectionStatus} 
                     label={section.label} 
                     section={section.key as any} 
                     size="sm" 
                   />
                 );
               })}
+              
+              {/* Loading placeholder */}
+              {isLoadingSettings && (
+                <div className="flex gap-2">
+                  <div className="h-6 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                  <div className="h-6 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                  <div className="h-6 w-18 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                </div>
+              )}
             </div>
           </div>
         </div>

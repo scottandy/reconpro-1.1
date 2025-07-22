@@ -73,7 +73,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
 
       // Load inspection data
       const data = await InspectionDataManager.loadInspectionData(vehicleId, user.id);
-      console.log('📊 Loaded inspection data:', data);
+      console.log('📊 Raw inspection data loaded:', data);
       
       // Ensure data structure is correct
       const normalizedData = {
@@ -86,6 +86,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
         sectionNotes: data?.sectionNotes || {}
       };
       
+      console.log('📊 Normalized inspection data:', normalizedData);
       setInspectionData(normalizedData);
       
       // Notify parent immediately
@@ -110,7 +111,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
     }
   };
 
-  // Optimized save function with debouncing
+  // Simple save function
   const saveToDatabase = useCallback(async (dataToSave: any) => {
     if (!user || !vehicleId) return;
     
@@ -121,70 +122,64 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       await InspectionDataManager.saveInspectionData(vehicleId, user.id, dataToSave);
       console.log('✅ Successfully saved to database');
       setSaveStatus('saved');
-      
-      // Reset save status after 2 seconds
       setTimeout(() => setSaveStatus('idle'), 2000);
     } catch (error) {
       console.error('❌ Error saving to database:', error);
       setSaveStatus('error');
-      
-      // Reset error status after 3 seconds
       setTimeout(() => setSaveStatus('idle'), 3000);
     }
   }, [user, vehicleId]);
 
-  // Handle rating changes with immediate UI update
-  const handleRatingChange = async (sectionKey: string, itemId: string, newRating: string, itemLabel: string) => {
+  // Handle rating changes - COMPLETELY REWRITTEN
+  const handleRatingChange = (sectionKey: string, itemId: string, newRating: string, itemLabel: string) => {
     if (!user) return;
 
-    console.log('🎯 Rating change START:', { sectionKey, itemId, newRating, itemLabel });
+    console.log('🎯 BUTTON CLICKED:', { sectionKey, itemId, newRating, itemLabel });
+    console.log('🎯 Current inspection data before update:', inspectionData);
 
-    // Get current data
-    const updatedData = { ...inspectionData };
+    // Create a completely new data object
+    const newData = { ...inspectionData };
     
-    // Initialize section if it doesn't exist
-    if (!updatedData[sectionKey]) {
-      updatedData[sectionKey] = [];
+    // Ensure section exists
+    if (!newData[sectionKey]) {
+      newData[sectionKey] = [];
     }
 
-    // Find existing item
-    const existingItemIndex = updatedData[sectionKey].findIndex((item: any) => item.id === itemId);
-    let oldRating = undefined;
-
-    if (existingItemIndex >= 0) {
+    // Find existing item or create new one
+    const existingIndex = newData[sectionKey].findIndex((item: any) => item.id === itemId);
+    
+    if (existingIndex >= 0) {
       // Update existing item
-      oldRating = updatedData[sectionKey][existingItemIndex].rating;
-      updatedData[sectionKey][existingItemIndex] = {
-        ...updatedData[sectionKey][existingItemIndex],
+      newData[sectionKey][existingIndex] = {
+        ...newData[sectionKey][existingIndex],
         rating: newRating,
         updatedBy: user.initials,
         updatedAt: new Date().toISOString()
       };
     } else {
-      // Create new item
-      const newItem = {
+      // Add new item
+      newData[sectionKey].push({
         id: itemId,
         label: itemLabel,
         rating: newRating,
         updatedBy: user.initials,
         updatedAt: new Date().toISOString()
-      };
-      updatedData[sectionKey].push(newItem);
+      });
     }
 
-    console.log('📝 Updated inspection data:', updatedData);
-    console.log('📝 Section data after update:', updatedData[sectionKey]);
+    console.log('🎯 NEW inspection data after update:', newData);
+    console.log('🎯 Updated section data:', newData[sectionKey]);
 
-    // Update local state IMMEDIATELY for instant UI feedback
-    setInspectionData(updatedData);
+    // Force state update
+    setInspectionData(newData);
 
-    // Notify parent component immediately
+    // Notify parent
     if (onInspectionDataChange) {
-      onInspectionDataChange(updatedData);
+      onInspectionDataChange(newData);
     }
 
-    // Save to database in background (non-blocking)
-    saveToDatabase(updatedData);
+    // Save to database
+    saveToDatabase(newData);
 
     // Record analytics
     AnalyticsManager.recordTaskUpdate(
@@ -193,45 +188,9 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       sectionKey as any,
       user.initials,
       itemLabel,
-      oldRating,
+      undefined,
       newRating
     );
-
-    // Add team note if there was a meaningful change
-    if (oldRating !== newRating) {
-      const getRatingLabel = (rating: string) => {
-        switch (rating) {
-          case 'G': return 'Great';
-          case 'F': return 'Fair';
-          case 'N': return 'Needs Attention';
-          case 'not-checked': return 'Not Checked';
-          default: return rating;
-        }
-      };
-
-      const getSectionDisplayName = (key: string) => {
-        switch (key) {
-          case 'emissions': return 'Emissions';
-          case 'cosmetic': return 'Cosmetic';
-          case 'mechanical': return 'Mechanical';
-          case 'cleaning': return 'Cleaning';
-          case 'photos': return 'Photos';
-          default: return key.charAt(0).toUpperCase() + key.slice(1);
-        }
-      };
-
-      const noteText = oldRating 
-        ? `${getSectionDisplayName(sectionKey)}: ${itemLabel} updated from "${getRatingLabel(oldRating)}" to "${getRatingLabel(newRating)}"`
-        : `${getSectionDisplayName(sectionKey)}: ${itemLabel} rated as "${getRatingLabel(newRating)}"`;
-
-      if (onAddTeamNote) {
-        onAddTeamNote({
-          text: noteText,
-          userInitials: user.initials,
-          category: sectionKey as any
-        });
-      }
-    }
   };
 
   const getSectionIcon = (sectionKey: string) => {
@@ -245,37 +204,13 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
     }
   };
 
-  const getRatingConfig = (rating: string) => {
-    switch (rating) {
-      case 'G':
-      case 'great':
-        return {
-          label: 'Great',
-          color: 'bg-emerald-600 text-white shadow-lg border-2 border-emerald-500',
-          icon: '⭐'
-        };
-      case 'F':
-      case 'fair':
-        return {
-          label: 'Fair',
-          color: 'bg-yellow-600 text-white shadow-lg border-2 border-yellow-500',
-          icon: '✓'
-        };
-      case 'N':
-      case 'needs-attention':
-        return {
-          label: 'Needs Attention',
-          color: 'bg-red-600 text-white shadow-lg border-2 border-red-500',
-          icon: '⚠️'
-        };
-      case 'not-checked':
-      default:
-        return {
-          label: 'Not Checked',
-          color: 'bg-gray-300 text-gray-700 hover:bg-gray-400 border-2 border-gray-400',
-          icon: '?'
-        };
-    }
+  // Simple function to get current rating for an item
+  const getCurrentRating = (sectionKey: string, itemId: string): string => {
+    const sectionData = inspectionData[sectionKey] || [];
+    const item = sectionData.find((data: any) => data.id === itemId);
+    const rating = item?.rating || 'not-checked';
+    console.log(`Getting rating for ${sectionKey}/${itemId}:`, rating);
+    return rating;
   };
 
   if (isLoading) {
@@ -342,6 +277,11 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
                 </div>
               )}
             </div>
+
+            {/* Debug Info */}
+            <div className="text-xs text-gray-500">
+              Data loaded: {Object.keys(inspectionData).length > 0 ? 'Yes' : 'No'}
+            </div>
           </div>
         </div>
       </div>
@@ -375,6 +315,8 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
                       .filter(item => item.isActive)
                       .sort((a, b) => a.order - b.order)
                       .map((item) => {
+                        const currentRating = getCurrentRating(section.key, item.id);
+                        
                         return (
                           <div key={item.id} className="flex items-center justify-between p-4 bg-gray-50/80 rounded-lg border border-gray-200/60">
                             <div className="flex-1">
@@ -382,67 +324,45 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
                               {item.description && (
                                 <p className="text-sm text-gray-600 mt-1">{item.description}</p>
                               )}
+                              <p className="text-xs text-gray-500 mt-1">Current: {currentRating}</p>
                             </div>
                             
                             <div className="flex items-center gap-2 ml-4">
-                              {['great', 'fair', 'needs-attention'].map((rating) => {
-                                const config = getRatingConfig(rating);
-                                
-                                // Get current rating for this item
-                                const sectionData = inspectionData[section.key] || [];
-                                const currentItem = sectionData.find((data: any) => data.id === item.id);
-                                const currentRating = currentItem?.rating || 'not-checked';
-                                
-                                // Map display rating to database value for comparison
-                                const dbRating = rating === 'great' ? 'G' : 
-                                               rating === 'fair' ? 'F' : 
-                                               rating === 'needs-attention' ? 'N' : 
-                                               'not-checked';
-                                
-                                const isSelected = currentRating === dbRating;
-                                
-                                console.log(`Button ${rating} for ${item.label}:`, {
-                                  currentRating,
-                                  dbRating,
-                                  isSelected,
-                                  sectionData: sectionData.length
-                                });
-                                
-                                return (
-                                  <button
-                                    key={rating}
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      
-                                      // Map display rating to database value
-                                      const dbRating = rating === 'great' ? 'G' : 
-                                                     rating === 'fair' ? 'F' : 
-                                                     rating === 'needs-attention' ? 'N' : 
-                                                     'not-checked';
-                                      
-                                      console.log('🎯 Button clicked:', { 
-                                        rating, 
-                                        dbRating, 
-                                        itemId: item.id,
-                                        sectionKey: section.key,
-                                        currentRating
-                                      });
-                                      
-                                      handleRatingChange(section.key, item.id, dbRating, item.label);
-                                    }}
-                                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                                      isSelected 
-                                        ? config.color 
-                                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                    }`}
-                                    title={config.label}
-                                  >
-                                    <span className="hidden sm:inline">{config.label}</span>
-                                    <span className="sm:hidden">{config.icon}</span>
-                                  </button>
-                                );
-                              })}
+                              {/* Great Button */}
+                              <button
+                                onClick={() => handleRatingChange(section.key, item.id, 'G', item.label)}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 border-2 ${
+                                  currentRating === 'G'
+                                    ? 'bg-emerald-600 text-white border-emerald-500 shadow-lg'
+                                    : 'bg-gray-200 text-gray-700 border-gray-300 hover:bg-gray-300'
+                                }`}
+                              >
+                                Great
+                              </button>
+
+                              {/* Fair Button */}
+                              <button
+                                onClick={() => handleRatingChange(section.key, item.id, 'F', item.label)}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 border-2 ${
+                                  currentRating === 'F'
+                                    ? 'bg-yellow-600 text-white border-yellow-500 shadow-lg'
+                                    : 'bg-gray-200 text-gray-700 border-gray-300 hover:bg-gray-300'
+                                }`}
+                              >
+                                Fair
+                              </button>
+
+                              {/* Needs Attention Button */}
+                              <button
+                                onClick={() => handleRatingChange(section.key, item.id, 'N', item.label)}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 border-2 ${
+                                  currentRating === 'N'
+                                    ? 'bg-red-600 text-white border-red-500 shadow-lg'
+                                    : 'bg-gray-200 text-gray-700 border-gray-300 hover:bg-gray-300'
+                                }`}
+                              >
+                                Needs Attention
+                              </button>
                             </div>
                           </div>
                         );

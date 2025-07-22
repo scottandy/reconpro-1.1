@@ -1290,9 +1290,8 @@ const VehicleDetail: React.FC = () => {
                     <textarea
                       value={editedNotes}
                       onChange={(e) => setEditedNotes(e.target.value)}
-                      placeholder="Add notes about this vehicle's condition, issues, or important information..."
-                      rows={4}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                     rows={4}
+                     className="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-base bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                     <div className="flex gap-2">
                       <button

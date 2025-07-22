@@ -78,18 +78,21 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       const data = await InspectionDataManager.loadInspectionData(vehicleId, user.id);
       console.log('📊 Raw inspection data loaded:', data);
       
-      // Ensure data structure is correct
+      // 🎯 CRITICAL: Ensure data structure is correct and log everything
       const normalizedData = {
-        emissions: data?.emissions || [],
-        cosmetic: data?.cosmetic || [],
-        mechanical: data?.mechanical || [],
-        cleaning: data?.cleaning || [],
-        photos: data?.photos || [],
+        emissions: Array.isArray(data?.emissions) ? data.emissions : [],
+        cosmetic: Array.isArray(data?.cosmetic) ? data.cosmetic : [],
+        mechanical: Array.isArray(data?.mechanical) ? data.mechanical : [],
+        cleaning: Array.isArray(data?.cleaning) ? data.cleaning : [],
+        photos: Array.isArray(data?.photos) ? data.photos : [],
         customSections: data?.customSections || {},
         sectionNotes: data?.sectionNotes || {}
       };
       
       console.log('📊 Normalized inspection data:', normalizedData);
+      console.log('📊 Emissions data specifically:', normalizedData.emissions);
+      console.log('📊 Cosmetic data specifically:', normalizedData.cosmetic);
+      console.log('📊 Mechanical data specifically:', normalizedData.mechanical);
       setInspectionData(normalizedData);
       
       // Notify parent immediately
@@ -240,9 +243,14 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
   // 🎯 BULLETPROOF: Get current rating with proper fallback
   const getCurrentRating = useCallback((sectionKey: string, itemId: string): string => {
     const sectionData = inspectionData[sectionKey] || [];
+    console.log(`🔍 Getting rating for ${sectionKey}/${itemId}:`);
+    console.log(`🔍 Section data:`, sectionData);
+    
     const item = sectionData.find((data: any) => data.id === itemId);
+    console.log(`🔍 Found item:`, item);
+    
     const rating = item?.rating || 'not-checked';
-    console.log(`🔍 Getting rating for ${sectionKey}/${itemId}:`, rating);
+    console.log(`🔍 Final rating for ${sectionKey}/${itemId}:`, rating);
     return rating;
   }, [inspectionData]);
 
@@ -379,7 +387,22 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
                               {item.description && (
                                 <p className="text-xs sm:text-sm text-gray-600 mt-1 hidden sm:block">{item.description}</p>
                               )}
-                              <p className="text-xs text-gray-500 mt-1">Current: {currentRating}</p>
+                              <p className="text-xs text-gray-500 mt-1">
+                                Current: <strong>{currentRating}</strong>
+                                {currentRating !== 'not-checked' && (
+                                  <span className={`ml-2 px-2 py-0.5 rounded text-xs ${
+                                    currentRating === 'G' ? 'bg-green-100 text-green-800' :
+                                    currentRating === 'F' ? 'bg-yellow-100 text-yellow-800' :
+                                    currentRating === 'N' ? 'bg-red-100 text-red-800' :
+                                    'bg-gray-100 text-gray-800'
+                                  }`}>
+                                    {currentRating === 'G' ? 'Great' : 
+                                     currentRating === 'F' ? 'Fair' : 
+                                     currentRating === 'N' ? 'Needs Attention' : 
+                                     'Not Checked'}
+                                  </span>
+                                )}
+                              </p>
                             </div>
                             
                             <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
@@ -387,6 +410,8 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
                               <button
                                 onClick={() => {
                                   console.log('🟢 GREAT BUTTON CLICKED!');
+                                  console.log('🟢 Section:', section.key, 'Item:', item.id, 'Label:', item.label);
+                                  console.log('🟢 Current inspection data before click:', inspectionData);
                                   handleRatingChange(section.key, item.id, 'G', item.label);
                                 }}
                                 className={`px-2 py-1 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 border-2 ${
@@ -403,6 +428,8 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
                               <button
                                 onClick={() => {
                                   console.log('🟡 FAIR BUTTON CLICKED!');
+                                  console.log('🟡 Section:', section.key, 'Item:', item.id, 'Label:', item.label);
+                                  console.log('🟡 Current inspection data before click:', inspectionData);
                                   handleRatingChange(section.key, item.id, 'F', item.label);
                                 }}
                                 className={`px-2 py-1 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 border-2 ${
@@ -419,6 +446,8 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
                               <button
                                 onClick={() => {
                                   console.log('🔴 NEEDS ATTENTION BUTTON CLICKED!');
+                                  console.log('🔴 Section:', section.key, 'Item:', item.id, 'Label:', item.label);
+                                  console.log('🔴 Current inspection data before click:', inspectionData);
                                   handleRatingChange(section.key, item.id, 'N', item.label);
                                 }}
                                 className={`px-2 py-1 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 border-2 ${

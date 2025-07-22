@@ -46,7 +46,6 @@ const VehicleDetail: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [isEditingVehicle, setIsEditingVehicle] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [editedNotes, setEditedNotes] = useState('');
   const [rightPanelView, setRightPanelView] = useState<'inspection' | 'team-notes'>('inspection');
@@ -476,26 +475,21 @@ const VehicleDetail: React.FC = () => {
     return 'not-started';
   };
 
-  const handleSaveVehicle = async (updatedVehicle: Partial<Vehicle>) => {
-    if (!dealership) return;
+  const handleSaveVehicle = async (updatedVehicle: Vehicle) => {
+    if (!user || !user.dealershipId) return;
     
-    setIsSaving(true);
     try {
-      const result = await VehicleManager.updateVehicle(dealership.id, vehicle.id, updatedVehicle);
+      const result = await VehicleManager.updateVehicle(user.dealershipId, updatedVehicle.id, updatedVehicle);
       if (result) {
         setVehicle(result);
         setIsEditingVehicle(false);
-        alert('Vehicle information updated successfully!');
-      } else {
-        alert('Failed to update vehicle information. Please try again.');
       }
     } catch (error) {
       console.error('Error updating vehicle:', error);
-      alert('Error updating vehicle information. Please try again.');
-    } finally {
-      setIsSaving(false);
     }
   };
+
+  const [isSaving, setIsSaving] = useState(false);
 
   if (isLoading) {
     return (
@@ -600,6 +594,8 @@ const VehicleDetail: React.FC = () => {
   if (inspectionLoading || !settingsLoaded) {
     return <div>Loading inspection data...</div>;
   }
+
+  const stockNumber = getStockNumber(vehicle.vin);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
@@ -827,6 +823,95 @@ const VehicleDetail: React.FC = () => {
                       <Edit3 className="w-3 h-3" />
                     </button>
                   </div>
+                )}
+              </div>
+              {/* Show placeholder if no notes and not editing */}
+              {(!vehicle.notes || vehicle.notes.trim() === '') && !isEditingNotes && (
+                <div className="p-3 bg-gray-50/80 backdrop-blur-sm rounded-lg border border-gray-200/60 text-center">
+                  <p className="text-xs text-gray-600">No notes added yet</p>
+                </div>
+              )}
+              {/* Show textarea if editing */}
+              {isEditingNotes && (
+                <div className="space-y-3">
+                  <textarea
+                    value={editedNotes}
+                    onChange={(e) => setEditedNotes(e.target.value)}
+                    placeholder="Add notes about this vehicle's condition, issues, or important information..."
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleSaveNotes}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                    >
+                      <Save className="w-4 h-4" />
+                      Save
+                    </button>
+                    <button
+                      onClick={handleCancelEditNotes}
+                      className="flex items-center gap-2 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors font-medium"
+                    >
+                      <X className="w-4 h-4" />
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+              {/* Show notes if present and not editing */}
+              {vehicle.notes && vehicle.notes.trim() !== '' && !isEditingNotes && (
+                <div className="p-3 bg-amber-50/80 backdrop-blur-sm rounded-lg border border-amber-200/60">
+                  <div className="flex items-start gap-2">
+                    <div className="w-4 h-4 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <AlertTriangle className="w-2 h-2 text-amber-600" />
+                    </div>
+                    <p className="text-xs text-amber-800 font-medium leading-relaxed">{vehicle.notes}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Mobile Content with ID for scrolling */}
+          <div id="mobile-inspection-content">
+            {rightPanelView === 'inspection' ? (
+              vehicle?.id ? (
+                <InspectionChecklist
+                  vehicleId={vehicle.id}
+                  vehicleName={`${vehicle.year} ${vehicle.make} ${vehicle.model}`}
+                  vehicle={vehicle}
+                  onStatusUpdate={handleStatusUpdate}
+                  onSectionComplete={handleSectionComplete}
+                  onAddTeamNote={handleAddTeamNote}
+                  activeFilter={activeFilter}
+                  onGeneratePdf={() => setShowPdfModal(true)}
+                  onInspectionDataChange={setInspectionData}
+                  onTeamNoteAdded={(note: TeamNote) => {
+                    if (!vehicle) return;
+                    setVehicle(prev => prev ? { ...prev, teamNotes: [note, ...(prev.teamNotes || [])] } : prev);
+                  }}
+                />
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  Vehicle ID not available
+                </div>
+              )
+            ) : (
+              <TeamNotes
+                notes={vehicle.teamNotes || []}
+                onAddNote={handleAddTeamNote}
+              />
+            )}
+          </div>
+
+          {/* Mobile Vehicle Information - At Bottom */}
+          <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+              <Car className="w-6 h-6" />
+              Vehicle Information
+            </h2>
+            
             {isEditingVehicle ? (
               <VehicleEditForm
                 vehicle={vehicle}
@@ -914,121 +999,6 @@ const VehicleDetail: React.FC = () => {
                 </div>
               </>
             )}
-          </div>
-
-          {/* Mobile Content with ID for scrolling */}
-          <div id="mobile-inspection-content">
-            {rightPanelView === 'inspection' ? (
-              vehicle?.id ? (
-                <InspectionChecklist
-                  vehicleId={vehicle.id}
-                  vehicleName={`${vehicle.year} ${vehicle.make} ${vehicle.model}`}
-                  vehicle={vehicle}
-                  onStatusUpdate={handleStatusUpdate}
-                  onSectionComplete={handleSectionComplete}
-                  onAddTeamNote={handleAddTeamNote}
-                  activeFilter={activeFilter}
-                  onGeneratePdf={() => setShowPdfModal(true)}
-                  onInspectionDataChange={setInspectionData}
-                  onTeamNoteAdded={(note: TeamNote) => {
-                    if (!vehicle) return;
-                    setVehicle(prev => prev ? { ...prev, teamNotes: [note, ...(prev.teamNotes || [])] } : prev);
-                  }}
-                />
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  Vehicle ID not available
-                </div>
-              )
-            ) : (
-              <TeamNotes
-                notes={vehicle.teamNotes || []}
-                onAddNote={handleAddTeamNote}
-              />
-            )}
-          </div>
-
-          {/* Mobile Vehicle Information - At Bottom */}
-          <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-              <Car className="w-6 h-6" />
-              Vehicle Information
-            </h2>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">VIN</label>
-                <p className="text-sm font-mono bg-gray-50 p-2 rounded border">{vehicle.vin}</p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
-                <p className="text-sm text-gray-900">{vehicle.year}</p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Make</label>
-                <p className="text-sm text-gray-900">{vehicle.make}</p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
-                <p className="text-sm text-gray-900">{vehicle.model}</p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Trim</label>
-                <p className="text-sm text-gray-900">{vehicle.trim || 'N/A'}</p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Mileage</label>
-                <div className="flex items-center gap-2">
-                  <Gauge className="w-4 h-4 text-gray-500" />
-                  <p className="text-sm text-gray-900">{vehicle.mileage.toLocaleString()}</p>
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
-                <div className="flex items-center gap-2">
-                  <Palette className="w-4 h-4 text-gray-500" />
-                  <p className="text-sm text-gray-900">{vehicle.color}</p>
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Price</label>
-                <div className="flex items-center gap-2">
-                  <DollarSign className="w-4 h-4 text-gray-500" />
-                  <p className="text-sm text-gray-900">{formatPrice(vehicle.price)}</p>
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-gray-500" />
-                  <p className="text-sm text-gray-900">{vehicle.location || 'N/A'}</p>
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Date Acquired</label>
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-gray-500" />
-                  <p className="text-sm text-gray-900">{formatDate(vehicle.dateAcquired)}</p>
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Stock Number</label>
-                <div className="flex items-center gap-2">
-                  <Hash className="w-4 h-4 text-gray-500" />
-                  <p className="text-sm text-gray-900">{getStockNumber(vehicle.vin)}</p>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 

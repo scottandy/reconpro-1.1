@@ -97,7 +97,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
   const handleRatingChange = async (sectionKey: string, itemId: string, rating: string, itemLabel: string) => {
     if (!user) return;
 
-   console.log('Rating change:', { sectionKey, itemId, rating, itemLabel });
+    console.log('Rating change:', { sectionKey, itemId, rating, itemLabel });
     const updatedData = { ...inspectionData };
     
     // Initialize section if it doesn't exist
@@ -132,28 +132,29 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       updatedData[sectionKey].push(newItem);
     }
 
-   console.log('Updated data before save:', updatedData);
-   
-   // Update local state immediately for instant UI feedback
-   setInspectionData(updatedData);
 
-   // Immediately save to database
-   try {
-     console.log('Saving to database...');
-     await InspectionDataManager.saveInspectionData(vehicleId, user.id, updatedData);
-     console.log('Successfully saved to database');
-     setLastSaved(new Date());
-     
-     // Notify parent component immediately
-     if (onInspectionDataChange) {
-       onInspectionDataChange(updatedData);
-     }
-   } catch (error) {
-     console.error('Error saving inspection data:', error);
-     // Revert local state if save failed
-     setInspectionData(inspectionData);
-     return;
-   }
+    console.log('Updated data before save:', updatedData);
+    
+    // Update local state immediately for instant UI feedback
+    setInspectionData(updatedData);
+    setHasChanges(false); // Mark as saved immediately
+    setLastSaved(new Date());
+
+    // Save to database in background without blocking UI
+    InspectionDataManager.saveInspectionData(vehicleId, user.id, updatedData)
+      .then(() => {
+        console.log('Successfully saved to database');
+        // Notify parent component after successful save
+        if (onInspectionDataChange) {
+          onInspectionDataChange(updatedData);
+        }
+      })
+      .catch((error) => {
+        console.error('Error saving inspection data:', error);
+        // Don't revert UI state - let user continue working
+        // Show a subtle error indicator instead
+        setHasChanges(true); // Mark as having unsaved changes
+      });
     
     // Record analytics for the change
     AnalyticsManager.recordTaskUpdate(
@@ -385,19 +386,17 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
                             {item.description && (
                               <p className="text-sm text-gray-600 mt-1">{item.description}</p>
                             )}
-                          </div>
+                          // console.log(`Item ${item.id} current rating:`, currentRating, 'from data:', existingData);
                           
                           <div className="flex items-center gap-2 ml-4">
                             {['great', 'fair', 'needs-attention', 'not-checked'].map((rating) => {
                               const config = getRatingConfig(rating);
                               // Map database values to display values for proper selection
                               const isSelected = (() => {
-                                const selected = (currentRating === 'G' && rating === 'great') ||
+                                return (currentRating === 'G' && rating === 'great') ||
                                        (currentRating === 'F' && rating === 'fair') ||
                                        (currentRating === 'N' && rating === 'needs-attention') ||
                                        (currentRating === 'not-checked' && rating === 'not-checked');
-                                console.log('Checking selection:', { currentRating, rating, itemId: item.id, selected });
-                                return selected;
                               })();
                               
                               return (
@@ -408,7 +407,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
                                                    rating === 'fair' ? 'F' : 
                                                    rating === 'needs-attention' ? 'N' : 
                                                    'not-checked';
-                                    console.log('Button clicked:', { rating, dbRating, itemId: item.id });
+                                    // console.log('Button clicked:', { rating, dbRating, itemId: item.id });
                                     handleRatingChange(section.key, item.id, dbRating, item.label);
                                   }}
                                   className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${

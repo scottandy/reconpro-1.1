@@ -513,7 +513,7 @@ export class InspectionDataManager {
   static async saveInspectionData(
     vehicleId: string, 
     inspectorId: string, 
-    inspectionData: InspectionData
+    inspectionData: any
   ): Promise<boolean> {
     // Validate parameters
     if (!vehicleId || vehicleId === 'undefined' || typeof vehicleId !== 'string') {
@@ -545,7 +545,7 @@ export class InspectionDataManager {
 
       if (vehicleUpdateError) {
         console.error('Error updating vehicle inspection data:', vehicleUpdateError);
-        // Continue with checklist update even if vehicle update fails
+        throw vehicleUpdateError;
       } else {
         console.log('Successfully updated vehicle inspection data');
       }
@@ -559,7 +559,9 @@ export class InspectionDataManager {
 
       if (selectError) {
         console.error('Error checking for existing checklist:', selectError);
-        return false;
+        // Don't fail completely if checklist operations fail
+        console.warn('Continuing without checklist update');
+        return true; // Vehicle data was saved successfully
       }
 
       if (existingChecklist) {
@@ -577,7 +579,7 @@ export class InspectionDataManager {
 
         if (updateError) {
           console.error('Error updating checklist:', updateError);
-          return false;
+          console.warn('Checklist update failed, but vehicle data was saved');
         } else {
           console.log('Successfully updated existing checklist');
         }
@@ -596,7 +598,7 @@ export class InspectionDataManager {
 
         if (insertError) {
           console.error('Error inserting checklist:', insertError);
-          return false;
+          console.warn('Checklist creation failed, but vehicle data was saved');
         } else {
           console.log('Successfully created new checklist');
         }
@@ -605,7 +607,7 @@ export class InspectionDataManager {
       return true;
     } catch (error) {
       console.error('Error saving inspection data:', error);
-      return false;
+      throw error;
     }
   }
 }

@@ -1235,6 +1235,17 @@ const VehicleDetail: React.FC = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Edit Button */}
+              <div className="mt-4 pt-4 border-t border-gray-200/60 dark:border-gray-700/60">
+                <button
+                  onClick={() => setIsEditingVehicle(true)}
+                  className="w-full sm:w-auto px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors font-medium text-sm flex items-center justify-center gap-2"
+                >
+                  <Edit3 className="w-4 h-4" />
+                  Edit Vehicle Information
+                </button>
+              </div>
             </div>
             </div>
           </div>

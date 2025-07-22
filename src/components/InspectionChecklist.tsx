@@ -365,7 +365,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
               
               <div className="p-4 sm:p-6">
                 {section.items.length > 0 ? (
-                  <div className="space-y-4">
+                  <div className="space-y-2 sm:space-y-4">
                     {section.items
                       .filter(item => item.isActive)
                       .sort((a, b) => a.order - b.order)

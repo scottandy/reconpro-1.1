@@ -380,7 +380,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
         })}
       
       {activeSections.length === 0 && (
-        <div className="bg-white/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 p-8 text-center">
+        <div className="bg-white/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 p-4 sm:p-8 text-center">
           <AlertTriangle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-900 mb-2">No Inspection Sections</h3>
           <p className="text-gray-600">No active inspection sections are configured. Contact your administrator to set up inspection sections.</p>
@@ -389,15 +389,15 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       
       {/* Generate PDF Button */}
       {activeSections.length > 0 && (
-        <div className="bg-white/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 p-4 sm:p-6 text-center">
+        <div className="bg-white/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 p-3 sm:p-6 text-center">
           <button
             onClick={onGeneratePdf}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-200 font-semibold shadow-lg text-sm sm:text-base"
+            className="inline-flex items-center gap-2 px-4 py-2 sm:px-6 sm:py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-200 font-semibold shadow-lg text-sm sm:text-base"
           >
             <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
             Print Customer Inspection PDF
           </button>
-          <p className="text-xs sm:text-sm text-gray-600 mt-2">
+          <p className="text-xs sm:text-sm text-gray-600 mt-1 sm:mt-2">
             Generate a professional inspection report for the customer
           </p>
         </div>

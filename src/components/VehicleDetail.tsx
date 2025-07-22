@@ -11,7 +11,6 @@ import CustomerInspectionPDF from './CustomerInspectionPDF';
 import { ProgressCalculator } from '../utils/progressCalculator';
 import { supabase } from '../utils/supabaseClient';
 import { VehicleManager } from '../utils/vehicleManager';
-import VehicleEditForm from './VehicleEditForm';
 import { InspectionDataManager } from '../utils/inspectionDataManager';
 import { 
   ArrowLeft, 
@@ -45,8 +44,6 @@ const VehicleDetail: React.FC = () => {
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
-  const [isEditingVehicle, setIsEditingVehicle] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [editedNotes, setEditedNotes] = useState('');
   const [rightPanelView, setRightPanelView] = useState<'inspection' | 'team-notes'>('inspection');
@@ -205,11 +202,7 @@ const VehicleDetail: React.FC = () => {
     const oldLocation = vehicle.location;
     const newLocation = editedLocation.trim();
     
-  const saveVehicleUpdate = async (vehicleId: string, updates: Partial<Vehicle>) => {
-    if (!vehicleId || vehicleId === 'undefined') {
-      throw new Error('Invalid vehicle ID provided');
-    }
-    
+    if (oldLocation === newLocation) {
       setIsEditingLocation(false);
       return;
     }
@@ -478,26 +471,6 @@ const VehicleDetail: React.FC = () => {
     if (items.some((item: any) => item.rating === 'F')) return 'pending';
     if (items.every((item: any) => item.rating === 'G')) return 'completed';
     return 'not-started';
-  };
-
-  const handleSaveVehicle = async (updatedVehicle: Vehicle) => {
-    if (!vehicle?.id) {
-      console.error('Vehicle ID is missing');
-      alert('Error: Vehicle ID is missing. Cannot save changes.');
-      return;
-    }
-    
-    setIsSaving(true);
-    try {
-     const result = await saveVehicleUpdate(vehicleId, updatedVehicle);
-      setIsEditingVehicle(false);
-        // Update the local vehicle state instead of reloading
-        setVehicle(result);
-    } catch (error) {
-      console.error('Error saving vehicle:', error);
-    } finally {
-      setIsSaving(false);
-    }
   };
 
   if (isLoading) {
@@ -880,6 +853,34 @@ const VehicleDetail: React.FC = () => {
             </div>
           </div>
 
+          {/* Mobile Right Panel Toggle */}
+          <div className="bg-white/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 p-4">
+            <div className="flex bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setRightPanelView('inspection')}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium transition-all duration-200 ${
+                  rightPanelView === 'inspection'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <ClipboardList className="w-4 h-4" />
+                Inspection
+              </button>
+              <button
+                onClick={handleTeamNotesClick}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium transition-all duration-200 ${
+                  rightPanelView === 'team-notes'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <MessageSquare className="w-4 h-4" />
+                Team Notes
+              </button>
+            </div>
+          </div>
+
           {/* Mobile Content with ID for scrolling */}
           <div id="mobile-inspection-content">
             {rightPanelView === 'inspection' ? (
@@ -919,93 +920,80 @@ const VehicleDetail: React.FC = () => {
               Vehicle Information
             </h2>
             
-            {isEditingVehicle ? (
-              <VehicleEditForm
-                vehicle={vehicle}
-                onSave={handleSaveVehicle}
-                onCancel={() => setIsEditingVehicle(false)}
-                isLoading={isSaving}
-              />
-            ) : (
-              <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">Stock Number</label>
-                    <p className="text-sm sm:text-base text-gray-900 dark:text-white font-mono bg-gray-100 dark:bg-gray-700 px-2 sm:px-3 py-1 sm:py-2 rounded border">{getStockNumber(vehicle.vin)}</p>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">VIN</label>
-                    <p className="text-sm sm:text-base text-gray-900 dark:text-white font-mono bg-gray-100 dark:bg-gray-700 px-2 sm:px-3 py-1 sm:py-2 rounded border break-all">{vehicle.vin}</p>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">Year</label>
-                    <p className="text-sm sm:text-base text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-2 sm:px-3 py-1 sm:py-2 rounded border">{vehicle.year}</p>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">Make</label>
-                    <p className="text-sm sm:text-base text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-2 sm:px-3 py-1 sm:py-2 rounded border">{vehicle.make}</p>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">Model</label>
-                    <p className="text-sm sm:text-base text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-2 sm:px-3 py-1 sm:py-2 rounded border">{vehicle.model}</p>
-                  </div>
-                  
-                  {vehicle.trim && (
-                    <div>
-                      <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">Trim</label>
-                      <p className="text-sm sm:text-base text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-2 sm:px-3 py-1 sm:py-2 rounded border">{vehicle.trim}</p>
-                    </div>
-                  )}
-                  
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">Mileage</label>
-                    <p className="text-sm sm:text-base text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-2 sm:px-3 py-1 sm:py-2 rounded border">{vehicle.mileage.toLocaleString()} miles</p>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">Color</label>
-                    <p className="text-sm sm:text-base text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-2 sm:px-3 py-1 sm:py-2 rounded border">{vehicle.color}</p>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">Date Acquired</label>
-                    <p className="text-sm sm:text-base text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-2 sm:px-3 py-1 sm:py-2 rounded border">{formatDate(vehicle.dateAcquired)}</p>
-                  </div>
-                  
-                  {vehicle.targetSaleDate && (
-                    <div>
-                      <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">Target Sale Date</label>
-                      <p className="text-sm sm:text-base text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-2 sm:px-3 py-1 sm:py-2 rounded border">{formatDate(vehicle.targetSaleDate)}</p>
-                    </div>
-                  )}
-                  
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">Price</label>
-                    <p className="text-sm sm:text-base text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-2 sm:px-3 py-1 sm:py-2 rounded border">${vehicle.price.toLocaleString()}</p>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">Location</label>
-                    <p className="text-sm sm:text-base text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-2 sm:px-3 py-1 sm:py-2 rounded border">{vehicle.location}</p>
-                  </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">VIN</label>
+                <p className="text-sm font-mono bg-gray-50 p-2 rounded border">{vehicle.vin}</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
+                <p className="text-sm text-gray-900">{vehicle.year}</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Make</label>
+                <p className="text-sm text-gray-900">{vehicle.make}</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
+                <p className="text-sm text-gray-900">{vehicle.model}</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Trim</label>
+                <p className="text-sm text-gray-900">{vehicle.trim || 'N/A'}</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mileage</label>
+                <div className="flex items-center gap-2">
+                  <Gauge className="w-4 h-4 text-gray-500" />
+                  <p className="text-sm text-gray-900">{vehicle.mileage.toLocaleString()}</p>
                 </div>
-                
-                {/* Edit Button */}
-                <div className="mt-4 sm:mt-6 pt-4 border-t border-gray-200/60 dark:border-gray-700/60">
-                  <button
-                    onClick={() => setIsEditingVehicle(true)}
-                    className="w-full sm:w-auto inline-flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium text-sm"
-                  >
-                    <Edit3 className="w-4 h-4" />
-                    Edit Vehicle Information
-                  </button>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
+                <div className="flex items-center gap-2">
+                  <Palette className="w-4 h-4 text-gray-500" />
+                  <p className="text-sm text-gray-900">{vehicle.color}</p>
                 </div>
-              </>
-            )}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Price</label>
+                <div className="flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-gray-500" />
+                  <p className="text-sm text-gray-900">{formatPrice(vehicle.price)}</p>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-gray-500" />
+                  <p className="text-sm text-gray-900">{vehicle.location || 'N/A'}</p>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date Acquired</label>
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-gray-500" />
+                  <p className="text-sm text-gray-900">{formatDate(vehicle.dateAcquired)}</p>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Stock Number</label>
+                <div className="flex items-center gap-2">
+                  <Hash className="w-4 h-4 text-gray-500" />
+                  <p className="text-sm text-gray-900">{getStockNumber(vehicle.vin)}</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1246,17 +1234,6 @@ const VehicleDetail: React.FC = () => {
                     <p className="text-sm text-gray-900">{getStockNumber(vehicle.vin)}</p>
                   </div>
                 </div>
-              </div>
-
-              {/* Edit Button */}
-              <div className="mt-4 pt-4 border-t border-gray-200/60 dark:border-gray-700/60">
-                <button
-                  onClick={() => setIsEditingVehicle(true)}
-                  className="w-full sm:w-auto px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors font-medium text-sm flex items-center justify-center gap-2"
-                >
-                  <Edit3 className="w-4 h-4" />
-                  Edit Vehicle Information
-                </button>
               </div>
             </div>
             </div>

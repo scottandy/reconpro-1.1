@@ -4,7 +4,7 @@ import { Save, X } from 'lucide-react';
 
 interface VehicleEditFormProps {
   vehicle: Vehicle;
-  onSave: (updatedVehicle: Partial<Vehicle>) => void;
+  onSave: (vehicleId: string, updatedVehicle: Partial<Vehicle>) => void;
   onCancel: () => void;
   isLoading: boolean;
 }
@@ -79,7 +79,7 @@ const VehicleEditForm: React.FC<VehicleEditFormProps> = ({ vehicle, onSave, onCa
       notes: formData.notes.trim() || undefined
     };
 
-    onSave(updatedVehicle);
+    onSave(vehicle.id, updatedVehicle);
   };
 
   const handleInputChange = (field: string, value: string) => {

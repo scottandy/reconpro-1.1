@@ -1032,7 +1032,7 @@ const VehicleDetail: React.FC = () => {
               </button>
               <button
                 onClick={handleTeamNotesClick}
-                className={\`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium transition-all duration-200 ${
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium transition-all duration-200 ${
                   rightPanelView === 'team-notes'
                     ? 'bg-white text-blue-600 shadow-sm'
                     : 'text-gray-600 hover:text-gray-900'

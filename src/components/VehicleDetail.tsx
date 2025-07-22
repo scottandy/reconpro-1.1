@@ -946,7 +946,7 @@ const VehicleDetail: React.FC = () => {
                   <textarea
                     value={editedNotes}
                     onChange={(e) => setEditedNotes(e.target.value)}
-                    placeholder="Add notes about this vehicle's condition, issues, or important information..."
+                    className={`w-full px-3 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
                     rows={4}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                   />
@@ -1123,7 +1123,7 @@ const VehicleDetail: React.FC = () => {
                 </div>
               </div>
               
-              <div>
+                    className={`w-full px-3 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
                 <label className="block text-sm font-medium text-gray-700 mb-1">Price</label>
                 <div className="flex items-center gap-2">
                   <DollarSign className="w-4 h-4 text-gray-500" />
@@ -1139,7 +1139,7 @@ const VehicleDetail: React.FC = () => {
                 </div>
               </div>
               
-              <div>
+                    className={`w-full px-3 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
                 <label className="block text-sm font-medium text-gray-700 mb-1">Date Acquired</label>
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-gray-500" />
@@ -1155,7 +1155,7 @@ const VehicleDetail: React.FC = () => {
                 </div>
               </div>
             </div>
-          </div>
+                    className={`w-full px-3 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
 
           {/* Mobile Edit Button - Always at bottom on mobile */}
           {!isEditingVehicle && (
@@ -1171,26 +1171,26 @@ const VehicleDetail: React.FC = () => {
           )}
         </div>
 
-        {/* Desktop Layout */}
-        <div className="hidden lg:flex gap-8">
-          {/* Left Column - 1/3 width */}
-          <div className="w-1/3">
-            <div className="space-y-6 lg:sticky lg:top-24">
-            {/* Desktop Reconditioning Progress */}
-            <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-gray-900">Reconditioning Progress</h2>
-                <span className="text-2xl font-bold text-gray-900">{overallProgress}%</span>
-              </div>
-              
-              <div className="w-full bg-gray-200 rounded-full h-3 mb-6">
+                    className="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+        {!isEditingVehicle && (
+          <div className="sm:hidden mt-4 pt-4 border-t border-gray-200/60 dark:border-gray-700/60">
+            <button
+              onClick={handleEditVehicle}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-base"
+            >
+              <Edit3 className="w-4 h-4" />
+              Edit Vehicle Information
+            </button>
+          </div>
+        )}
+
                 <div 
                   className={`h-3 rounded-full transition-all duration-500 ${
                     overallProgress === 100 
                       ? 'bg-gradient-to-r from-emerald-500 to-green-600' 
                       : 'bg-gradient-to-r from-blue-500 to-indigo-600'
                   }`}
-                  style={{ width: `${overallProgress}%` }}
+                    className={`w-full px-3 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
                 ></div>
               </div>
 
@@ -1206,7 +1206,7 @@ const VehicleDetail: React.FC = () => {
                         activeFilter === section.key
                           ? 'border-blue-300 bg-blue-50 shadow-md'
                           : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                      }`}
+                    className={`w-full px-3 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
                     >
                       <StatusBadge status={sectionStatuses[section.key]} label={truncateLabel(section.label)} section={section.key} size="sm" />
                     </button>
@@ -1221,7 +1221,7 @@ const VehicleDetail: React.FC = () => {
                   <button
                     onClick={() => handleMarkAsSold()}
                     className={`flex-1 p-2 rounded-lg border transition-all duration-200 hover:shadow-md ${
-                      vehicle.status === 'sold'
+                    className="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         ? 'border-red-300 bg-red-50 shadow-md'
                         : 'border-gray-200 hover:border-red-300 hover:bg-red-50 bg-white'
                     }`}
@@ -1233,7 +1233,7 @@ const VehicleDetail: React.FC = () => {
                       Mark as Sold
                     </div>
                   </button>
-                  <button
+                    className="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     onClick={() => handleMarkAsPending()}
                     className={`flex-1 p-2 rounded-lg border transition-all duration-200 hover:shadow-md ${
                       vehicle.status === 'pending'
@@ -1246,7 +1246,7 @@ const VehicleDetail: React.FC = () => {
                     }`}>
                       <Clock className="w-3 h-3" />
                       Mark as Pending
-                    </div>
+                    className="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-base bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   </button>
                 </div>
               </div>
@@ -1620,7 +1620,7 @@ const VehicleDetail: React.FC = () => {
                       ? 'bg-white text-blue-600 shadow-sm'
                       : 'text-gray-600 hover:text-gray-900'
                   }`}
-                >
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 font-semibold shadow-lg text-base disabled:opacity-50"
                   <ClipboardList className="w-4 h-4" />
                   Mechanical Inspection
                 </button>
@@ -1630,7 +1630,7 @@ const VehicleDetail: React.FC = () => {
                     rightPanelView === 'team-notes'
                       ? 'bg-white text-blue-600 shadow-sm'
                       : 'text-gray-600 hover:text-gray-900'
-                  }`}
+                  className="flex-1 px-4 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-all duration-200 font-semibold text-base"
                 >
                   <MessageSquare className="w-4 h-4" />
                   Team Notes

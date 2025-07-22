@@ -58,6 +58,23 @@ const VehicleDetail: React.FC = () => {
   const [inspectionSettings, setInspectionSettings] = useState<any>(null);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [customSections, setCustomSections] = useState<any[]>([]);
+  const [isEditingVehicle, setIsEditingVehicle] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    vin: '',
+    year: 0,
+    make: '',
+    model: '',
+    trim: '',
+    mileage: 0,
+    color: '',
+    dateAcquired: '',
+    targetSaleDate: '',
+    price: 0,
+    location: '',
+    notes: ''
+  });
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
+  const [isSaving, setIsSaving] = useState(false);
 
   // console.log('[VehicleDetail] Render', { vehicle });
 
@@ -66,6 +83,26 @@ const VehicleDetail: React.FC = () => {
       loadVehicle(id, user.dealershipId);
     }
   }, [id, user?.dealershipId]);
+
+  // Initialize edit form when vehicle data loads
+  useEffect(() => {
+    if (vehicle) {
+      setEditFormData({
+        vin: vehicle.vin,
+        year: vehicle.year,
+        make: vehicle.make,
+        model: vehicle.model,
+        trim: vehicle.trim || '',
+        mileage: vehicle.mileage,
+        color: vehicle.color,
+        dateAcquired: vehicle.dateAcquired,
+        targetSaleDate: vehicle.targetSaleDate || '',
+        price: vehicle.price || 0,
+        location: vehicle.location,
+        notes: vehicle.notes || ''
+      });
+    }
+  }, [vehicle]);
 
   useEffect(() => {
     if (!vehicle || !user) return;
@@ -139,6 +176,98 @@ const VehicleDetail: React.FC = () => {
       console.log('🔄 Reloading vehicle data for fresh team notes...');
       await loadVehicle(id, user.dealershipId);
       console.log('✅ Vehicle data reloaded with latest team notes');
+    }
+  };
+
+  const handleEditClick = () => {
+    setIsEditingVehicle(true);
+    setEditErrors({});
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditingVehicle(false);
+    setEditErrors({});
+    // Reset form data to original vehicle data
+    if (vehicle) {
+      setEditFormData({
+        vin: vehicle.vin,
+        year: vehicle.year,
+        make: vehicle.make,
+        model: vehicle.model,
+        trim: vehicle.trim || '',
+        mileage: vehicle.mileage,
+        color: vehicle.color,
+        dateAcquired: vehicle.dateAcquired,
+        targetSaleDate: vehicle.targetSaleDate || '',
+        price: vehicle.price || 0,
+        location: vehicle.location,
+        notes: vehicle.notes || ''
+      });
+    }
+  };
+
+  const validateEditForm = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!editFormData.vin.trim()) newErrors.vin = 'VIN is required';
+    if (editFormData.vin.length !== 17) newErrors.vin = 'VIN must be 17 characters';
+    if (!editFormData.make.trim()) newErrors.make = 'Make is required';
+    if (!editFormData.model.trim()) newErrors.model = 'Model is required';
+    if (!editFormData.color.trim()) newErrors.color = 'Color is required';
+    if (!editFormData.location.trim()) newErrors.location = 'Location is required';
+    if (editFormData.year < 1900 || editFormData.year > new Date().getFullYear() + 1) {
+      newErrors.year = 'Please enter a valid year';
+    }
+    if (editFormData.mileage < 0) {
+      newErrors.mileage = 'Mileage cannot be negative';
+    }
+    if (editFormData.price < 0) {
+      newErrors.price = 'Price cannot be negative';
+    }
+
+    setEditErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSaveEdit = async () => {
+    if (!validateEditForm() || !vehicle || !user?.dealershipId) return;
+
+    setIsSaving(true);
+    try {
+      const updatedVehicle = await VehicleManager.updateVehicle(user.dealershipId, vehicle.id, {
+        vin: editFormData.vin.toUpperCase(),
+        year: editFormData.year,
+        make: editFormData.make.trim(),
+        model: editFormData.model.trim(),
+        trim: editFormData.trim.trim() || undefined,
+        mileage: editFormData.mileage,
+        color: editFormData.color.trim(),
+        dateAcquired: editFormData.dateAcquired,
+        targetSaleDate: editFormData.targetSaleDate || undefined,
+        price: editFormData.price,
+        location: editFormData.location.trim(),
+        notes: editFormData.notes.trim() || undefined
+      });
+
+      if (updatedVehicle) {
+        setVehicle(updatedVehicle);
+        setIsEditingVehicle(false);
+        alert('Vehicle information updated successfully!');
+      } else {
+        alert('Failed to update vehicle information. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error updating vehicle:', error);
+      alert('Error updating vehicle information. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleEditInputChange = (field: string, value: string | number) => {
+    setEditFormData(prev => ({ ...prev, [field]: value }));
+    if (editErrors[field]) {
+      setEditErrors(prev => ({ ...prev, [field]: '' }));
     }
   };
 
@@ -1159,82 +1288,277 @@ const VehicleDetail: React.FC = () => {
                 Vehicle Information
               </h2>
               
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">VIN</label>
-                  <p className="text-sm font-mono bg-gray-50 p-2 rounded border">{vehicle.vin}</p>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
-                    <p className="text-sm text-gray-900">{vehicle.year}</p>
+              {!isEditingVehicle ? (
+                <>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">VIN</label>
+                      <p className="text-sm font-mono bg-gray-50 p-2 rounded border">{vehicle.vin}</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
+                        <p className="text-sm text-gray-900">{vehicle.year}</p>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Make</label>
+                        <p className="text-sm text-gray-900">{vehicle.make}</p>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
+                        <p className="text-sm text-gray-900">{vehicle.model}</p>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Trim</label>
+                        <p className="text-sm text-gray-900">{vehicle.trim || 'N/A'}</p>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Mileage</label>
+                      <div className="flex items-center gap-2">
+                        <Gauge className="w-4 h-4 text-gray-500" />
+                        <p className="text-sm text-gray-900">{vehicle.mileage.toLocaleString()}</p>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
+                      <div className="flex items-center gap-2">
+                        <Palette className="w-4 h-4 text-gray-500" />
+                        <p className="text-sm text-gray-900">{vehicle.color}</p>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Price</label>
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="w-4 h-4 text-gray-500" />
+                        <p className="text-sm text-gray-900">{formatPrice(vehicle.price)}</p>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-gray-500" />
+                        <p className="text-sm text-gray-900">{vehicle.location || 'N/A'}</p>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Date Acquired</label>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-gray-500" />
+                        <p className="text-sm text-gray-900">{formatDate(vehicle.dateAcquired)}</p>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Stock Number</label>
+                      <div className="flex items-center gap-2">
+                        <Hash className="w-4 h-4 text-gray-500" />
+                        <p className="text-sm text-gray-900">{getStockNumber(vehicle.vin)}</p>
+                      </div>
+                    </div>
                   </div>
                   
+                  {/* Edit Button */}
+                  <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-gray-200/60 dark:border-gray-700/60">
+                    <button
+                      onClick={handleEditClick}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium text-sm"
+                    >
+                      <Edit3 className="w-4 h-4" />
+                      Edit Vehicle Information
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Edit Form */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Make</label>
-                    <p className="text-sm text-gray-900">{vehicle.make}</p>
+                    <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">Edit Vehicle Information</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                      <div>
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">VIN *</label>
+                        <input
+                          type="text"
+                          value={editFormData.vin}
+                          onChange={(e) => handleEditInputChange('vin', e.target.value.toUpperCase())}
+                          maxLength={17}
+                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm font-mono bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
+                            editErrors.vin ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
+                          }`}
+                        />
+                        {editErrors.vin && <p className="text-red-600 dark:text-red-400 text-xs mt-1">{editErrors.vin}</p>}
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Year *</label>
+                        <input
+                          type="number"
+                          value={editFormData.year}
+                          onChange={(e) => handleEditInputChange('year', parseInt(e.target.value) || 0)}
+                          min="1900"
+                          max={new Date().getFullYear() + 1}
+                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
+                            editErrors.year ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
+                          }`}
+                        />
+                        {editErrors.year && <p className="text-red-600 dark:text-red-400 text-xs mt-1">{editErrors.year}</p>}
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Make *</label>
+                        <input
+                          type="text"
+                          value={editFormData.make}
+                          onChange={(e) => handleEditInputChange('make', e.target.value)}
+                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
+                            editErrors.make ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
+                          }`}
+                        />
+                        {editErrors.make && <p className="text-red-600 dark:text-red-400 text-xs mt-1">{editErrors.make}</p>}
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Model *</label>
+                        <input
+                          type="text"
+                          value={editFormData.model}
+                          onChange={(e) => handleEditInputChange('model', e.target.value)}
+                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
+                            editErrors.model ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
+                          }`}
+                        />
+                        {editErrors.model && <p className="text-red-600 dark:text-red-400 text-xs mt-1">{editErrors.model}</p>}
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Trim</label>
+                        <input
+                          type="text"
+                          value={editFormData.trim}
+                          onChange={(e) => handleEditInputChange('trim', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mileage *</label>
+                        <input
+                          type="number"
+                          value={editFormData.mileage}
+                          onChange={(e) => handleEditInputChange('mileage', parseInt(e.target.value) || 0)}
+                          min="0"
+                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
+                            editErrors.mileage ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
+                          }`}
+                        />
+                        {editErrors.mileage && <p className="text-red-600 dark:text-red-400 text-xs mt-1">{editErrors.mileage}</p>}
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Color *</label>
+                        <input
+                          type="text"
+                          value={editFormData.color}
+                          onChange={(e) => handleEditInputChange('color', e.target.value)}
+                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
+                            editErrors.color ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
+                          }`}
+                        />
+                        {editErrors.color && <p className="text-red-600 dark:text-red-400 text-xs mt-1">{editErrors.color}</p>}
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date Acquired *</label>
+                        <input
+                          type="date"
+                          value={editFormData.dateAcquired}
+                          onChange={(e) => handleEditInputChange('dateAcquired', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Target Sale Date</label>
+                        <input
+                          type="date"
+                          value={editFormData.targetSaleDate}
+                          onChange={(e) => handleEditInputChange('targetSaleDate', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Price</label>
+                        <input
+                          type="number"
+                          value={editFormData.price}
+                          onChange={(e) => handleEditInputChange('price', parseFloat(e.target.value) || 0)}
+                          min="0"
+                          step="0.01"
+                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
+                            editErrors.price ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
+                          }`}
+                        />
+                        {editErrors.price && <p className="text-red-600 dark:text-red-400 text-xs mt-1">{editErrors.price}</p>}
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Location *</label>
+                        <input
+                          type="text"
+                          value={editFormData.location}
+                          onChange={(e) => handleEditInputChange('location', e.target.value)}
+                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
+                            editErrors.location ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
+                          }`}
+                        />
+                        {editErrors.location && <p className="text-red-600 dark:text-red-400 text-xs mt-1">{editErrors.location}</p>}
+                      </div>
+                    </div>
+                    
+                    {/* Notes Field */}
+                    <div className="mt-4">
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
+                      <textarea
+                        value={editFormData.notes}
+                        onChange={(e) => handleEditInputChange('notes', e.target.value)}
+                        rows={3}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm resize-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        placeholder="Add any notes about this vehicle..."
+                      />
+                    </div>
                   </div>
                   
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
-                    <p className="text-sm text-gray-900">{vehicle.model}</p>
+                  {/* Save/Cancel Buttons */}
+                  <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-gray-200/60 dark:border-gray-700/60 flex gap-3">
+                    <button
+                      onClick={handleSaveEdit}
+                      disabled={isSaving}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Save className="w-4 h-4" />
+                      {isSaving ? 'Saving...' : 'Save Changes'}
+                    </button>
+                    <button
+                      onClick={handleCancelEdit}
+                      disabled={isSaving}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium text-sm"
+                    >
+                      <X className="w-4 h-4" />
+                      Cancel
+                    </button>
                   </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Trim</label>
-                    <p className="text-sm text-gray-900">{vehicle.trim || 'N/A'}</p>
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Mileage</label>
-                  <div className="flex items-center gap-2">
-                    <Gauge className="w-4 h-4 text-gray-500" />
-                    <p className="text-sm text-gray-900">{vehicle.mileage.toLocaleString()}</p>
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
-                  <div className="flex items-center gap-2">
-                    <Palette className="w-4 h-4 text-gray-500" />
-                    <p className="text-sm text-gray-900">{vehicle.color}</p>
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Price</label>
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="w-4 h-4 text-gray-500" />
-                    <p className="text-sm text-gray-900">{formatPrice(vehicle.price)}</p>
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-gray-500" />
-                    <p className="text-sm text-gray-900">{vehicle.location || 'N/A'}</p>
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Date Acquired</label>
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-gray-500" />
-                    <p className="text-sm text-gray-900">{formatDate(vehicle.dateAcquired)}</p>
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Stock Number</label>
-                  <div className="flex items-center gap-2">
-                    <Hash className="w-4 h-4 text-gray-500" />
-                    <p className="text-sm text-gray-900">{getStockNumber(vehicle.vin)}</p>
-                  </div>
-                </div>
-              </div>
+                </>
+              )}
             </div>
             </div>
           </div>

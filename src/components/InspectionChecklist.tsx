@@ -16,7 +16,10 @@ import {
   Wrench,
   Sparkles,
   Camera,
-  FileText
+  FileText,
+  Plus,
+  MessageSquare,
+  User
 } from 'lucide-react';
 
 interface InspectionChecklistProps {
@@ -51,6 +54,9 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
   const [inspectionData, setInspectionData] = useState<any>({});
   const [isLoading, setIsLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [sectionNotes, setSectionNotes] = useState<Record<string, string>>({});
+  const [isAddingNote, setIsAddingNote] = useState<string | null>(null);
+  const [newNote, setNewNote] = useState('');
 
   // Load inspection settings and data on mount
   useEffect(() => {
@@ -88,6 +94,9 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       
       console.log('📊 Normalized inspection data:', normalizedData);
       setInspectionData(normalizedData);
+      
+      // Load section notes
+      setSectionNotes(normalizedData.sectionNotes || {});
       
       // Notify parent immediately
       if (onInspectionDataChange) {
@@ -191,6 +200,51 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       undefined,
       newRating
     );
+  };
+
+  // Handle section note changes
+  const handleSectionNoteChange = (sectionKey: string, note: string) => {
+    const updatedNotes = { ...sectionNotes, [sectionKey]: note };
+    setSectionNotes(updatedNotes);
+    
+    const updatedData = {
+      ...inspectionData,
+      sectionNotes: updatedNotes
+    };
+    
+    setInspectionData(updatedData);
+    saveToDatabase(updatedData);
+  };
+
+  // Handle adding team notes
+  const handleAddTeamNote = (sectionKey: string, noteText: string) => {
+    if (!user || !noteText.trim()) return;
+
+    const teamNote: TeamNote = {
+      id: `note-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      text: noteText.trim(),
+      userInitials: user.initials,
+      timestamp: new Date().toISOString(),
+      category: sectionKey
+    };
+
+    // Add to parent component
+    onAddTeamNote(teamNote);
+    
+    // Reset form
+    setIsAddingNote(null);
+    setNewNote('');
+  };
+
+  const formatTimestamp = (timestamp: string) => {
+    const date = new Date(timestamp);
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
   };
 
   const getSectionIcon = (sectionKey: string) => {
@@ -375,6 +429,65 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
                   </div>
                 )}
               </div>
+              
+              {/* Section Notes */}
+              <div className="mt-6 pt-6 border-t border-gray-200/60">
+                <div className="flex items-center justify-between mb-4">
+                  <h5 className="font-medium text-gray-900 flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4" />
+                    Section Notes
+                  </h5>
+                  <button
+                    onClick={() => setIsAddingNote(section.key)}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                  >
+                    <Plus className="w-3 h-3" />
+                    Add Note
+                  </button>
+                </div>
+
+                {/* Add Note Form */}
+                {isAddingNote === section.key && (
+                  <div className="mb-4 p-3 bg-blue-50/80 rounded-lg border border-blue-200/60">
+                    <div className="mb-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                          <span className="text-blue-700 font-bold text-xs">{user?.initials}</span>
+                        </div>
+                        <span className="text-sm font-medium text-blue-800">
+                          Adding note as: {user?.firstName} {user?.lastName}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <textarea
+                      value={newNote}
+                      onChange={(e) => setNewNote(e.target.value)}
+                      placeholder={`Add a note about ${section.label.toLowerCase()}...`}
+                      rows={3}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
+                    />
+                    
+                    <div className="flex gap-2 mt-3">
+                      <button
+                        onClick={() => handleAddTeamNote(section.key, newNote)}
+                        disabled={!newNote.trim()}
+                        className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm disabled:bg-gray-300 disabled:cursor-not-allowed"
+                      >
+                        Add Note
+                      </button>
+                      <button
+                        onClick={() => {
+                          setIsAddingNote(null);
+                          setNewNote('');
+                        }}
+                        className="px-3 py-1.5 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors text-sm"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
             </div>
           );
         })}
@@ -406,4 +519,46 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
   );
 };
 
+                {/* Section Notes Display */}
+                <div className="space-y-3">
+                  {/* Section-specific team notes */}
+                  {vehicle.teamNotes
+                    ?.filter(note => note.category === section.key)
+                    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                    .map((note) => (
+                      <div key={note.id} className="p-3 bg-gray-50/80 rounded-lg border border-gray-200/60">
+                        <div className="flex items-start gap-3">
+                          <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                            <User className="w-3 h-3 text-blue-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-medium text-gray-900 text-sm">{note.userInitials}</span>
+                              <span className="text-xs text-gray-500">
+                                {formatTimestamp(note.timestamp)}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-700">{note.text}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  
+                  {/* Section notes */}
+                  {sectionNotes[section.key] && (
+                    <div className="p-3 bg-yellow-50/80 rounded-lg border border-yellow-200/60">
+                      <h6 className="text-sm font-medium text-yellow-800 mb-1">Section Notes:</h6>
+                      <p className="text-sm text-yellow-700">{sectionNotes[section.key]}</p>
+                    </div>
+                  )}
+                  
+                  {/* No notes message */}
+                  {(!vehicle.teamNotes?.some(note => note.category === section.key) && !sectionNotes[section.key]) && (
+                    <div className="text-center py-4 text-gray-500">
+                      <MessageSquare className="w-6 h-6 mx-auto mb-2 text-gray-400" />
+                      <p className="text-sm">No notes for this section yet</p>
+                    </div>
+                  )}
+                </div>
+              </div>
 export default InspectionChecklist;

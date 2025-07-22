@@ -11,6 +11,7 @@ import CustomerInspectionPDF from './CustomerInspectionPDF';
 import { ProgressCalculator } from '../utils/progressCalculator';
 import { supabase } from '../utils/supabaseClient';
 import { VehicleManager } from '../utils/vehicleManager';
+import VehicleEditForm from './VehicleEditForm';
 import { InspectionDataManager } from '../utils/inspectionDataManager';
 import { 
   ArrowLeft, 
@@ -45,7 +46,6 @@ const VehicleDetail: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [isEditingVehicle, setIsEditingVehicle] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [editedNotes, setEditedNotes] = useState('');
   const [rightPanelView, setRightPanelView] = useState<'inspection' | 'team-notes'>('inspection');

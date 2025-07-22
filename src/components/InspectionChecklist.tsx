@@ -60,7 +60,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
     if (dealership && vehicleId && user) {
       loadData();
     }
-  }, [dealership, vehicleId, user]);
+  }, [dealership, vehicleId, user, loadData]);
 
   const loadData = async () => {
     if (!dealership || !vehicleId || !user) return;
@@ -118,7 +118,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
   };
 
   // 🎯 BULLETPROOF: Save function with proper error handling
-  const saveToDatabase = useCallback(async (dataToSave: any) => {
+  const saveToDatabase = useCallback(async (dataToSave: any): Promise<void> => {
     if (!user || !vehicleId) return;
     
     setSaveStatus('saving');
@@ -133,6 +133,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       console.error('❌ Error saving to database:', error);
       setSaveStatus('error');
       setTimeout(() => setSaveStatus('idle'), 3000);
+      throw error; // Re-throw so the caller knows about the error
     }
   }, [user, vehicleId]);
 
@@ -188,8 +189,12 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       onInspectionDataChange(updatedData);
     }
 
-    // Save to database
-    saveToDatabase(updatedData);
+    // 🎯 CURSOR AI FIX: Save to database and force reload to ensure consistency
+    saveToDatabase(updatedData).then(() => {
+      // Force reload data from database after save to guarantee consistency
+      console.log('💾 Save completed, reloading data from database...');
+      loadData();
+    });
 
     // 📝 Create automatic team note
     const getRatingLabel = (rating: string) => {
@@ -388,7 +393,11 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
                                 <p className="text-xs sm:text-sm text-gray-600 mt-1 hidden sm:block">{item.description}</p>
                               )}
                               <p className="text-xs text-gray-500 mt-1">
-                                Current: <strong>{currentRating}</strong>
+                                Current: <strong>{currentRating === 'not-checked' ? 'Not Checked' : 
+                                  currentRating === 'G' ? 'Great' : 
+                                  currentRating === 'F' ? 'Fair' : 
+                                  currentRating === 'N' ? 'Needs Attention' : 
+                                  currentRating}</strong>
                                 {currentRating !== 'not-checked' && (
                                   <span className={`ml-2 px-2 py-0.5 rounded text-xs ${
                                     currentRating === 'G' ? 'bg-green-100 text-green-800' :

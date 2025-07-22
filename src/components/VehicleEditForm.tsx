@@ -69,6 +69,12 @@ const VehicleEditForm: React.FC<VehicleEditFormProps> = ({ vehicle, onSave, onCa
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Defensive check for vehicle.id before proceeding
+    if (!vehicle.id || vehicle.id.trim() === '') {
+      setErrors({ general: 'Invalid vehicle ID. Cannot save changes.' });
+      return;
+    }
+    
     if (!validateForm()) return;
 
     const updatedVehicle: Partial<Vehicle> = {

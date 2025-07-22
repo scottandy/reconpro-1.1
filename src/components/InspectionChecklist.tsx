@@ -137,25 +137,25 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
   const handleRatingChange = async (sectionKey: string, itemId: string, newRating: string, itemLabel: string) => {
     if (!user) return;
 
-    console.log('🎯 Rating change:', { sectionKey, itemId, newRating, itemLabel });
+    console.log('🎯 Rating change START:', { sectionKey, itemId, newRating, itemLabel });
 
     // Get current data
-    const currentData = { ...inspectionData };
+    const updatedData = { ...inspectionData };
     
     // Initialize section if it doesn't exist
-    if (!currentData[sectionKey]) {
-      currentData[sectionKey] = [];
+    if (!updatedData[sectionKey]) {
+      updatedData[sectionKey] = [];
     }
 
     // Find existing item
-    const existingItemIndex = currentData[sectionKey].findIndex((item: any) => item.id === itemId);
+    const existingItemIndex = updatedData[sectionKey].findIndex((item: any) => item.id === itemId);
     let oldRating = undefined;
 
     if (existingItemIndex >= 0) {
       // Update existing item
-      oldRating = currentData[sectionKey][existingItemIndex].rating;
-      currentData[sectionKey][existingItemIndex] = {
-        ...currentData[sectionKey][existingItemIndex],
+      oldRating = updatedData[sectionKey][existingItemIndex].rating;
+      updatedData[sectionKey][existingItemIndex] = {
+        ...updatedData[sectionKey][existingItemIndex],
         rating: newRating,
         updatedBy: user.initials,
         updatedAt: new Date().toISOString()
@@ -169,21 +169,22 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
         updatedBy: user.initials,
         updatedAt: new Date().toISOString()
       };
-      currentData[sectionKey].push(newItem);
+      updatedData[sectionKey].push(newItem);
     }
 
-    console.log('📝 Updated inspection data:', currentData);
+    console.log('📝 Updated inspection data:', updatedData);
+    console.log('📝 Section data after update:', updatedData[sectionKey]);
 
     // Update local state IMMEDIATELY for instant UI feedback
-    setInspectionData(currentData);
+    setInspectionData(updatedData);
 
     // Notify parent component immediately
     if (onInspectionDataChange) {
-      onInspectionDataChange(currentData);
+      onInspectionDataChange(updatedData);
     }
 
     // Save to database in background (non-blocking)
-    saveToDatabase(currentData);
+    saveToDatabase(updatedData);
 
     // Record analytics
     AnalyticsManager.recordTaskUpdate(
@@ -250,60 +251,31 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       case 'great':
         return {
           label: 'Great',
-          color: 'bg-emerald-600 text-white ring-2 ring-emerald-300 shadow-lg',
+          color: 'bg-emerald-600 text-white shadow-lg border-2 border-emerald-500',
           icon: '⭐'
         };
       case 'F':
       case 'fair':
         return {
           label: 'Fair',
-          color: 'bg-yellow-600 text-white ring-2 ring-yellow-300 shadow-lg',
+          color: 'bg-yellow-600 text-white shadow-lg border-2 border-yellow-500',
           icon: '✓'
         };
       case 'N':
       case 'needs-attention':
         return {
           label: 'Needs Attention',
-          color: 'bg-red-600 text-white ring-2 ring-red-300 shadow-lg',
+          color: 'bg-red-600 text-white shadow-lg border-2 border-red-500',
           icon: '⚠️'
         };
       case 'not-checked':
       default:
         return {
           label: 'Not Checked',
-          color: 'bg-gray-300 text-gray-700 hover:bg-gray-400',
+          color: 'bg-gray-300 text-gray-700 hover:bg-gray-400 border-2 border-gray-400',
           icon: '?'
         };
     }
-  };
-
-  // Check if a rating is selected for an item
-  const isRatingSelected = (sectionKey: string, itemId: string, rating: string): boolean => {
-    const sectionData = inspectionData[sectionKey] || [];
-    const item = sectionData.find((data: any) => data.id === itemId);
-    const currentRating = item?.rating || 'not-checked';
-    
-    // Map display ratings to database values
-    const ratingMap: Record<string, string> = {
-      'great': 'G',
-      'fair': 'F',
-      'needs-attention': 'N',
-      'not-checked': 'not-checked'
-    };
-    
-    const dbRating = ratingMap[rating] || rating;
-    const isSelected = currentRating === dbRating;
-    
-    console.log('🔍 Checking selection:', { 
-      sectionKey, 
-      itemId, 
-      rating, 
-      currentRating, 
-      dbRating, 
-      isSelected 
-    });
-    
-    return isSelected;
   };
 
   if (isLoading) {
@@ -413,9 +385,28 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
                             </div>
                             
                             <div className="flex items-center gap-2 ml-4">
-                              {['great', 'fair', 'needs-attention', 'not-checked'].map((rating) => {
+                              {['great', 'fair', 'needs-attention'].map((rating) => {
                                 const config = getRatingConfig(rating);
-                                const isSelected = isRatingSelected(section.key, item.id, rating);
+                                
+                                // Get current rating for this item
+                                const sectionData = inspectionData[section.key] || [];
+                                const currentItem = sectionData.find((data: any) => data.id === item.id);
+                                const currentRating = currentItem?.rating || 'not-checked';
+                                
+                                // Map display rating to database value for comparison
+                                const dbRating = rating === 'great' ? 'G' : 
+                                               rating === 'fair' ? 'F' : 
+                                               rating === 'needs-attention' ? 'N' : 
+                                               'not-checked';
+                                
+                                const isSelected = currentRating === dbRating;
+                                
+                                console.log(`Button ${rating} for ${item.label}:`, {
+                                  currentRating,
+                                  dbRating,
+                                  isSelected,
+                                  sectionData: sectionData.length
+                                });
                                 
                                 return (
                                   <button
@@ -434,15 +425,16 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
                                         rating, 
                                         dbRating, 
                                         itemId: item.id,
-                                        sectionKey: section.key
+                                        sectionKey: section.key,
+                                        currentRating
                                       });
                                       
                                       handleRatingChange(section.key, item.id, dbRating, item.label);
                                     }}
-                                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 border-2 ${
+                                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                                       isSelected 
                                         ? config.color 
-                                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300 border-gray-300'
+                                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                                     }`}
                                     title={config.label}
                                   >

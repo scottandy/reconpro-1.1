@@ -505,10 +505,71 @@ export class InspectionDataManager {
     }
   }
 
+  // Helper function to generate team notes for rating changes
+  private static generateRatingChangeNotes(
+    oldData: any, 
+    newData: any, 
+    inspectorId: string
+  ): any[] {
+    const notes: any[] = [];
+    const timestamp = new Date().toISOString();
+
+    // Compare all sections for changes
+    const allSectionKeys = new Set([
+      ...Object.keys(oldData || {}),
+      ...Object.keys(newData || {})
+    ]);
+
+    for (const sectionKey of allSectionKeys) {
+      if (sectionKey === 'customSections' || sectionKey === 'sectionNotes') continue;
+      
+      const oldItems = oldData[sectionKey] || [];
+      const newItems = newData[sectionKey] || [];
+      
+      // Create lookup for old items
+      const oldItemsMap = new Map();
+      oldItems.forEach((item: any) => {
+        oldItemsMap.set(item.id, item);
+      });
+      
+      // Check each new item for changes
+      newItems.forEach((newItem: any) => {
+        const oldItem = oldItemsMap.get(newItem.id);
+        
+        if (oldItem && oldItem.rating !== newItem.rating) {
+          const oldRatingLabel = this.getRatingLabel(oldItem.rating);
+          const newRatingLabel = this.getRatingLabel(newItem.rating);
+          
+          notes.push({
+            id: `rating-change-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            text: `Changed "${newItem.label}" from "${oldRatingLabel}" to "${newRatingLabel}"`,
+            userInitials: inspectorId,
+            timestamp,
+            category: sectionKey
+          });
+        }
+      });
+    }
+    
+    return notes;
+  }
+
+  // Helper function to convert rating codes to readable labels
+  private static getRatingLabel(rating: string): string {
+    switch (rating) {
+      case 'G': return 'Great';
+      case 'F': return 'Fair';  
+      case 'N': return 'Needs Attention';
+      case 'not-checked': return 'Not Checked';
+      default: return rating || 'Not Checked';
+    }
+  }
+
   static async saveInspectionData(
     vehicleId: string, 
-    inspectorId: string, 
-    inspectionData: any
+    inspectorId: string, // User ID for database fields
+    inspectionData: any,
+    userInitials?: string // User initials for team notes (falls back to inspectorId if not provided)
   ): Promise<boolean> {
     // Validate parameters
     if (!vehicleId || vehicleId === 'undefined' || typeof vehicleId !== 'string') {
@@ -518,8 +579,22 @@ export class InspectionDataManager {
       throw new Error('Invalid inspectorId provided to saveInspectionData');
     }
 
-    console.log('💾 saveInspectionData called with:', { vehicleId, inspectorId, inspectionData });
+    console.log('💾 saveInspectionData called with:', { vehicleId, inspectorId, userInitials, inspectionData });
     try {
+      // First, get current vehicle data to compare changes
+      const { data: currentVehicle, error: fetchError } = await supabase
+        .from('vehicles')
+        .select('inspection_data, team_notes')
+        .eq('id', vehicleId)
+        .maybeSingle();
+
+      if (fetchError) {
+        console.error('⚠️ Error fetching current vehicle data:', fetchError);
+      }
+
+      const currentInspectionData = currentVehicle?.inspection_data || {};
+      const currentTeamNotes = currentVehicle?.team_notes || [];
+
       // Ensure customSections and sectionNotes are properly initialized
       const dataToSave = {
         ...inspectionData,
@@ -528,12 +603,23 @@ export class InspectionDataManager {
       };
       
       console.log('📝 Data to save:', dataToSave);
+
+      // Generate team notes for rating changes
+      const newTeamNotes = this.generateRatingChangeNotes(
+        currentInspectionData, 
+        dataToSave, 
+        userInitials || inspectorId
+      );
+
+      // Combine existing team notes with new ones (new notes first)
+      const updatedTeamNotes = [...newTeamNotes, ...currentTeamNotes];
       
-      // First, update the vehicles table with the inspection data
+      // Update the vehicles table with both inspection data and team notes
       const { error: vehicleUpdateError } = await supabase
         .from('vehicles')
         .update({
           inspection_data: dataToSave,
+          team_notes: updatedTeamNotes,
           updated_at: new Date().toISOString()
         })
         .eq('id', vehicleId);
@@ -542,7 +628,13 @@ export class InspectionDataManager {
         console.error('❌ Error updating vehicle inspection data:', vehicleUpdateError);
         throw vehicleUpdateError;
       } else {
-        console.log('✅ Successfully updated vehicle inspection data');
+        console.log('✅ Successfully updated vehicle inspection data and team notes');
+        if (newTeamNotes.length > 0) {
+          console.log('📋 Added', newTeamNotes.length, 'automatic team notes for rating changes');
+          newTeamNotes.forEach(note => {
+            console.log(`  📝 ${note.text}`);
+          });
+        }
       }
 
       // First, check if a checklist already exists for this vehicle

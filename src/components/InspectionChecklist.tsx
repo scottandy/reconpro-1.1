@@ -115,7 +115,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
     console.log('💾 Saving to database:', dataToSave);
     
     try {
-      await InspectionDataManager.saveInspectionData(vehicleId, user.id, dataToSave);
+      await InspectionDataManager.saveInspectionData(vehicleId, user.id, dataToSave, user.initials);
       console.log('✅ Successfully saved to database');
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 2000);

@@ -132,6 +132,16 @@ const VehicleDetail: React.FC = () => {
     setIsLoading(false);
   };
 
+  // Handler for team notes tab click - reloads vehicle data to get latest team notes
+  const handleTeamNotesClick = async () => {
+    setRightPanelView('team-notes');
+    if (id && user?.dealershipId) {
+      console.log('🔄 Reloading vehicle data for fresh team notes...');
+      await loadVehicle(id, user.dealershipId);
+      console.log('✅ Vehicle data reloaded with latest team notes');
+    }
+  };
+
   // These functions are no longer needed since we're not using vehicle.status object
   // Status is now calculated from inspection data, not stored in vehicle.status
   const handleStatusUpdate = (section: string, status: InspectionStatus) => {
@@ -858,7 +868,7 @@ const VehicleDetail: React.FC = () => {
                 Inspection
               </button>
               <button
-                onClick={() => setRightPanelView('team-notes')}
+                onClick={handleTeamNotesClick}
                 className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium transition-all duration-200 ${
                   rightPanelView === 'team-notes'
                     ? 'bg-white text-blue-600 shadow-sm'
@@ -1246,7 +1256,7 @@ const VehicleDetail: React.FC = () => {
                   Mechanical Inspection
                 </button>
                 <button
-                  onClick={() => setRightPanelView('team-notes')}
+                  onClick={handleTeamNotesClick}
                   className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium transition-all duration-200 ${
                     rightPanelView === 'team-notes'
                       ? 'bg-white text-blue-600 shadow-sm'

@@ -489,7 +489,7 @@ const VehicleDetail: React.FC = () => {
     
     setIsSaving(true);
     try {
-      await saveVehicleUpdate(vehicle.id, updatedVehicle);
+     const result = await saveVehicleUpdate(vehicleId, updatedVehicle);
       setIsEditingVehicle(false);
         // Update the local vehicle state instead of reloading
         setVehicle(result);

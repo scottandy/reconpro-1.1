@@ -386,7 +386,8 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
                             {item.description && (
                               <p className="text-sm text-gray-600 mt-1">{item.description}</p>
                             )}
-                          // console.log(`Item ${item.id} current rating:`, currentRating, 'from data:', existingData);
+                          </div>
+                          {/* console.log(`Item ${item.id} current rating:`, currentRating, 'from data:', existingData); */}
                           
                           <div className="flex items-center gap-2 ml-4">
                             {['great', 'fair', 'needs-attention', 'not-checked'].map((rating) => {

@@ -46,6 +46,7 @@ const VehicleDetail: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [isEditingVehicle, setIsEditingVehicle] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [editedNotes, setEditedNotes] = useState('');
   const [rightPanelView, setRightPanelView] = useState<'inspection' | 'team-notes'>('inspection');
@@ -475,6 +476,27 @@ const VehicleDetail: React.FC = () => {
     return 'not-started';
   };
 
+  const handleSaveVehicle = async (updatedVehicle: Partial<Vehicle>) => {
+    if (!dealership) return;
+    
+    setIsSaving(true);
+    try {
+      const result = await VehicleManager.updateVehicle(dealership.id, vehicle.id, updatedVehicle);
+      if (result) {
+        setVehicle(result);
+        setIsEditingVehicle(false);
+        alert('Vehicle information updated successfully!');
+      } else {
+        alert('Failed to update vehicle information. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error updating vehicle:', error);
+      alert('Error updating vehicle information. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 flex items-center justify-center">
@@ -805,82 +827,93 @@ const VehicleDetail: React.FC = () => {
                       <Edit3 className="w-3 h-3" />
                     </button>
                   </div>
-                )}
-              </div>
-              {/* Show placeholder if no notes and not editing */}
-              {(!vehicle.notes || vehicle.notes.trim() === '') && !isEditingNotes && (
-                <div className="p-3 bg-gray-50/80 backdrop-blur-sm rounded-lg border border-gray-200/60 text-center">
-                  <p className="text-xs text-gray-600">No notes added yet</p>
-                </div>
-              )}
-              {/* Show textarea if editing */}
-              {isEditingNotes && (
-                <div className="space-y-3">
-                  <textarea
-                    value={editedNotes}
-                    onChange={(e) => setEditedNotes(e.target.value)}
-                    placeholder="Add notes about this vehicle's condition, issues, or important information..."
-                    rows={4}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                  />
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleSaveNotes}
-                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                    >
-                      <Save className="w-4 h-4" />
-                      Save
-                    </button>
-                    <button
-                      onClick={handleCancelEditNotes}
-                      className="flex items-center gap-2 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors font-medium"
-                    >
-                      <X className="w-4 h-4" />
-                      Cancel
-                    </button>
+            {isEditingVehicle ? (
+              <VehicleEditForm
+                vehicle={vehicle}
+                onSave={handleSaveVehicle}
+                onCancel={() => setIsEditingVehicle(false)}
+                isLoading={isSaving}
+              />
+            ) : (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">Stock Number</label>
+                    <p className="text-sm sm:text-base text-gray-900 dark:text-white font-mono bg-gray-100 dark:bg-gray-700 px-2 sm:px-3 py-1 sm:py-2 rounded border">{stockNumber}</p>
                   </div>
-                </div>
-              )}
-              {/* Show notes if present and not editing */}
-              {vehicle.notes && vehicle.notes.trim() !== '' && !isEditingNotes && (
-                <div className="p-3 bg-amber-50/80 backdrop-blur-sm rounded-lg border border-amber-200/60">
-                  <div className="flex items-start gap-2">
-                    <div className="w-4 h-4 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <AlertTriangle className="w-2 h-2 text-amber-600" />
+                  
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">VIN</label>
+                    <p className="text-sm sm:text-base text-gray-900 dark:text-white font-mono bg-gray-100 dark:bg-gray-700 px-2 sm:px-3 py-1 sm:py-2 rounded border break-all">{vehicle.vin}</p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">Year</label>
+                    <p className="text-sm sm:text-base text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-2 sm:px-3 py-1 sm:py-2 rounded border">{vehicle.year}</p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">Make</label>
+                    <p className="text-sm sm:text-base text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-2 sm:px-3 py-1 sm:py-2 rounded border">{vehicle.make}</p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">Model</label>
+                    <p className="text-sm sm:text-base text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-2 sm:px-3 py-1 sm:py-2 rounded border">{vehicle.model}</p>
+                  </div>
+                  
+                  {vehicle.trim && (
+                    <div>
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">Trim</label>
+                      <p className="text-sm sm:text-base text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-2 sm:px-3 py-1 sm:py-2 rounded border">{vehicle.trim}</p>
                     </div>
-                    <p className="text-xs text-amber-800 font-medium leading-relaxed">{vehicle.notes}</p>
+                  )}
+                  
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">Mileage</label>
+                    <p className="text-sm sm:text-base text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-2 sm:px-3 py-1 sm:py-2 rounded border">{vehicle.mileage.toLocaleString()} miles</p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">Color</label>
+                    <p className="text-sm sm:text-base text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-2 sm:px-3 py-1 sm:py-2 rounded border">{vehicle.color}</p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">Date Acquired</label>
+                    <p className="text-sm sm:text-base text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-2 sm:px-3 py-1 sm:py-2 rounded border">{formatDate(vehicle.dateAcquired)}</p>
+                  </div>
+                  
+                  {vehicle.targetSaleDate && (
+                    <div>
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">Target Sale Date</label>
+                      <p className="text-sm sm:text-base text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-2 sm:px-3 py-1 sm:py-2 rounded border">{formatDate(vehicle.targetSaleDate)}</p>
+                    </div>
+                  )}
+                  
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">Price</label>
+                    <p className="text-sm sm:text-base text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-2 sm:px-3 py-1 sm:py-2 rounded border">${vehicle.price.toLocaleString()}</p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">Location</label>
+                    <p className="text-sm sm:text-base text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700 px-2 sm:px-3 py-1 sm:py-2 rounded border">{vehicle.location}</p>
                   </div>
                 </div>
-              )}
-            </div>
-          </div>
-
-          {/* Mobile Right Panel Toggle */}
-          <div className="bg-white/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 p-4">
-            <div className="flex bg-gray-100 rounded-lg p-1">
-              <button
-                onClick={() => setRightPanelView('inspection')}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium transition-all duration-200 ${
-                  rightPanelView === 'inspection'
-                    ? 'bg-white text-blue-600 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <ClipboardList className="w-4 h-4" />
-                Inspection
-              </button>
-              <button
-                onClick={handleTeamNotesClick}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium transition-all duration-200 ${
-                  rightPanelView === 'team-notes'
-                    ? 'bg-white text-blue-600 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <MessageSquare className="w-4 h-4" />
-                Team Notes
-              </button>
-            </div>
+                
+                {/* Edit Button */}
+                <div className="mt-4 sm:mt-6 pt-4 border-t border-gray-200/60 dark:border-gray-700/60">
+                  <button
+                    onClick={() => setIsEditingVehicle(true)}
+                    className="w-full sm:w-auto inline-flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium text-sm"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                    Edit Vehicle Information
+                  </button>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Mobile Content with ID for scrolling */}

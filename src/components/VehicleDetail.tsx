@@ -205,7 +205,11 @@ const VehicleDetail: React.FC = () => {
     const oldLocation = vehicle.location;
     const newLocation = editedLocation.trim();
     
-    if (oldLocation === newLocation) {
+  const saveVehicleUpdate = async (vehicleId: string, updates: Partial<Vehicle>) => {
+    if (!vehicleId || vehicleId === 'undefined') {
+      throw new Error('Invalid vehicle ID provided');
+    }
+    
       setIsEditingLocation(false);
       return;
     }
@@ -477,9 +481,15 @@ const VehicleDetail: React.FC = () => {
   };
 
   const handleSaveVehicle = async (updatedVehicle: Vehicle) => {
+    if (!vehicleId) {
+      console.error('Vehicle ID is missing');
+      alert('Error: Vehicle ID is missing. Cannot save changes.');
+      return;
+    }
+    
     setIsSaving(true);
     try {
-      await saveVehicleUpdate(updatedVehicle);
+      const updatedVehicle = await VehicleManager.updateVehicle(dealership.id, vehicleId, updates);
       setIsEditingVehicle(false);
     } catch (error) {
       console.error('Error saving vehicle:', error);

@@ -169,6 +169,18 @@ export class VehicleManager {
   }
 
   static async updateVehicle(dealershipId: string, vehicleId: string, updates: Partial<Vehicle>): Promise<Vehicle | null> {
+    // Validate vehicleId parameter
+    if (!vehicleId || vehicleId === 'undefined' || vehicleId === 'null') {
+      console.error('Invalid vehicleId provided to updateVehicle:', vehicleId);
+      throw new Error('Invalid vehicle ID provided');
+    }
+    
+    // Validate dealershipId parameter
+    if (!dealershipId || dealershipId === 'undefined' || dealershipId === 'null') {
+      console.error('Invalid dealershipId provided to updateVehicle:', dealershipId);
+      throw new Error('Invalid dealership ID provided');
+    }
+    
     // Build dbUpdates only from provided fields
     const dbUpdates: any = { updated_at: new Date().toISOString() };
     if (updates.vin !== undefined) dbUpdates.vin = updates.vin;

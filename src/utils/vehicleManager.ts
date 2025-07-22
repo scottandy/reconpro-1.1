@@ -172,6 +172,8 @@ export class VehicleManager {
     // Validate vehicleId parameter
     if (!vehicleId || vehicleId === 'undefined' || vehicleId === 'null') {
       console.error('Invalid vehicleId provided to updateVehicle:', vehicleId);
+      console.error('vehicleId type:', typeof vehicleId);
+      console.error('vehicleId length:', vehicleId?.length);
       throw new Error('Invalid vehicle ID provided');
     }
     
@@ -349,7 +351,10 @@ export class VehicleManager {
       .eq('id', vehicleId)
       .eq('dealership_id', dealershipId)
       .single();
-    if (error) return null;
+    if (error || !data) {
+      console.error('Error fetching vehicle by ID:', error);
+      return null;
+    }
     return this.fromDatabaseFormat(data);
   }
 

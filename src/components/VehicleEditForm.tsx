@@ -30,6 +30,13 @@ const VehicleEditForm: React.FC<VehicleEditFormProps> = ({ vehicle, onSave, onCa
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
+    // Validate vehicle ID first
+    if (!vehicle.id || vehicle.id.trim() === '') {
+      newErrors.general = 'Invalid vehicle ID. Cannot save changes.';
+      setErrors(newErrors);
+      return false;
+    }
+
     if (!formData.vin.trim()) newErrors.vin = 'VIN is required';
     if (formData.vin.length !== 17) newErrors.vin = 'VIN must be 17 characters';
     if (!formData.year.trim()) newErrors.year = 'Year is required';
@@ -109,6 +116,15 @@ const VehicleEditForm: React.FC<VehicleEditFormProps> = ({ vehicle, onSave, onCa
           />
           {errors.vin && <p className="text-red-600 dark:text-red-400 text-xs mt-1">{errors.vin}</p>}
         </div>
+
+        {/* General Error Message */}
+        {errors.general && (
+          <div className="sm:col-span-2 lg:col-span-3">
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+              <p className="text-red-600 dark:text-red-400 text-sm font-medium">{errors.general}</p>
+            </div>
+          </div>
+        )}
 
         {/* Year */}
         <div>

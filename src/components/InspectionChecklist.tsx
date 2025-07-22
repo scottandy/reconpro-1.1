@@ -55,7 +55,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
-  // Load inspection settings and data on mount
+  // 🎯 CRITICAL: Load inspection settings and data on mount
   useEffect(() => {
     if (dealership && vehicleId && user) {
       loadData();
@@ -114,7 +114,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
     }
   };
 
-  // Save function
+  // 🎯 BULLETPROOF: Save function with proper error handling
   const saveToDatabase = useCallback(async (dataToSave: any) => {
     if (!user || !vehicleId) return;
     
@@ -133,8 +133,8 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
     }
   }, [user, vehicleId]);
 
-  // 🎯 CRITICAL: Handle rating changes - THIS MUST WORK
-  const handleRatingChange = (sectionKey: string, itemId: string, newRating: string, itemLabel: string) => {
+  // 🎯 BULLETPROOF: Handle rating changes with immediate state update
+  const handleRatingChange = useCallback((sectionKey: string, itemId: string, newRating: string, itemLabel: string) => {
     if (!user) return;
 
     console.log('🎯 INSPECTION BUTTON CLICKED:', { sectionKey, itemId, newRating, itemLabel });
@@ -145,8 +145,8 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
     const existingItem = sectionData.find((item: any) => item.id === itemId);
     const oldRating = existingItem?.rating || 'not-checked';
 
-    // Create completely new data object
-    const updatedData = { ...inspectionData };
+    // 🚨 CRITICAL: Create completely new data object to force re-render
+    const updatedData = JSON.parse(JSON.stringify(inspectionData)); // Deep clone
     
     // Ensure section exists
     if (!updatedData[sectionKey]) {
@@ -177,10 +177,10 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
 
     console.log('🎯 Updated data after change:', updatedData);
 
-    // 🚨 CRITICAL: Update state immediately
+    // 🚨 CRITICAL: Update state immediately to trigger re-render
     setInspectionData(updatedData);
 
-    // Notify parent
+    // Notify parent immediately
     if (onInspectionDataChange) {
       onInspectionDataChange(updatedData);
     }
@@ -235,16 +235,16 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       oldRating,
       newRating
     );
-  };
+  }, [inspectionData, user, vehicleId, vehicleName, inspectionSettings, onInspectionDataChange, onAddTeamNote, saveToDatabase]);
 
-  // 🎯 CRITICAL: Get current rating for button colors
-  const getCurrentRating = (sectionKey: string, itemId: string): string => {
+  // 🎯 BULLETPROOF: Get current rating with proper fallback
+  const getCurrentRating = useCallback((sectionKey: string, itemId: string): string => {
     const sectionData = inspectionData[sectionKey] || [];
     const item = sectionData.find((data: any) => data.id === itemId);
     const rating = item?.rating || 'not-checked';
     console.log(`🔍 Getting rating for ${sectionKey}/${itemId}:`, rating);
     return rating;
-  };
+  }, [inspectionData]);
 
   const formatTimestamp = (timestamp: string) => {
     const date = new Date(timestamp);
@@ -301,13 +301,13 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
     .sort((a, b) => a.order - b.order);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header with Save Status */}
-      <div className="bg-white/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 p-4 sm:p-6">
+      <div className="bg-white/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 p-3 sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h3 className="text-lg font-bold text-gray-900">Vehicle Inspection Checklist</h3>
-            <p className="text-sm text-gray-600">Click buttons to rate each inspection item</p>
+            <h3 className="text-base sm:text-lg font-bold text-gray-900">Vehicle Inspection Checklist</h3>
+            <p className="text-xs sm:text-sm text-gray-600">Click buttons to rate each inspection item</p>
           </div>
           
           <div className="flex items-center gap-3">
@@ -349,21 +349,21 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
           
           return (
             <div key={section.id} className="bg-white/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 overflow-hidden">
-              <div className="p-4 sm:p-6 border-b border-gray-200/60">
+              <div className="p-3 sm:p-6 border-b border-gray-200/60">
                 <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${section.color}`}>
-                    <SectionIcon className="w-5 h-5" />
+                  <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center ${section.color}`}>
+                    <SectionIcon className="w-4 h-4 sm:w-5 sm:h-5" />
                   </div>
                   <div>
-                    <h4 className="text-lg font-bold text-gray-900">{section.label}</h4>
+                    <h4 className="text-base sm:text-lg font-bold text-gray-900">{section.label}</h4>
                     {section.description && (
-                      <p className="text-sm text-gray-600">{section.description}</p>
+                      <p className="text-xs sm:text-sm text-gray-600">{section.description}</p>
                     )}
                   </div>
                 </div>
               </div>
               
-              <div className="p-4 sm:p-6">
+              <div className="p-2 sm:p-6">
                 {section.items.length > 0 ? (
                   <div className="space-y-2 sm:space-y-4">
                     {section.items
@@ -373,59 +373,62 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
                         const currentRating = getCurrentRating(section.key, item.id);
                         
                         return (
-                          <div key={item.id} className="flex items-center justify-between p-4 bg-gray-50/80 rounded-lg border border-gray-200/60">
-                            <div className="flex-1">
-                              <h5 className="font-medium text-gray-900">{item.label}</h5>
+                          <div key={item.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-2 sm:p-4 bg-gray-50/80 rounded-lg border border-gray-200/60 gap-2 sm:gap-4">
+                            <div className="flex-1 min-w-0">
+                              <h5 className="font-medium text-gray-900 text-sm sm:text-base">{item.label}</h5>
                               {item.description && (
-                                <p className="text-sm text-gray-600 mt-1">{item.description}</p>
+                                <p className="text-xs sm:text-sm text-gray-600 mt-1 hidden sm:block">{item.description}</p>
                               )}
                               <p className="text-xs text-gray-500 mt-1">Current: {currentRating}</p>
                             </div>
                             
-                            <div className="flex items-center gap-2 ml-4">
-                              {/* 🎯 GREAT BUTTON - MUST WORK */}
+                            <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+                              {/* 🎯 GREAT BUTTON */}
                               <button
                                 onClick={() => {
                                   console.log('🟢 GREAT BUTTON CLICKED!');
                                   handleRatingChange(section.key, item.id, 'G', item.label);
                                 }}
-                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 border-2 ${
+                                className={`px-2 py-1 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 border-2 ${
                                   currentRating === 'G'
                                     ? 'bg-emerald-600 text-white border-emerald-500 shadow-lg ring-2 ring-emerald-300'
                                     : 'bg-gray-200 text-gray-700 border-gray-300 hover:bg-emerald-100 hover:border-emerald-300'
                                 }`}
                               >
-                                Great
+                                <span className="sm:hidden">G</span>
+                                <span className="hidden sm:inline">Great</span>
                               </button>
 
-                              {/* 🎯 FAIR BUTTON - MUST WORK */}
+                              {/* 🎯 FAIR BUTTON */}
                               <button
                                 onClick={() => {
                                   console.log('🟡 FAIR BUTTON CLICKED!');
                                   handleRatingChange(section.key, item.id, 'F', item.label);
                                 }}
-                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 border-2 ${
+                                className={`px-2 py-1 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 border-2 ${
                                   currentRating === 'F'
                                     ? 'bg-yellow-600 text-white border-yellow-500 shadow-lg ring-2 ring-yellow-300'
                                     : 'bg-gray-200 text-gray-700 border-gray-300 hover:bg-yellow-100 hover:border-yellow-300'
                                 }`}
                               >
-                                Fair
+                                <span className="sm:hidden">F</span>
+                                <span className="hidden sm:inline">Fair</span>
                               </button>
 
-                              {/* 🎯 NEEDS ATTENTION BUTTON - MUST WORK */}
+                              {/* 🎯 NEEDS ATTENTION BUTTON */}
                               <button
                                 onClick={() => {
                                   console.log('🔴 NEEDS ATTENTION BUTTON CLICKED!');
                                   handleRatingChange(section.key, item.id, 'N', item.label);
                                 }}
-                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 border-2 ${
+                                className={`px-2 py-1 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 border-2 ${
                                   currentRating === 'N'
                                     ? 'bg-red-600 text-white border-red-500 shadow-lg ring-2 ring-red-300'
                                     : 'bg-gray-200 text-gray-700 border-gray-300 hover:bg-red-100 hover:border-red-300'
                                 }`}
                               >
-                                Needs Attention
+                                <span className="sm:hidden">N</span>
+                                <span className="hidden sm:inline">Needs Attention</span>
                               </button>
                             </div>
                           </div>
@@ -438,7 +441,6 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
                     <p>No inspection items configured for this section</p>
                   </div>
                 )}
-
               </div>
             </div>
           );

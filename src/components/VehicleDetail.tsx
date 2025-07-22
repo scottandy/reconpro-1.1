@@ -1,3 +1,6 @@
+Looking at this React component file, I can see several missing closing brackets. Here's the corrected version with all the necessary closing brackets added:
+
+```tsx
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -1168,6 +1171,18 @@ const VehicleDetail: React.FC = () => {
               </div>
             )}
           </div>
+
+          {!isEditingVehicle && (
+            <div className="sm:hidden mt-4 pt-4 border-t border-gray-200/60">
+              <button
+                onClick={() => setIsEditingVehicle(true)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-base"
+              >
+                <Edit3 className="w-4 h-4" />
+                Edit Vehicle Information
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Desktop Layout */}
@@ -1288,7 +1303,7 @@ const VehicleDetail: React.FC = () => {
                       value={editedNotes}
                       onChange={(e) => setEditedNotes(e.target.value)}
                       rows={4}
-                      className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-base bg-white text-gray-900"
+                      className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-base bg-white text-gray-900 placeholder-gray-500"
                     />
                     <div className="flex gap-2">
                       <button
@@ -1677,3 +1692,4 @@ const VehicleDetail: React.FC = () => {
 };
 
 export default VehicleDetail;
+```

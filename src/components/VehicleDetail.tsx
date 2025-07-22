@@ -980,6 +980,38 @@ const VehicleDetail: React.FC = () => {
                 </div>
               )}
             </div>
+
+            {/* Edit Button */}
+            <div className="mt-4 pt-4 border-t border-gray-200/60 dark:border-gray-700/60">
+              {!isEditingVehicle ? (
+                <button
+                  onClick={() => setIsEditingVehicle(true)}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors font-medium"
+                >
+                  <Edit3 className="w-4 h-4" />
+                  Edit Vehicle Information
+                </button>
+              ) : (
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleSaveVehicle}
+                    disabled={isSavingVehicle}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors font-medium"
+                  >
+                    <Save className="w-4 h-4" />
+                    {isSavingVehicle ? 'Saving...' : 'Save Changes'}
+                  </button>
+                  <button
+                    onClick={handleCancelEdit}
+                    disabled={isSavingVehicle}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg transition-colors font-medium"
+                  >
+                    <X className="w-4 h-4" />
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Mobile Right Panel Toggle */}

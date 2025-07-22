@@ -481,7 +481,7 @@ const VehicleDetail: React.FC = () => {
   };
 
   const handleSaveVehicle = async (updatedVehicle: Vehicle) => {
-    if (!vehicleId) {
+    if (!vehicle?.id) {
       console.error('Vehicle ID is missing');
       alert('Error: Vehicle ID is missing. Cannot save changes.');
       return;
@@ -489,7 +489,7 @@ const VehicleDetail: React.FC = () => {
     
     setIsSaving(true);
     try {
-      const updatedVehicle = await VehicleManager.updateVehicle(dealership.id, vehicleId, updates);
+      await saveVehicleUpdate(vehicle.id, updatedVehicle);
       setIsEditingVehicle(false);
     } catch (error) {
       console.error('Error saving vehicle:', error);

@@ -523,7 +523,7 @@ export class InspectionDataManager {
       throw new Error('Invalid inspectorId provided to saveInspectionData');
     }
 
-    console.log('saveInspectionData called with:', { vehicleId, inspectorId, inspectionData });
+    console.log('💾 saveInspectionData called with:', { vehicleId, inspectorId, inspectionData });
     try {
       // Ensure customSections and sectionNotes are properly initialized
       const dataToSave = {
@@ -532,7 +532,7 @@ export class InspectionDataManager {
         sectionNotes: inspectionData.sectionNotes || {}
       };
       
-      console.log('Data to save:', dataToSave);
+      console.log('📝 Data to save:', dataToSave);
       
       // First, update the vehicles table with the inspection data
       const { error: vehicleUpdateError } = await supabase
@@ -544,10 +544,10 @@ export class InspectionDataManager {
         .eq('id', vehicleId);
 
       if (vehicleUpdateError) {
-        console.error('Error updating vehicle inspection data:', vehicleUpdateError);
+        console.error('❌ Error updating vehicle inspection data:', vehicleUpdateError);
         throw vehicleUpdateError;
       } else {
-        console.log('Successfully updated vehicle inspection data');
+        console.log('✅ Successfully updated vehicle inspection data');
       }
 
       // First, check if a checklist already exists for this vehicle
@@ -558,15 +558,15 @@ export class InspectionDataManager {
         .maybeSingle();
 
       if (selectError) {
-        console.error('Error checking for existing checklist:', selectError);
+        console.error('⚠️ Error checking for existing checklist:', selectError);
         // Don't fail completely if checklist operations fail
-        console.warn('Continuing without checklist update');
+        console.warn('⚠️ Continuing without checklist update');
         return true; // Vehicle data was saved successfully
       }
 
       if (existingChecklist) {
         // Update existing checklist
-        console.log('Updating existing checklist:', existingChecklist.id);
+        console.log('🔄 Updating existing checklist:', existingChecklist.id);
         const { error: updateError } = await supabase
           .from('inspection_checklists')
           .update({
@@ -578,14 +578,14 @@ export class InspectionDataManager {
           .eq('id', existingChecklist.id);
 
         if (updateError) {
-          console.error('Error updating checklist:', updateError);
-          console.warn('Checklist update failed, but vehicle data was saved');
+          console.error('❌ Error updating checklist:', updateError);
+          console.warn('⚠️ Checklist update failed, but vehicle data was saved');
         } else {
-          console.log('Successfully updated existing checklist');
+          console.log('✅ Successfully updated existing checklist');
         }
       } else {
         // Insert new checklist
-        console.log('Creating new checklist');
+        console.log('🆕 Creating new checklist');
         const { error: insertError } = await supabase
           .from('inspection_checklists')
           .insert({
@@ -597,16 +597,16 @@ export class InspectionDataManager {
           });
 
         if (insertError) {
-          console.error('Error inserting checklist:', insertError);
-          console.warn('Checklist creation failed, but vehicle data was saved');
+          console.error('❌ Error inserting checklist:', insertError);
+          console.warn('⚠️ Checklist creation failed, but vehicle data was saved');
         } else {
-          console.log('Successfully created new checklist');
+          console.log('✅ Successfully created new checklist');
         }
       }
 
       return true;
     } catch (error) {
-      console.error('Error saving inspection data:', error);
+      console.error('❌ Error saving inspection data:', error);
       throw error;
     }
   }

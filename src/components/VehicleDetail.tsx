@@ -1156,6 +1156,19 @@ const VehicleDetail: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Mobile Edit Button - Always at bottom on mobile */}
+          {!isEditingVehicle && (
+            <div className="mt-4 pt-4 border-t border-gray-200/60 dark:border-gray-700/60 sm:hidden">
+              <button
+                onClick={() => setIsEditingVehicle(true)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-base"
+              >
+                <Edit3 className="w-5 h-5" />
+                Edit Vehicle Information
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Desktop Layout */}

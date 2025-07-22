@@ -54,13 +54,15 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
   const [inspectionData, setInspectionData] = useState<any>({});
   const [isLoading, setIsLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [dataLoaded, setDataLoaded] = useState(false);
 
-  // 🎯 CRITICAL: Load data function with useCallback
+  // 🎯 CRITICAL: Load data function
   const loadData = useCallback(async () => {
     if (!dealership || !vehicleId || !user) return;
     
     console.log('🔄 Loading inspection data for vehicle:', vehicleId);
     setIsLoading(true);
+    setDataLoaded(false);
     
     try {
       // Load settings
@@ -88,6 +90,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       console.log('📊 Cosmetic data specifically:', normalizedData.cosmetic);
       console.log('📊 Mechanical data specifically:', normalizedData.mechanical);
       setInspectionData(normalizedData);
+      setDataLoaded(true);
       
       // Notify parent immediately
       if (onInspectionDataChange) {
@@ -106,6 +109,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
         sectionNotes: {}
       };
       setInspectionData(emptyData);
+      setDataLoaded(true);
     } finally {
       setIsLoading(false);
     }
@@ -190,11 +194,10 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       onInspectionDataChange(updatedData);
     }
 
-    // 🎯 CURSOR AI FIX: Save to database and force reload to ensure consistency
-    saveToDatabase(updatedData).then(() => {
-      // Force reload data from database after save to guarantee consistency
-      console.log('💾 Save completed, reloading data from database...');
-      loadData();
+    // 🎯 CURSOR AI FIX: Save to database (no reload needed since we update state immediately)
+    saveToDatabase(updatedData).catch((error) => {
+      console.error('❌ Failed to save to database:', error);
+      // Optionally revert the state change if save fails
     });
 
     // 📝 Create automatic team note
@@ -248,6 +251,11 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
 
   // 🎯 BULLETPROOF: Get current rating with proper fallback
   const getCurrentRating = useCallback((sectionKey: string, itemId: string): string => {
+    if (!dataLoaded) {
+      console.log(`🔍 Data not loaded yet for ${sectionKey}/${itemId}`);
+      return 'not-checked';
+    }
+    
     const sectionData = inspectionData[sectionKey] || [];
     console.log(`🔍 Getting rating for ${sectionKey}/${itemId}:`);
     console.log(`🔍 Section data:`, sectionData);

@@ -46,6 +46,7 @@ const VehicleDetail: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [isEditingVehicle, setIsEditingVehicle] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [editedNotes, setEditedNotes] = useState('');
   const [rightPanelView, setRightPanelView] = useState<'inspection' | 'team-notes'>('inspection');
@@ -476,20 +477,16 @@ const VehicleDetail: React.FC = () => {
   };
 
   const handleSaveVehicle = async (updatedVehicle: Vehicle) => {
-    if (!user || !user.dealershipId) return;
-    
+    setIsSaving(true);
     try {
-      const result = await VehicleManager.updateVehicle(user.dealershipId, updatedVehicle.id, updatedVehicle);
-      if (result) {
-        setVehicle(result);
-        setIsEditingVehicle(false);
-      }
+      await saveVehicleUpdate(updatedVehicle);
+      setIsEditingVehicle(false);
     } catch (error) {
-      console.error('Error updating vehicle:', error);
+      console.error('Error saving vehicle:', error);
+    } finally {
+      setIsSaving(false);
     }
   };
-
-  const [isSaving, setIsSaving] = useState(false);
 
   if (isLoading) {
     return (
@@ -594,8 +591,6 @@ const VehicleDetail: React.FC = () => {
   if (inspectionLoading || !settingsLoaded) {
     return <div>Loading inspection data...</div>;
   }
-
-  const stockNumber = getStockNumber(vehicle.vin);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
@@ -924,7 +919,7 @@ const VehicleDetail: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
                   <div>
                     <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">Stock Number</label>
-                    <p className="text-sm sm:text-base text-gray-900 dark:text-white font-mono bg-gray-100 dark:bg-gray-700 px-2 sm:px-3 py-1 sm:py-2 rounded border">{stockNumber}</p>
+                    <p className="text-sm sm:text-base text-gray-900 dark:text-white font-mono bg-gray-100 dark:bg-gray-700 px-2 sm:px-3 py-1 sm:py-2 rounded border">{getStockNumber(vehicle.vin)}</p>
                   </div>
                   
                   <div>

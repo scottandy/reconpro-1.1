@@ -44,6 +44,7 @@ const VehicleDetail: React.FC = () => {
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [isEditingVehicle, setIsEditingVehicle] = useState(false);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [editedNotes, setEditedNotes] = useState('');
   const [rightPanelView, setRightPanelView] = useState<'inspection' | 'team-notes'>('inspection');

@@ -56,11 +56,15 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [dataLoaded, setDataLoaded] = useState(false);
 
+  // 🔍 DEBUG: Add state to track what's happening
+  const [debugInfo, setDebugInfo] = useState<string>('');
+
   // 🎯 CRITICAL: Load data function
   const loadData = useCallback(async () => {
     if (!dealership || !vehicleId || !user) return;
     
     console.log('🔄 Loading inspection data for vehicle:', vehicleId);
+    setDebugInfo('Loading data...');
     setIsLoading(true);
     setDataLoaded(false);
     
@@ -89,6 +93,15 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       console.log('📊 Emissions data specifically:', normalizedData.emissions);
       console.log('📊 Cosmetic data specifically:', normalizedData.cosmetic);
       console.log('📊 Mechanical data specifically:', normalizedData.mechanical);
+      
+      // 🔍 DEBUG: Check if we have any actual ratings
+      const hasRatings = Object.keys(normalizedData).some(key => {
+        if (key === 'customSections' || key === 'sectionNotes') return false;
+        const items = normalizedData[key];
+        return Array.isArray(items) && items.some(item => item.rating && item.rating !== 'not-checked');
+      });
+      
+      setDebugInfo(`Data loaded. Has ratings: ${hasRatings}. Items: ${JSON.stringify(normalizedData)}`);
       setInspectionData(normalizedData);
       setDataLoaded(true);
       
@@ -98,6 +111,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       }
     } catch (error) {
       console.error('❌ Error loading inspection data:', error);
+      setDebugInfo(`Error loading data: ${error.message}`);
       // Set empty data structure on error
       const emptyData = {
         emissions: [],
@@ -148,11 +162,14 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
 
     console.log('🎯 INSPECTION BUTTON CLICKED:', { sectionKey, itemId, newRating, itemLabel });
     console.log('🎯 Current data before change:', inspectionData);
+    console.log('🎯 Data loaded status:', dataLoaded);
 
     // Get old rating for team note
     const sectionData = inspectionData[sectionKey] || [];
     const existingItem = sectionData.find((item: any) => item.id === itemId);
     const oldRating = existingItem?.rating || 'not-checked';
+    
+    console.log('🎯 Old rating:', oldRating, 'New rating:', newRating);
 
     // 🚨 CRITICAL: Create completely new data object to force re-render
     const updatedData = JSON.parse(JSON.stringify(inspectionData)); // Deep clone
@@ -173,18 +190,22 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
         updatedBy: user.initials,
         updatedAt: new Date().toISOString()
       };
+      console.log('🎯 Updated existing item:', updatedData[sectionKey][existingIndex]);
     } else {
       // Add new item
-      updatedData[sectionKey].push({
+      const newItem = {
         id: itemId,
         label: itemLabel,
         rating: newRating,
         updatedBy: user.initials,
         updatedAt: new Date().toISOString()
-      });
+      };
+      updatedData[sectionKey].push(newItem);
+      console.log('🎯 Added new item:', newItem);
     }
 
     console.log('🎯 Updated data after change:', updatedData);
+    console.log('🎯 Specific section after update:', updatedData[sectionKey]);
 
     // 🚨 CRITICAL: Update state immediately to trigger re-render
     setInspectionData(updatedData);
@@ -194,10 +215,10 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       onInspectionDataChange(updatedData);
     }
 
-    // 🎯 CURSOR AI FIX: Save to database (no reload needed since we update state immediately)
+    // 🎯 Save to database in background
     saveToDatabase(updatedData).catch((error) => {
       console.error('❌ Failed to save to database:', error);
-      // Optionally revert the state change if save fails
+      // Keep the optimistic update even if save fails
     });
 
     // 📝 Create automatic team note
@@ -259,6 +280,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
     const sectionData = inspectionData[sectionKey] || [];
     console.log(`🔍 Getting rating for ${sectionKey}/${itemId}:`);
     console.log(`🔍 Section data:`, sectionData);
+    console.log(`🔍 Full inspection data:`, inspectionData);
     
     const item = sectionData.find((data: any) => data.id === itemId);
     console.log(`🔍 Found item:`, item);
@@ -266,7 +288,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
     const rating = item?.rating || 'not-checked';
     console.log(`🔍 Final rating for ${sectionKey}/${itemId}:`, rating);
     return rating;
-  }, [inspectionData]);
+  }, [inspectionData, dataLoaded]);
 
   const formatTimestamp = (timestamp: string) => {
     const date = new Date(timestamp);
@@ -355,12 +377,24 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
               )}
             </div>
 
-            {/* Debug Info */}
+            {/* Debug Info - Shows data loading status */}
             <div className="text-xs text-gray-500">
-              Data loaded: {Object.keys(inspectionData).length > 0 ? 'Yes' : 'No'}
+              <div>Data loaded: {dataLoaded ? 'Yes' : 'No'}</div>
+              <div>Items: {Object.keys(inspectionData).map(key => {
+                if (key === 'customSections' || key === 'sectionNotes') return null;
+                const items = inspectionData[key] || [];
+                return `${key}:${items.length}`;
+              }).filter(Boolean).join(', ')}</div>
             </div>
           </div>
         </div>
+        
+        {/* 🔍 DEBUG: Show current debug info */}
+        {debugInfo && (
+          <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
+            <strong>Debug:</strong> {debugInfo}
+          </div>
+        )}
       </div>
 
       {/* Inspection Sections */}
@@ -394,6 +428,8 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
                       .map((item) => {
                         const currentRating = getCurrentRating(section.key, item.id);
                         
+                        console.log(`🔍 Rendering item ${item.id} in section ${section.key} with rating:`, currentRating);
+                        
                         return (
                           <div key={item.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-2 sm:p-4 bg-gray-50/80 rounded-lg border border-gray-200/60 gap-2 sm:gap-4">
                             <div className="flex-1 min-w-0">
@@ -401,12 +437,17 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
                               {item.description && (
                                 <p className="text-xs sm:text-sm text-gray-600 mt-1 hidden sm:block">{item.description}</p>
                               )}
-                              <p className="text-xs text-gray-500 mt-1">
-                                Current: <strong>{currentRating === 'not-checked' ? 'Not Checked' : 
+                              <p className="text-xs text-gray-500 mt-1 font-mono">
+                                Current: <strong className={
+                                  currentRating === 'G' ? 'text-green-600' :
+                                  currentRating === 'F' ? 'text-yellow-600' :
+                                  currentRating === 'N' ? 'text-red-600' :
+                                  'text-gray-600'
+                                }>{currentRating === 'not-checked' ? 'Not Checked' : 
                                   currentRating === 'G' ? 'Great' : 
                                   currentRating === 'F' ? 'Fair' : 
                                   currentRating === 'N' ? 'Needs Attention' : 
-                                  currentRating}</strong>
+                                  currentRating}</strong> (Raw: {currentRating})
                                 {currentRating !== 'not-checked' && (
                                   <span className={`ml-2 px-2 py-0.5 rounded text-xs ${
                                     currentRating === 'G' ? 'bg-green-100 text-green-800' :

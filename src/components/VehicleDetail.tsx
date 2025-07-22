@@ -1,578 +1,486 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Vehicle, TeamNote, getStockNumber } from '../types/vehicle';
+import { mockVehicles } from '../data/mockVehicles';
+import { Vehicle, TeamNote, InspectionStatus } from '../types/vehicle';
+import { AnalyticsManager } from '../utils/analytics';
+import StatusBadge from './StatusBadge';
+import InspectionChecklist from './InspectionChecklist';
+import TeamNotes from './TeamNotes';
+import CustomerInspectionPDF from './CustomerInspectionPDF';
+import { ProgressCalculator } from '../utils/progressCalculator';
+import { supabase } from '../utils/supabaseClient';
 import { VehicleManager } from '../utils/vehicleManager';
 import { InspectionDataManager } from '../utils/inspectionDataManager';
-import { InspectionSettings } from '../types/inspectionSettings';
-import { AnalyticsManager } from '../utils/analytics';
 import { 
   ArrowLeft, 
   Car, 
   Calendar, 
   MapPin, 
   Gauge, 
-  Palette, 
   DollarSign, 
   Hash, 
-  FileText, 
-  AlertTriangle,
+  Palette,
+  Edit3,
+  Save,
+  X,
   CheckCircle2,
   Clock,
+  AlertTriangle,
   Circle,
-  Filter,
-  X,
+  FileText,
   Eye,
-  Edit3,
-  Save
+  MessageSquare,
+  ClipboardList,
+  Download,
+  Printer,
+  Archive
 } from 'lucide-react';
-import InspectionChecklist from './InspectionChecklist';
-import TeamNotes from './TeamNotes';
-import CustomerInspectionPDF from './CustomerInspectionPDF';
-
-interface VehicleEditModalProps {
-  vehicle: Vehicle;
-  isOpen: boolean;
-  onClose: () => void;
-  onSave: (vehicleData: Partial<Vehicle>) => void;
-}
-
-const VehicleEditModal: React.FC<VehicleEditModalProps> = ({ vehicle, isOpen, onClose, onSave }) => {
-  const [formData, setFormData] = useState({
-    vin: vehicle.vin,
-    year: vehicle.year,
-    make: vehicle.make,
-    model: vehicle.model,
-    trim: vehicle.trim || '',
-    mileage: vehicle.mileage.toString(),
-    color: vehicle.color,
-    dateAcquired: vehicle.dateAcquired,
-    targetSaleDate: vehicle.targetSaleDate || '',
-    price: vehicle.price.toString(),
-    location: vehicle.location,
-    notes: vehicle.notes || ''
-  });
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(false);
-
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-
-    if (!formData.vin.trim()) newErrors.vin = 'VIN is required';
-    if (formData.vin.length !== 17) newErrors.vin = 'VIN must be 17 characters';
-    if (!formData.make.trim()) newErrors.make = 'Make is required';
-    if (!formData.model.trim()) newErrors.model = 'Model is required';
-    if (!formData.color.trim()) newErrors.color = 'Color is required';
-    if (!formData.location.trim()) newErrors.location = 'Location is required';
-    if (formData.year < 1900 || formData.year > new Date().getFullYear() + 1) {
-      newErrors.year = 'Please enter a valid year';
-    }
-    
-    const mileageNum = parseInt(formData.mileage);
-    if (!formData.mileage.trim()) {
-      newErrors.mileage = 'Mileage is required';
-    } else if (isNaN(mileageNum) || mileageNum < 0) {
-      newErrors.mileage = 'Please enter a valid mileage';
-    }
-
-    const priceNum = parseFloat(formData.price);
-    if (!formData.price.trim()) {
-      newErrors.price = 'Price is required';
-    } else if (isNaN(priceNum) || priceNum < 0) {
-      newErrors.price = 'Please enter a valid price';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateForm()) return;
-
-    setIsLoading(true);
-    try {
-      const updatedVehicleData: Partial<Vehicle> = {
-        vin: formData.vin.toUpperCase(),
-        year: formData.year,
-        make: formData.make.trim(),
-        model: formData.model.trim(),
-        trim: formData.trim.trim() || undefined,
-        mileage: parseInt(formData.mileage),
-        color: formData.color.trim(),
-        dateAcquired: formData.dateAcquired,
-        targetSaleDate: formData.targetSaleDate || undefined,
-        price: parseFloat(formData.price),
-        location: formData.location.trim(),
-        notes: formData.notes.trim() || undefined
-      };
-
-      onSave(updatedVehicleData);
-    } catch (error) {
-      console.error('Error in form submission:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleInputChange = (field: string, value: string | number) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
-    }
-  };
-
-  const popularMakes = [
-    'Acura', 'Audi', 'BMW', 'Buick', 'Cadillac', 'Chevrolet', 'Chrysler', 'Dodge',
-    'Ford', 'GMC', 'Honda', 'Hyundai', 'Infiniti', 'Jeep', 'Kia', 'Lexus',
-    'Lincoln', 'Mazda', 'Mercedes-Benz', 'Mitsubishi', 'Nissan', 'Ram', 'Subaru',
-    'Tesla', 'Toyota', 'Volkswagen', 'Volvo'
-  ];
-
-  const popularColors = [
-    'Black', 'White', 'Silver', 'Gray', 'Red', 'Blue', 'Green', 'Brown',
-    'Gold', 'Orange', 'Yellow', 'Purple', 'Pearl White', 'Metallic Silver',
-    'Midnight Black', 'Deep Blue', 'Forest Green', 'Burgundy'
-  ];
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-white/20 dark:border-gray-700/20">
-        <div className="sticky top-0 bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm border-b border-gray-200/60 dark:border-gray-700/60 px-4 sm:px-6 py-4 rounded-t-xl sm:rounded-t-2xl">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg sm:rounded-xl flex items-center justify-center shadow-lg">
-                <Edit3 className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-              </div>
-              <div>
-                <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">Edit Vehicle Information</h2>
-                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Update vehicle details and information</p>
-              </div>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-            >
-              <X className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500 dark:text-gray-400" />
-            </button>
-          </div>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-6">
-          {/* Vehicle Identification */}
-          <div>
-            <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-3 sm:mb-4 flex items-center gap-2">
-              <Car className="w-4 h-4 sm:w-5 sm:h-5" />
-              Vehicle Identification
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  VIN Number *
-                </label>
-                <input
-                  type="text"
-                  value={formData.vin}
-                  onChange={(e) => handleInputChange('vin', e.target.value.toUpperCase())}
-                  placeholder="Enter 17-character VIN"
-                  maxLength={17}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
-                    errors.vin ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
-                  }`}
-                />
-                {errors.vin && <p className="text-red-600 dark:text-red-400 text-sm mt-1">{errors.vin}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Year *
-                </label>
-                <input
-                  type="number"
-                  value={formData.year}
-                  onChange={(e) => handleInputChange('year', parseInt(e.target.value))}
-                  min="1900"
-                  max={new Date().getFullYear() + 1}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
-                    errors.year ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
-                  }`}
-                />
-                {errors.year && <p className="text-red-600 dark:text-red-400 text-sm mt-1">{errors.year}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Make *
-                </label>
-                <input
-                  type="text"
-                  value={formData.make}
-                  onChange={(e) => handleInputChange('make', e.target.value)}
-                  placeholder="e.g., Honda"
-                  list="makes"
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
-                    errors.make ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
-                  }`}
-                />
-                <datalist id="makes">
-                  {popularMakes.map(make => (
-                    <option key={make} value={make} />
-                  ))}
-                </datalist>
-                {errors.make && <p className="text-red-600 dark:text-red-400 text-sm mt-1">{errors.make}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Model *
-                </label>
-                <input
-                  type="text"
-                  value={formData.model}
-                  onChange={(e) => handleInputChange('model', e.target.value)}
-                  placeholder="e.g., Accord"
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
-                    errors.model ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
-                  }`}
-                />
-                {errors.model && <p className="text-red-600 dark:text-red-400 text-sm mt-1">{errors.model}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Trim Level
-                </label>
-                <input
-                  type="text"
-                  value={formData.trim}
-                  onChange={(e) => handleInputChange('trim', e.target.value)}
-                  placeholder="e.g., Sport, LX, EX"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Vehicle Details */}
-          <div>
-            <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-3 sm:mb-4 flex items-center gap-2">
-              <Gauge className="w-4 h-4 sm:w-5 sm:h-5" />
-              Vehicle Details
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Mileage *
-                </label>
-                <input
-                  type="text"
-                  value={formData.mileage}
-                  onChange={(e) => {
-                    const numericValue = e.target.value.replace(/[^0-9]/g, '');
-                    handleInputChange('mileage', numericValue);
-                  }}
-                  placeholder="Enter mileage"
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
-                    errors.mileage ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
-                  }`}
-                />
-                {errors.mileage && <p className="text-red-600 dark:text-red-400 text-sm mt-1">{errors.mileage}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  <Palette className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />
-                  Color *
-                </label>
-                <input
-                  type="text"
-                  value={formData.color}
-                  onChange={(e) => handleInputChange('color', e.target.value)}
-                  placeholder="e.g., Pearl White"
-                  list="colors"
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
-                    errors.color ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
-                  }`}
-                />
-                <datalist id="colors">
-                  {popularColors.map(color => (
-                    <option key={color} value={color} />
-                  ))}
-                </datalist>
-                {errors.color && <p className="text-red-600 dark:text-red-400 text-sm mt-1">{errors.color}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  <MapPin className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />
-                  Location *
-                </label>
-                <input
-                  type="text"
-                  value={formData.location}
-                  onChange={(e) => handleInputChange('location', e.target.value)}
-                  placeholder="e.g., Lot A-12, Indoor-05"
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
-                    errors.location ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
-                  }`}
-                />
-                {errors.location && <p className="text-red-600 dark:text-red-400 text-sm mt-1">{errors.location}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  <DollarSign className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1" />
-                  Price *
-                </label>
-                <input
-                  type="text"
-                  value={formData.price}
-                  onChange={(e) => {
-                    const numericValue = e.target.value.replace(/[^0-9.]/g, '');
-                    handleInputChange('price', numericValue);
-                  }}
-                  placeholder="Enter price"
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
-                    errors.price ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
-                  }`}
-                />
-                {errors.price && <p className="text-red-600 dark:text-red-400 text-sm mt-1">{errors.price}</p>}
-              </div>
-            </div>
-          </div>
-
-          {/* Dates */}
-          <div>
-            <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-3 sm:mb-4 flex items-center gap-2">
-              <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />
-              Important Dates
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Date Acquired *
-                </label>
-                <input
-                  type="date"
-                  value={formData.dateAcquired}
-                  onChange={(e) => handleInputChange('dateAcquired', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Target Sale Date
-                </label>
-                <input
-                  type="date"
-                  value={formData.targetSaleDate}
-                  onChange={(e) => handleInputChange('targetSaleDate', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Notes */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Vehicle Notes
-            </label>
-            <textarea
-              value={formData.notes}
-              onChange={(e) => handleInputChange('notes', e.target.value)}
-              placeholder="Add any notes about this vehicle..."
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm sm:text-base bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            />
-          </div>
-
-          {/* Form Actions */}
-          <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-200/60 dark:border-gray-700/60">
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="flex-1 px-4 sm:px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 font-semibold shadow-lg text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {isLoading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  Save Changes
-                </>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isLoading}
-              className="flex-1 px-4 sm:px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-all duration-200 font-semibold text-sm sm:text-base disabled:opacity-50"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
 
 const VehicleDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { dealership, user } = useAuth();
+  const { user } = useAuth();
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [inspectionSettings, setInspectionSettings] = useState<InspectionSettings | null>(null);
-  const [showCustomerPdf, setShowCustomerPdf] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
-  const [inspectionData, setInspectionData] = useState<any>({});
-  const [isEditingVehicle, setIsEditingVehicle] = useState(false);
+  const [isEditingNotes, setIsEditingNotes] = useState(false);
+  const [editedNotes, setEditedNotes] = useState('');
+  const [rightPanelView, setRightPanelView] = useState<'inspection' | 'team-notes'>('inspection');
+  const [showPdfModal, setShowPdfModal] = useState(false);
+  
+  // NEW: Location editing state
+  const [isEditingLocation, setIsEditingLocation] = useState(false);
+  const [editedLocation, setEditedLocation] = useState('');
+
+  const [inspectionData, setInspectionData] = useState<any>(null);
+  const [inspectionLoading, setInspectionLoading] = useState(true);
+  const [inspectionSettings, setInspectionSettings] = useState<any>(null);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [customSections, setCustomSections] = useState<any[]>([]);
+
+  // console.log('[VehicleDetail] Render', { vehicle });
 
   useEffect(() => {
-    if (dealership && id) {
-      loadVehicle();
-      loadInspectionSettings();
+    if (id && user && user.dealershipId) {
+      loadVehicle(id, user.dealershipId);
     }
-  }, [dealership, id]);
+  }, [id, user?.dealershipId]);
 
-  const loadVehicle = async () => {
-    if (!dealership || !id) return;
-    
-    try {
-      const vehicleData = await VehicleManager.getVehicleById(dealership.id, id);
-      if (vehicleData) {
-        setVehicle(vehicleData);
-      } else {
-        console.error('Vehicle not found');
-        navigate('/');
+  useEffect(() => {
+    if (!vehicle || !user) return;
+    setInspectionLoading(true);
+    InspectionDataManager.loadInspectionData(vehicle.id, user.id)
+      .then(data => setInspectionData(data || {}))
+      .finally(() => setInspectionLoading(false));
+  }, [vehicle?.id, user?.id]);
+
+  // Listen for inspection data changes to update status badges in real-time
+  const handleInspectionDataChange = (newData: any) => {
+    setInspectionData(newData);
+  };
+  // Load inspection settings
+  useEffect(() => {
+    if (!user?.dealershipId) return;
+    setSettingsLoaded(false);
+    InspectionDataManager.getSettings(user.dealershipId)
+      .then(settings => {
+        setInspectionSettings(settings);
+        setSettingsLoaded(true);
+      })
+      .catch(error => {
+        console.error('Error loading inspection settings:', error);
+        setInspectionSettings(null);
+        setSettingsLoaded(true);
+      });
+  }, [user?.dealershipId]);
+
+  // Load custom sections from inspection settings
+  useEffect(() => {
+    const loadCustomSections = async () => {
+      if (!user?.dealershipId) return;
+      
+      try {
+        const settings = await InspectionDataManager.getSettings(user.dealershipId);
+        if (settings) {
+          const customSectionsList = settings.sections
+            .filter((section: any) => section.isActive)
+            .sort((a: any, b: any) => a.order - b.order);
+          setCustomSections(customSectionsList);
+        }
+      } catch (error) {
+        console.error('Error loading custom sections:', error);
+        setCustomSections([]);
+      } finally {
+        setSettingsLoaded(true);
       }
-    } catch (error) {
-      console.error('Error loading vehicle:', error);
-      navigate('/');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const loadInspectionSettings = async () => {
-    if (!dealership) return;
-    
-    try {
-      await InspectionDataManager.initializeDefaultSettings(dealership.id);
-      const settings = await InspectionDataManager.getSettings(dealership.id);
-      setInspectionSettings(settings);
-    } catch (error) {
-      console.error('Error loading inspection settings:', error);
-    }
-  };
-
-  const handleStatusUpdate = async (section: string, status: any) => {
-    if (!dealership || !vehicle) return;
-
-    try {
-      const updatedVehicle = await VehicleManager.updateVehicleStatus(dealership.id, vehicle.id, section, status);
-      if (updatedVehicle) {
-        setVehicle(updatedVehicle);
-      }
-    } catch (error) {
-      console.error('Error updating vehicle status:', error);
-    }
-  };
-
-  const handleSectionComplete = async (section: string, userInitials: string) => {
-    if (!vehicle) return;
-
-    // Record analytics for section completion
-    AnalyticsManager.recordCompletion(
-      vehicle.id,
-      `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
-      section as any,
-      userInitials
-    );
-  };
-
-  const handleAddTeamNote = async (noteData: Omit<TeamNote, 'id' | 'timestamp'>) => {
-    if (!dealership || !vehicle) return;
-
-    const newNote: TeamNote = {
-      ...noteData,
-      id: `note-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      timestamp: new Date().toISOString()
     };
 
-    try {
-      const updatedVehicle = await VehicleManager.addTeamNote(dealership.id, vehicle.id, newNote);
-      if (updatedVehicle) {
-        setVehicle(updatedVehicle);
-      }
-    } catch (error) {
-      console.error('Error adding team note:', error);
+    loadCustomSections();
+  }, [user?.dealershipId]);
+
+  const loadVehicle = async (vehicleId: string, dealershipId: string) => {
+    setIsLoading(true);
+    const vehicle = await VehicleManager.getVehicleById(dealershipId, vehicleId);
+    if (vehicle) {
+      setVehicle(vehicle);
+      setEditedNotes(vehicle.notes || '');
+      setEditedLocation(vehicle.location);
+    } else {
+      setVehicle(null);
+    }
+    setIsLoading(false);
+  };
+
+  // Handler for team notes tab click - reloads vehicle data to get latest team notes
+  const handleTeamNotesClick = async () => {
+    setRightPanelView('team-notes');
+    if (id && user?.dealershipId) {
+      console.log('🔄 Reloading vehicle data for fresh team notes...');
+      await loadVehicle(id, user.dealershipId);
+      console.log('✅ Vehicle data reloaded with latest team notes');
     }
   };
 
-  const handleVehicleUpdate = async (updatedVehicleData: Partial<Vehicle>) => {
-    if (!dealership) return;
+  // These functions are no longer needed since we're not using vehicle.status object
+  // Status is now calculated from inspection data, not stored in vehicle.status
+  const handleStatusUpdate = (section: string, status: InspectionStatus) => {
+    console.log('[VehicleDetail] handleStatusUpdate - Status updates now handled by inspection data');
+    // This function is deprecated - status is now calculated from inspection data
+  };
 
-    try {
-      const updatedVehicle = await VehicleManager.updateVehicle(dealership.id, vehicle.id, updatedVehicleData);
-      if (updatedVehicle) {
-        setVehicle(updatedVehicle);
-        setIsEditingVehicle(false);
-        alert('Vehicle information updated successfully!');
-      } else {
-        alert('Failed to update vehicle information. Please try again.');
-      }
-    } catch (error) {
-      console.error('Error updating vehicle:', error);
-      alert('Error updating vehicle information. Please try again.');
+  const handleSectionComplete = (section: string, userInitials: string) => {
+    console.log('[VehicleDetail] handleSectionComplete - Status updates now handled by inspection data');
+    // This function is deprecated - status is now calculated from inspection data
+    // Record analytics
+    if (vehicle) {
+      const vehicleName = `${vehicle.year} ${vehicle.make} ${vehicle.model}`;
+      AnalyticsManager.recordCompletion(
+        vehicle.id, 
+        vehicleName, 
+        section as any, 
+        userInitials
+      );
     }
+  };
+
+  const handleAddTeamNote = (note: Omit<TeamNote, 'id' | 'timestamp'>) => {
+    console.log('[VehicleDetail] handleAddTeamNote', note);
+    if (!vehicle) return;
+    const newNote: TeamNote = {
+      ...note,
+      id: Date.now().toString(),
+      timestamp: new Date().toISOString()
+    };
+    const updatedVehicle = {
+      ...vehicle,
+      teamNotes: [newNote, ...(vehicle.teamNotes || [])]
+    };
+    saveVehicleUpdate(updatedVehicle);
+  };
+
+  const handleSaveNotes = () => {
+    console.log('[VehicleDetail] handleSaveNotes');
+    if (!vehicle) return;
+    const updatedVehicle = {
+      ...vehicle,
+      notes: editedNotes.trim() || undefined
+    };
+    saveVehicleUpdate(updatedVehicle);
+    setIsEditingNotes(false);
+  };
+
+  const handleCancelEditNotes = () => {
+    setEditedNotes(vehicle?.notes || '');
+    setIsEditingNotes(false);
+  };
+
+  // NEW: Location update handlers
+  const handleSaveLocation = () => {
+    console.log('[VehicleDetail] handleSaveLocation');
+    if (!vehicle || !user) return;
+    const oldLocation = vehicle.location;
+    const newLocation = editedLocation.trim();
+    
+    if (oldLocation === newLocation) {
+      setIsEditingLocation(false);
+      return;
+    }
+
+    const updatedVehicle = {
+      ...vehicle,
+      location: newLocation,
+      locationChangedBy: user.initials,
+      locationChangedDate: new Date().toISOString()
+    };
+
+    // Add team note about location change
+    const locationNote: TeamNote = {
+      id: Date.now().toString(),
+      text: `Vehicle location changed from "${oldLocation}" to "${newLocation}".`,
+      userInitials: user.initials,
+      timestamp: new Date().toISOString(),
+      category: 'general'
+    };
+
+    updatedVehicle.teamNotes = [locationNote, ...(vehicle.teamNotes || [])];
+
+    saveVehicleUpdate(updatedVehicle);
+    setIsEditingLocation(false);
+  };
+
+  const handleCancelEditLocation = () => {
+    setEditedLocation(vehicle?.location || '');
+    setIsEditingLocation(false);
+  };
+
+  const handleMarkAsSold = async () => {
+    if (!vehicle || !user) return;
+    
+    // Check if already sold - if so, unmark it
+    if (vehicle.status === 'sold') {
+      const confirmation = confirm('Are you sure you want to unmark this vehicle as sold?');
+      if (!confirmation) return;
+
+      const updatedVehicle = {
+        ...vehicle,
+        status: null // Clear the status
+      };
+
+      // Add team note about status change
+      const statusNote: TeamNote = {
+        id: Date.now().toString(),
+        text: `Vehicle unmarked as sold by ${user.firstName} ${user.lastName}.`,
+        userInitials: user.initials,
+        timestamp: new Date().toISOString(),
+        category: 'general'
+      };
+
+      updatedVehicle.teamNotes = [statusNote, ...(vehicle.teamNotes || [])];
+      await saveVehicleUpdate(updatedVehicle);
+    } else {
+      // Mark as sold
+      const confirmation = confirm('Are you sure you want to mark this vehicle as sold?');
+      if (!confirmation) return;
+
+      const updatedVehicle = {
+        ...vehicle,
+        status: 'sold' as const
+      };
+
+      // Add team note about status change
+      const statusNote: TeamNote = {
+        id: Date.now().toString(),
+        text: `Vehicle marked as sold by ${user.firstName} ${user.lastName}.`,
+        userInitials: user.initials,
+        timestamp: new Date().toISOString(),
+        category: 'general'
+      };
+
+      updatedVehicle.teamNotes = [statusNote, ...(vehicle.teamNotes || [])];
+      await saveVehicleUpdate(updatedVehicle);
+    }
+  };
+
+  const handleMarkAsPending = async () => {
+    if (!vehicle || !user) return;
+    
+    // Check if already pending - if so, unmark it
+    if (vehicle.status === 'pending') {
+      const confirmation = confirm('Are you sure you want to unmark this vehicle as pending?');
+      if (!confirmation) return;
+
+      const updatedVehicle = {
+        ...vehicle,
+        status: null // Clear the status
+      };
+
+      // Add team note about status change
+      const statusNote: TeamNote = {
+        id: Date.now().toString(),
+        text: `Vehicle unmarked as pending by ${user.firstName} ${user.lastName}.`,
+        userInitials: user.initials,
+        timestamp: new Date().toISOString(),
+        category: 'general'
+      };
+
+      updatedVehicle.teamNotes = [statusNote, ...(vehicle.teamNotes || [])];
+      await saveVehicleUpdate(updatedVehicle);
+    } else {
+      // Mark as pending
+      const confirmation = confirm('Are you sure you want to mark this vehicle as pending?');
+      if (!confirmation) return;
+
+      const updatedVehicle = {
+        ...vehicle,
+        status: 'pending' as const
+      };
+
+      // Add team note about status change
+      const statusNote: TeamNote = {
+        id: Date.now().toString(),
+        text: `Vehicle marked as pending by ${user.firstName} ${user.lastName}.`,
+        userInitials: user.initials,
+        timestamp: new Date().toISOString(),
+        category: 'general'
+      };
+
+      updatedVehicle.teamNotes = [statusNote, ...(vehicle.teamNotes || [])];
+      await saveVehicleUpdate(updatedVehicle);
+    }
+  };
+
+  const saveVehicleUpdate = async (updatedVehicle: Vehicle) => {
+    console.log('[VehicleDetail] saveVehicleUpdate', updatedVehicle);
+    if (!user || !user.dealershipId) return;
+    setIsLoading(true);
+    const dealershipId = user.dealershipId;
+    const vehicleId = updatedVehicle.id;
+    const result = await VehicleManager.updateVehicle(dealershipId, vehicleId, updatedVehicle);
+    if (result) {
+      setVehicle(result);
+    } else {
+      console.error('Error updating vehicle');
+    }
+    setIsLoading(false);
+  };
+
+  // 🎯 NEW: Mobile scroll to section functionality
+  const handleMobileSectionClick = (section: string) => {
+    // Set the active filter
+    setActiveFilter(activeFilter === section ? null : section);
+    
+    // Switch to inspection view if not already there
+    if (rightPanelView !== 'inspection') {
+      setRightPanelView('inspection');
+    }
+    
+    // Scroll to the inspection content area on mobile
+    setTimeout(() => {
+      const inspectionElement = document.getElementById('mobile-inspection-content');
+      if (inspectionElement) {
+        inspectionElement.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start',
+          inline: 'nearest'
+        });
+      }
+    }, 100); // Small delay to ensure state updates are processed
+  };
+
+  const getOverallProgress = () => {
+    if (!vehicle) return 0;
+    
+    // Use the new detailed progress calculator with dynamic sections
+    return ProgressCalculator.calculateDetailedProgress(vehicle.id, vehicle, allSections);
+  };
+
+  const getStockNumber = (vin: string): string => {
+    return vin.slice(-6);
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      month: 'short',
+    const date = new Date(dateStr);
+    if (!dateStr || isNaN(date.getTime())) return 'N/A';
+    return date.toLocaleDateString('en-US', {
+      month: 'long',
       day: 'numeric',
       year: 'numeric'
     });
   };
 
-  const getDaysInInventory = () => {
-    if (!vehicle) return 0;
-    const acquiredDate = new Date(vehicle.dateAcquired);
-    const today = new Date();
-    const diffTime = Math.abs(today.getTime() - acquiredDate.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
+  const formatPrice = (price: number) => {
+    // Just show the number, no $ sign
+    return price.toLocaleString('en-US', { minimumFractionDigits: 0 });
   };
 
-  const getActiveSections = () => {
-    if (!inspectionSettings) return [];
-    return inspectionSettings.sections
-      .filter(section => section.isActive)
-      .sort((a, b) => a.order - b.order);
+  // Helper function to truncate long section labels
+  const truncateLabel = (label: string, maxLength: number = 15) => {
+    if (label.length <= maxLength) return label;
+    return label.substring(0, maxLength).trim() + '...';
   };
 
-  const filteredSections = activeFilter 
-    ? getActiveSections().filter(section => section.key === activeFilter)
-    : getActiveSections();
+  const getSummaryNotes = () => {
+    if (!vehicle?.teamNotes) return [];
+    return vehicle.teamNotes.filter(note => note.category === 'summary');
+  };
+
+  // NEW: Get location style for visual indication
+  const getLocationStyle = (location: string | undefined | null) => {
+    if (!location) {
+      return {
+        bgColor: 'bg-green-100',
+        textColor: 'text-green-800',
+        borderColor: 'border-green-200'
+      };
+    }
+    const locationLower = location.toLowerCase();
+    
+    // Check for RED indicators (Transit/Transport)
+    if (locationLower.includes('transit') ||
+        locationLower.includes('transport')) {
+      return {
+        bgColor: 'bg-red-100',
+        textColor: 'text-red-800',
+        borderColor: 'border-red-200'
+      };
+    }
+    
+    // Check for YELLOW indicators (Off-site)
+    if (locationLower.includes('off-site') || 
+        locationLower.includes('storage') || 
+        locationLower.includes('external')) {
+      return {
+        bgColor: 'bg-yellow-100',
+        textColor: 'text-yellow-800',
+        borderColor: 'border-yellow-200'
+      };
+    }
+    
+    // Default to GREEN (On-site)
+    return {
+      bgColor: 'bg-green-100',
+      textColor: 'text-green-800',
+      borderColor: 'border-green-200'
+    };
+  };
+
+  // Helper for section status using only allowed InspectionStatus values
+  const getSectionStatus = (sectionKey: string, inspectionData: any): InspectionStatus => {
+    const items = inspectionData?.[sectionKey] || [];
+    if (!Array.isArray(items) || items.length === 0) return 'not-started';
+    
+    // Get all items for this section from inspection settings
+    const sectionSettings = allSections.find((s: any) => s.key === sectionKey);
+    if (!sectionSettings) return 'not-started';
+    
+    const allSectionItems = sectionSettings.items || [];
+    
+    // Check if ALL items have been inspected (no missing items and no 'not-checked' ratings)
+    const inspectedItems = items.filter((item: any) => item.rating && item.rating !== 'not-checked');
+    
+    // If not all items have been inspected, stay gray
+    if (inspectedItems.length < allSectionItems.length) return 'not-started';
+    
+    // If any inspected item is 'not-checked', return 'not-started' (grey)
+    if (items.some((item: any) => item.rating === 'not-checked' || !item.rating)) return 'not-started';
+    // Priority logic for fully inspected sections:
+    
+    // Now check the actual ratings since all items are inspected
+    if (items.some((item: any) => item.rating === 'N')) return 'needs-attention';
+    if (items.some((item: any) => item.rating === 'F')) return 'pending';
+    if (items.every((item: any) => item.rating === 'G')) return 'completed';
+    return 'not-started';
+  };
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 dark:from-gray-900 dark:via-gray-800/30 dark:to-gray-900/20 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 animate-pulse">
             <Car className="w-8 h-8 text-white" />
           </div>
-          <p className="text-gray-600 dark:text-gray-400 font-medium">Loading vehicle details...</p>
+          <p className="text-gray-600 font-medium">Loading vehicle details...</p>
         </div>
       </div>
     );
@@ -580,264 +488,825 @@ const VehicleDetail: React.FC = () => {
 
   if (!vehicle) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 dark:from-gray-900 dark:via-gray-800/30 dark:to-gray-900/20 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 flex items-center justify-center">
         <div className="text-center">
-          <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Vehicle Not Found</h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">The requested vehicle could not be found.</p>
+          <div className="w-16 h-16 bg-gray-300 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <Car className="w-8 h-8 text-gray-500" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Vehicle Not Found</h2>
+          <p className="text-gray-600 mb-6">The vehicle you're looking for doesn't exist.</p>
           <button
             onClick={() => navigate('/')}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
           >
-            Return to Dashboard
+            <ArrowLeft className="w-4 h-4" />
+            Back to Dashboard
           </button>
         </div>
       </div>
     );
   }
 
-  const stockNumber = getStockNumber(vehicle.vin);
-  const daysInInventory = getDaysInInventory();
+  const summaryNotes = getSummaryNotes();
+  
+  // Get all sections from inspection settings first
+  const allSections = inspectionSettings?.sections
+    ?.filter((section: any) => section.isActive)
+    ?.sort((a: any, b: any) => a.order - b.order) || [];
+
+  // Check if vehicle is ready for sale based on inspection data (all ratings are 'G')
+  const isReadyForSale = inspectionData && allSections.length > 0 && (() => {
+    const sectionKeys = allSections.map((section: any) => section.key);
+    
+    // Check each section to ensure it's fully inspected and all items are 'G'
+    for (const sectionKey of sectionKeys) {
+      const section = allSections.find((s: any) => s.key === sectionKey);
+      if (!section || !section.items || section.items.length === 0) {
+        continue; // Skip sections with no items
+      }
+      
+      const inspectedItems = inspectionData[sectionKey] || [];
+      const sectionItems = section.items.filter((item: any) => item.isActive);
+      
+      // If this section doesn't have data for all its items, not ready
+      if (inspectedItems.length < sectionItems.length) {
+        return false;
+      }
+      
+      // Check if ALL items in this section are rated 'G'
+      for (const inspectedItem of inspectedItems) {
+        if (!inspectedItem.rating || inspectedItem.rating !== 'G') {
+          return false;
+        }
+      }
+    }
+    
+    // Only ready for sale if we actually have sections with items to inspect
+    const totalActiveItems = allSections.reduce((count: number, section: any) => {
+      return count + (section.items?.filter((item: any) => item.isActive)?.length || 0);
+    }, 0);
+    
+    return totalActiveItems > 0; // Only ready if there are items to inspect and all are 'G'
+  })();
+  
+  const locationStyle = getLocationStyle(vehicle.location);
+
+  // Section status and progress logic
+  const sectionKeys = allSections.map((section: any) => section.key);
+  const allSectionKeys = [...sectionKeys, ...customSections.map(s => s.key)];
+  const sectionStatuses = sectionKeys.reduce((acc: Record<string, InspectionStatus>, key: string) => {
+    acc[key] = getSectionStatus(key, inspectionData);
+    return acc;
+  }, {} as Record<string, InspectionStatus>);
+
+  // Add custom section statuses
+  const allSectionStatuses = { ...sectionStatuses };
+  customSections.forEach(section => {
+    allSectionStatuses[section.key] = getSectionStatus(section.key, inspectionData);
+  });
+
+  // Count sections that are 'completed', 'pending', or 'needs-attention' as completed for progress
+  const completedSections = allSectionKeys.filter(key => {
+    const status = allSectionStatuses[key];
+    return status === 'completed' || status === 'pending' || status === 'needs-attention';
+  }).length;
+  const overallProgress = Math.round((completedSections / allSectionKeys.length) * 100);
+
+  // Guard: show loading state until inspectionData is loaded
+  if (inspectionLoading || !settingsLoaded) {
+    return <div>Loading inspection data...</div>;
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 dark:from-gray-900 dark:via-gray-800/30 dark:to-gray-900/20 transition-colors duration-300">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
       {/* Header */}
-      <header className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-lg border-b border-white/20 dark:border-gray-700/20 transition-colors duration-300">
+      <div className="bg-white/80 backdrop-blur-sm shadow-lg border-b border-white/20 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-4 sm:py-6">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between py-4">
+            <div className="flex items-center gap-4">
               <button
                 onClick={() => navigate('/')}
-                className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center">
-                <Car className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-              </div>
               <div>
-                <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">
+                <h1 className="text-xl font-bold text-gray-900">
                   {vehicle.year} {vehicle.make} {vehicle.model}
+                  {vehicle.trim && <span className="text-gray-600 font-normal"> {vehicle.trim}</span>}
                 </h1>
-                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Stock #{stockNumber}</p>
-              </div>
-            </div>
-            
-            <button
-              onClick={() => setShowCustomerPdf(true)}
-              className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium text-sm"
-            >
-              <FileText className="w-4 h-4" />
-              <span className="hidden sm:inline">Customer PDF</span>
-              <span className="sm:hidden">PDF</span>
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
-          {/* Left Column - Vehicle Info & Notes */}
-          <div className="lg:col-span-1 space-y-6">
-            {/* Vehicle Information */}
-            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/20 p-4 sm:p-6 transition-colors duration-300">
-              <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-4 sm:mb-6">Vehicle Information</h2>
-              
-              <div className="space-y-3 sm:space-y-4">
-                <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">
-                      <Hash className="w-3 h-3 inline mr-1" />
-                      Stock Number
-                    </label>
-                    <p className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white">{stockNumber}</p>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">
-                      <Calendar className="w-3 h-3 inline mr-1" />
-                      Days in Inventory
-                    </label>
-                    <p className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white">{daysInInventory} days</p>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">
-                    VIN
-                  </label>
-                  <p className="text-sm sm:text-base font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-gray-900 dark:text-white">{vehicle.vin}</p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">
-                      <Gauge className="w-3 h-3 inline mr-1" />
-                      Mileage
-                    </label>
-                    <p className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white">{vehicle.mileage.toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">
-                      <Palette className="w-3 h-3 inline mr-1" />
-                      Color
-                    </label>
-                    <p className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white">{vehicle.color}</p>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">
-                    <MapPin className="w-3 h-3 inline mr-1" />
-                    Location
-                  </label>
-                  <p className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white">{vehicle.location}</p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">
-                      Date Acquired
-                    </label>
-                    <p className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white">{formatDate(vehicle.dateAcquired)}</p>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">
-                      <DollarSign className="w-3 h-3 inline mr-1" />
-                      Price
-                    </label>
-                    <p className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white">${vehicle.price.toLocaleString()}</p>
-                  </div>
-                </div>
-
-                {vehicle.targetSaleDate && (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">
-                      Target Sale Date
-                    </label>
-                    <p className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white">{formatDate(vehicle.targetSaleDate)}</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Edit Button */}
-              <div className="mt-4 pt-4 border-t border-gray-200/60 dark:border-gray-700/60">
-                <button
-                  onClick={() => setIsEditingVehicle(true)}
-                  className="w-full sm:w-auto px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors font-medium text-sm flex items-center justify-center gap-2"
-                >
-                  <Edit3 className="w-4 h-4" />
-                  Edit Vehicle Information
-                </button>
-              </div>
-            </div>
-
-            {/* Vehicle Edit Modal */}
-            {isEditingVehicle && (
-              <VehicleEditModal
-                vehicle={vehicle}
-                isOpen={isEditingVehicle}
-                onClose={() => setIsEditingVehicle(false)}
-                onSave={handleVehicleUpdate}
-              />
-            )}
-
-            {/* Vehicle Notes Section */}
-            {vehicle.notes && (
-              <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/20 p-4 sm:p-6 transition-colors duration-300">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                  <FileText className="w-5 h-5" />
-                  Vehicle Notes
-                </h3>
-                <div className="p-3 sm:p-4 bg-amber-50/80 dark:bg-amber-900/60 backdrop-blur-sm rounded-lg border border-amber-200/60 dark:border-amber-800/60">
-                  <div className="flex items-start gap-2">
-                    <div className="w-4 h-4 bg-amber-100 dark:bg-amber-800 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <AlertTriangle className="w-2.5 h-2.5 text-amber-600 dark:text-amber-300" />
+                <p className="text-sm text-gray-600">Stock #{getStockNumber(vehicle.vin)}</p>
+                
+                {/* Mobile Status Badges - Below Stock Number */}
+                <div className="flex flex-wrap items-center gap-2 mt-1 lg:hidden">
+                  {isEditingLocation ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={editedLocation}
+                        onChange={(e) => setEditedLocation(e.target.value)}
+                        className="px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs min-w-[120px]"
+                        placeholder="Enter location"
+                        autoFocus
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            handleSaveLocation();
+                          } else if (e.key === 'Escape') {
+                            handleCancelEditLocation();
+                          }
+                        }}
+                      />
+                      <button
+                        onClick={handleSaveLocation}
+                        className="p-1 text-green-600 hover:bg-green-50 rounded transition-colors"
+                        title="Save location"
+                      >
+                        <Save className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={handleCancelEditLocation}
+                        className="p-1 text-gray-600 hover:bg-gray-50 rounded transition-colors"
+                        title="Cancel"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
                     </div>
-                    <p className="text-sm sm:text-base text-amber-700 dark:text-amber-100 font-medium leading-relaxed">
-                      {vehicle.notes}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Team Notes */}
-            <TeamNotes 
-              notes={vehicle.teamNotes || []} 
-              onAddNote={handleAddTeamNote}
-            />
-          </div>
-
-          {/* Right Column - Inspection */}
-          <div className="lg:col-span-2">
-            {/* Section Filter */}
-            {inspectionSettings && (
-              <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 p-3 sm:p-4 mb-6 transition-colors duration-300">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Filter sections:</span>
-                  <button
-                    onClick={() => setActiveFilter(null)}
-                    className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                      activeFilter === null
-                        ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                    }`}
-                  >
-                    All Sections
-                  </button>
-                  {getActiveSections().map((section) => (
+                  ) : (
                     <button
-                      key={section.id}
-                      onClick={() => setActiveFilter(activeFilter === section.key ? null : section.key)}
-                      className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                        activeFilter === section.key
-                          ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-                          : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                      }`}
+                      onClick={() => setIsEditingLocation(true)}
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium border transition-all duration-200 ${locationStyle.bgColor} ${locationStyle.textColor} ${locationStyle.borderColor}`}
+                      title="Click to edit location"
                     >
-                      {section.icon} {section.label}
+                      <MapPin className="w-3 h-3" />
+                      <span>{vehicle.location || 'N/A'}</span>
+                      <Edit3 className="w-2 h-2 opacity-60" />
                     </button>
-                  ))}
-                  {activeFilter && (
-                    <button
-                      onClick={() => setActiveFilter(null)}
-                      className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 rounded"
-                      title="Clear filter"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
+                  )}
+                  
+                  {isReadyForSale && (
+                    <div className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-xs font-semibold border border-emerald-200">
+                      <CheckCircle2 className="w-3 h-3" />
+                      Ready for Sale
+                    </div>
+                  )}
+                  {vehicle.status === 'pending' && (
+                    <div className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs font-semibold border border-purple-200">
+                      <Clock className="w-3 h-3" />
+                      Pending
+                    </div>
+                  )}
+                  {vehicle.status === 'sold' && (
+                    <div className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-semibold border border-red-200">
+                      <Archive className="w-3 h-3" />
+                      Sold
+                    </div>
                   )}
                 </div>
               </div>
-            )}
+            </div>
+            
+            {/* Desktop Status Badges - Right Side */}
+            <div className="hidden lg:flex items-center gap-4">
+              {/* Editable Location Status */}
+              <div className="flex items-center gap-2">
+                {isEditingLocation ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={editedLocation}
+                      onChange={(e) => setEditedLocation(e.target.value)}
+                      className="px-3 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm min-w-[120px]"
+                      placeholder="Enter location"
+                      autoFocus
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          handleSaveLocation();
+                        } else if (e.key === 'Escape') {
+                          handleCancelEditLocation();
+                        }
+                      }}
+                    />
+                    <button
+                      onClick={handleSaveLocation}
+                      className="p-1 text-green-600 hover:bg-green-50 rounded transition-colors"
+                      title="Save location"
+                    >
+                      <Save className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={handleCancelEditLocation}
+                      className="p-1 text-gray-600 hover:bg-gray-50 rounded transition-colors"
+                      title="Cancel"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setIsEditingLocation(true)}
+                    className={`inline-flex items-center gap-2 px-3 py-1 rounded-lg text-sm font-medium border transition-all duration-200 hover:shadow-md ${locationStyle.bgColor} ${locationStyle.textColor} ${locationStyle.borderColor}`}
+                    title="Click to edit location"
+                  >
+                    <MapPin className="w-4 h-4" />
+                    <span>{vehicle.location || 'N/A'}</span>
+                    <Edit3 className="w-3 h-3 opacity-60" />
+                  </button>
+                )}
+              </div>
 
-            {/* Inspection Checklist */}
-            <InspectionChecklist
-              vehicleId={vehicle.id}
-              vehicleName={`${vehicle.year} ${vehicle.make} ${vehicle.model}`}
-              vehicle={vehicle}
-              onStatusUpdate={handleStatusUpdate}
-              onSectionComplete={handleSectionComplete}
-              onAddTeamNote={handleAddTeamNote}
-              activeFilter={activeFilter}
-              onGeneratePdf={() => setShowCustomerPdf(true)}
-              onInspectionDataChange={setInspectionData}
-              onTeamNoteAdded={(note) => {
-                setVehicle(prev => prev ? {
-                  ...prev,
-                  teamNotes: [note, ...(prev.teamNotes || [])]
-                } : null);
-              }}
-            />
+              {isReadyForSale && (
+                <div className="flex items-center gap-2 px-4 py-2 bg-emerald-100 text-emerald-700 rounded-full text-sm font-semibold border border-emerald-200">
+                  <CheckCircle2 className="w-4 h-4" />
+                  Ready for Sale
+                </div>
+              )}
+              {vehicle.status === 'pending' && (
+                <div className="flex items-center gap-2 px-4 py-2 bg-purple-100 text-purple-700 rounded-full text-sm font-semibold border border-purple-200">
+                  <Clock className="w-4 h-4" />
+                  Pending
+                </div>
+              )}
+              {vehicle.status === 'sold' && (
+                <div className="flex items-center gap-2 px-4 py-2 bg-red-100 text-red-700 rounded-full text-sm font-semibold border border-red-200">
+                  <Archive className="w-4 h-4" />
+                  Sold
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Customer PDF Modal */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Mobile Layout */}
+        <div className="lg:hidden space-y-6">
+          {/* Mobile Reconditioning Progress */}
+          <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-900">Reconditioning Progress</h2>
+              <span className="text-2xl font-bold text-gray-900">{overallProgress}%</span>
+            </div>
+            
+            <div className="w-full bg-gray-200 rounded-full h-3 mb-6">
+              <div 
+                className={`h-3 rounded-full transition-all duration-500 ${
+                  overallProgress === 100 
+                    ? 'bg-gradient-to-r from-emerald-500 to-green-600' 
+                    : 'bg-gradient-to-r from-blue-500 to-indigo-600'
+                }`}
+                style={{ width: `${overallProgress}%` }}
+              ></div>
+            </div>
+
+            {/* Status Buttons in Two Columns - Mobile with Scroll */}
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              {allSections.map((section: any, index: number) => {
+                const isLastOdd = allSections.length % 2 === 1 && index === allSections.length - 1;
+                return (
+                  <button
+                    key={section.key}
+                    onClick={() => handleMobileSectionClick(section.key)}
+                    className={`p-3 rounded-lg border transition-all duration-200 ${isLastOdd ? 'col-span-2' : ''} ${
+                      activeFilter === section.key
+                        ? 'border-blue-300 bg-blue-50 shadow-md'
+                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <StatusBadge status={sectionStatuses[section.key]} label={truncateLabel(section.label)} section={section.key} size="sm" />
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Vehicle Notes Section - SMALLER HEADER */}
+            <div className="border-t border-gray-200/60 pt-4 mt-4">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-xs font-medium text-gray-700 flex items-center gap-1">
+                  <FileText className="w-3 h-3" />
+                  Vehicle Notes
+                </h3>
+                {!isEditingNotes && (
+                  <div className="flex items-center gap-2">
+                    {(!vehicle.notes || vehicle.notes.trim() === '') && (
+                      <span
+                        className="text-xs text-blue-600 font-medium cursor-pointer hover:underline"
+                        onClick={() => setIsEditingNotes(true)}
+                      >
+                        Add Issue Notes
+                      </span>
+                    )}
+                    <button
+                      onClick={() => setIsEditingNotes(true)}
+                      className="p-1 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      title={(!vehicle.notes || vehicle.notes.trim() === '') ? 'Add Issue Notes' : 'Edit Notes'}
+                    >
+                      <Edit3 className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
+              </div>
+              {/* Show placeholder if no notes and not editing */}
+              {(!vehicle.notes || vehicle.notes.trim() === '') && !isEditingNotes && (
+                <div className="p-3 bg-gray-50/80 backdrop-blur-sm rounded-lg border border-gray-200/60 text-center">
+                  <p className="text-xs text-gray-600">No notes added yet</p>
+                </div>
+              )}
+              {/* Show textarea if editing */}
+              {isEditingNotes && (
+                <div className="space-y-3">
+                  <textarea
+                    value={editedNotes}
+                    onChange={(e) => setEditedNotes(e.target.value)}
+                    placeholder="Add notes about this vehicle's condition, issues, or important information..."
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleSaveNotes}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                    >
+                      <Save className="w-4 h-4" />
+                      Save
+                    </button>
+                    <button
+                      onClick={handleCancelEditNotes}
+                      className="flex items-center gap-2 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors font-medium"
+                    >
+                      <X className="w-4 h-4" />
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+              {/* Show notes if present and not editing */}
+              {vehicle.notes && vehicle.notes.trim() !== '' && !isEditingNotes && (
+                <div className="p-3 bg-amber-50/80 backdrop-blur-sm rounded-lg border border-amber-200/60">
+                  <div className="flex items-start gap-2">
+                    <div className="w-4 h-4 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <AlertTriangle className="w-2 h-2 text-amber-600" />
+                    </div>
+                    <p className="text-xs text-amber-800 font-medium leading-relaxed">{vehicle.notes}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Mobile Right Panel Toggle */}
+          <div className="bg-white/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 p-4">
+            <div className="flex bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setRightPanelView('inspection')}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium transition-all duration-200 ${
+                  rightPanelView === 'inspection'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <ClipboardList className="w-4 h-4" />
+                Inspection
+              </button>
+              <button
+                onClick={handleTeamNotesClick}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium transition-all duration-200 ${
+                  rightPanelView === 'team-notes'
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <MessageSquare className="w-4 h-4" />
+                Team Notes
+              </button>
+            </div>
+          </div>
+
+          {/* Mobile Content with ID for scrolling */}
+          <div id="mobile-inspection-content">
+            {rightPanelView === 'inspection' ? (
+              vehicle?.id ? (
+                <InspectionChecklist
+                  vehicleId={vehicle.id}
+                  vehicleName={`${vehicle.year} ${vehicle.make} ${vehicle.model}`}
+                  vehicle={vehicle}
+                  onStatusUpdate={handleStatusUpdate}
+                  onSectionComplete={handleSectionComplete}
+                  onAddTeamNote={handleAddTeamNote}
+                  activeFilter={activeFilter}
+                  onGeneratePdf={() => setShowPdfModal(true)}
+                  onInspectionDataChange={setInspectionData}
+                  onTeamNoteAdded={(note: TeamNote) => {
+                    if (!vehicle) return;
+                    setVehicle(prev => prev ? { ...prev, teamNotes: [note, ...(prev.teamNotes || [])] } : prev);
+                  }}
+                />
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  Vehicle ID not available
+                </div>
+              )
+            ) : (
+              <TeamNotes
+                notes={vehicle.teamNotes || []}
+                onAddNote={handleAddTeamNote}
+              />
+            )}
+          </div>
+
+          {/* Mobile Vehicle Information - At Bottom */}
+          <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+              <Car className="w-6 h-6" />
+              Vehicle Information
+            </h2>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">VIN</label>
+                <p className="text-sm font-mono bg-gray-50 p-2 rounded border">{vehicle.vin}</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
+                <p className="text-sm text-gray-900">{vehicle.year}</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Make</label>
+                <p className="text-sm text-gray-900">{vehicle.make}</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
+                <p className="text-sm text-gray-900">{vehicle.model}</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Trim</label>
+                <p className="text-sm text-gray-900">{vehicle.trim || 'N/A'}</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mileage</label>
+                <div className="flex items-center gap-2">
+                  <Gauge className="w-4 h-4 text-gray-500" />
+                  <p className="text-sm text-gray-900">{vehicle.mileage.toLocaleString()}</p>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
+                <div className="flex items-center gap-2">
+                  <Palette className="w-4 h-4 text-gray-500" />
+                  <p className="text-sm text-gray-900">{vehicle.color}</p>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Price</label>
+                <div className="flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-gray-500" />
+                  <p className="text-sm text-gray-900">{formatPrice(vehicle.price)}</p>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-gray-500" />
+                  <p className="text-sm text-gray-900">{vehicle.location || 'N/A'}</p>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date Acquired</label>
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-gray-500" />
+                  <p className="text-sm text-gray-900">{formatDate(vehicle.dateAcquired)}</p>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Stock Number</label>
+                <div className="flex items-center gap-2">
+                  <Hash className="w-4 h-4 text-gray-500" />
+                  <p className="text-sm text-gray-900">{getStockNumber(vehicle.vin)}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop Layout */}
+        <div className="hidden lg:flex gap-8">
+          {/* Left Column - 1/3 width */}
+          <div className="w-1/3">
+            <div className="space-y-6 lg:sticky lg:top-24">
+            {/* Desktop Reconditioning Progress */}
+            <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-gray-900">Reconditioning Progress</h2>
+                <span className="text-2xl font-bold text-gray-900">{overallProgress}%</span>
+              </div>
+              
+              <div className="w-full bg-gray-200 rounded-full h-3 mb-6">
+                <div 
+                  className={`h-3 rounded-full transition-all duration-500 ${
+                    overallProgress === 100 
+                      ? 'bg-gradient-to-r from-emerald-500 to-green-600' 
+                      : 'bg-gradient-to-r from-blue-500 to-indigo-600'
+                  }`}
+                  style={{ width: `${overallProgress}%` }}
+                ></div>
+              </div>
+
+              {/* Status Buttons in Two Columns */}
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                {allSections.map((section: any, index: number) => {
+                  const isLastOdd = allSections.length % 2 === 1 && index === allSections.length - 1;
+                  return (
+                    <button
+                      key={section.key}
+                      onClick={() => setActiveFilter(activeFilter === section.key ? null : section.key)}
+                      className={`p-3 rounded-lg border transition-all duration-200 ${isLastOdd ? 'col-span-2' : ''} ${
+                        activeFilter === section.key
+                          ? 'border-blue-300 bg-blue-50 shadow-md'
+                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      <StatusBadge status={sectionStatuses[section.key]} label={truncateLabel(section.label)} section={section.key} size="sm" />
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Sold/Pending Actions */}
+              <div className="border-t border-gray-200/60 pt-4 mt-4">
+                <hr className="border-gray-300 dark:border-gray-600 mb-4" />
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => handleMarkAsSold()}
+                    className={`flex-1 p-2 rounded-lg border transition-all duration-200 hover:shadow-md ${
+                      vehicle.status === 'sold'
+                        ? 'border-red-300 bg-red-50 shadow-md'
+                        : 'border-gray-200 hover:border-red-300 hover:bg-red-50 bg-white'
+                    }`}
+                  >
+                    <div className={`flex items-center justify-center gap-2 font-medium text-sm ${
+                      vehicle.status === 'sold' ? 'text-red-700' : 'text-red-600'
+                    }`}>
+                      <Archive className="w-3 h-3" />
+                      Mark as Sold
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => handleMarkAsPending()}
+                    className={`flex-1 p-2 rounded-lg border transition-all duration-200 hover:shadow-md ${
+                      vehicle.status === 'pending'
+                        ? 'border-purple-300 bg-purple-50 shadow-md'
+                        : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50 bg-white'
+                    }`}
+                  >
+                    <div className={`flex items-center justify-center gap-2 font-medium text-sm ${
+                      vehicle.status === 'pending' ? 'text-purple-700' : 'text-purple-600'
+                    }`}>
+                      <Clock className="w-3 h-3" />
+                      Mark as Pending
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Vehicle Notes Section - SMALLER HEADER */}
+              <div className="border-t border-gray-200/60 pt-4 mt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-xs font-medium text-gray-700 flex items-center gap-1">
+                    <FileText className="w-3 h-3" />
+                    Vehicle Notes
+                  </h3>
+                  {!isEditingNotes && (
+                    <div className="flex items-center gap-2">
+                      {(!vehicle.notes || vehicle.notes.trim() === '') && (
+                        <span
+                          className="text-xs text-blue-600 font-medium cursor-pointer hover:underline"
+                          onClick={() => setIsEditingNotes(true)}
+                        >
+                          Add Issue Notes
+                        </span>
+                      )}
+                      <button
+                        onClick={() => setIsEditingNotes(true)}
+                        className="p-1 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title={(!vehicle.notes || vehicle.notes.trim() === '') ? 'Add Issue Notes' : 'Edit Notes'}
+                      >
+                        <Edit3 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+                {/* Show placeholder if no notes and not editing */}
+                {(!vehicle.notes || vehicle.notes.trim() === '') && !isEditingNotes && (
+                  <div className="p-3 bg-gray-50/80 backdrop-blur-sm rounded-lg border border-gray-200/60 text-center">
+                    <p className="text-xs text-gray-600">No notes added yet</p>
+                  </div>
+                )}
+                {/* Show textarea if editing */}
+                {isEditingNotes && (
+                  <div className="space-y-3">
+                    <textarea
+                      value={editedNotes}
+                      onChange={(e) => setEditedNotes(e.target.value)}
+                      placeholder="Add notes about this vehicle's condition, issues, or important information..."
+                      rows={4}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleSaveNotes}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                      >
+                        <Save className="w-4 h-4" />
+                        Save
+                      </button>
+                      <button
+                        onClick={handleCancelEditNotes}
+                        className="flex items-center gap-2 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors font-medium"
+                      >
+                        <X className="w-4 h-4" />
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {/* Show notes if present and not editing */}
+                {vehicle.notes && vehicle.notes.trim() !== '' && !isEditingNotes && (
+                  <div className="p-3 bg-amber-50/80 backdrop-blur-sm rounded-lg border border-amber-200/60">
+                    <div className="flex items-start gap-2">
+                      <div className="w-4 h-4 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <AlertTriangle className="w-2 h-2 text-amber-600" />
+                      </div>
+                      <p className="text-xs text-amber-800 font-medium leading-relaxed">{vehicle.notes}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Desktop Vehicle Information */}
+            <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                <Car className="w-6 h-6" />
+                Vehicle Information
+              </h2>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">VIN</label>
+                  <p className="text-sm font-mono bg-gray-50 p-2 rounded border">{vehicle.vin}</p>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
+                    <p className="text-sm text-gray-900">{vehicle.year}</p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Make</label>
+                    <p className="text-sm text-gray-900">{vehicle.make}</p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
+                    <p className="text-sm text-gray-900">{vehicle.model}</p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Trim</label>
+                    <p className="text-sm text-gray-900">{vehicle.trim || 'N/A'}</p>
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Mileage</label>
+                  <div className="flex items-center gap-2">
+                    <Gauge className="w-4 h-4 text-gray-500" />
+                    <p className="text-sm text-gray-900">{vehicle.mileage.toLocaleString()}</p>
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
+                  <div className="flex items-center gap-2">
+                    <Palette className="w-4 h-4 text-gray-500" />
+                    <p className="text-sm text-gray-900">{vehicle.color}</p>
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Price</label>
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="w-4 h-4 text-gray-500" />
+                    <p className="text-sm text-gray-900">{formatPrice(vehicle.price)}</p>
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-gray-500" />
+                    <p className="text-sm text-gray-900">{vehicle.location || 'N/A'}</p>
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date Acquired</label>
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-gray-500" />
+                    <p className="text-sm text-gray-900">{formatDate(vehicle.dateAcquired)}</p>
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Stock Number</label>
+                  <div className="flex items-center gap-2">
+                    <Hash className="w-4 h-4 text-gray-500" />
+                    <p className="text-sm text-gray-900">{getStockNumber(vehicle.vin)}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            </div>
+          </div>
+
+          {/* Right Column - 2/3 width */}
+          <div className="flex-1 space-y-6">
+            {/* Desktop Toggle */}
+            <div className="bg-white/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 p-4">
+              <div className="flex bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => setRightPanelView('inspection')}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium transition-all duration-200 ${
+                    rightPanelView === 'inspection'
+                      ? 'bg-white text-blue-600 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <ClipboardList className="w-4 h-4" />
+                  Mechanical Inspection
+                </button>
+                <button
+                  onClick={handleTeamNotesClick}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium transition-all duration-200 ${
+                    rightPanelView === 'team-notes'
+                      ? 'bg-white text-blue-600 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  Team Notes
+                </button>
+              </div>
+            </div>
+
+            {/* Desktop Content */}
+            {rightPanelView === 'inspection' ? (
+              vehicle?.id ? (
+                <InspectionChecklist
+                  vehicleId={vehicle.id}
+                  vehicleName={`${vehicle.year} ${vehicle.make} ${vehicle.model}`}
+                  vehicle={vehicle}
+                  onStatusUpdate={handleStatusUpdate}
+                  onSectionComplete={handleSectionComplete}
+                  onAddTeamNote={handleAddTeamNote}
+                  activeFilter={activeFilter}
+                  onGeneratePdf={() => setShowPdfModal(true)}
+                  onInspectionDataChange={setInspectionData}
+                  onTeamNoteAdded={(note: TeamNote) => {
+                    if (!vehicle) return;
+                    setVehicle(prev => prev ? { ...prev, teamNotes: [note, ...(prev.teamNotes || [])] } : prev);
+                  }}
+                />
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  Vehicle ID not available
+                </div>
+              )
+            ) : (
+              <TeamNotes
+                notes={vehicle.teamNotes || []}
+                onAddNote={handleAddTeamNote}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Customer Inspection PDF Modal */}
       <CustomerInspectionPDF
         vehicle={vehicle}
-        isOpen={showCustomerPdf}
-        onClose={() => setShowCustomerPdf(false)}
+        isOpen={showPdfModal}
+        onClose={() => setShowPdfModal(false)}
       />
     </div>
   );

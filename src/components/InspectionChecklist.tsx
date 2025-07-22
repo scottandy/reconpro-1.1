@@ -314,50 +314,53 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
                         const currentRating = getCurrentRating(section.key, item.id);
                         
                         return (
-                          <div key={item.id} className="flex items-center justify-between p-4 bg-gray-50/80 rounded-lg border border-gray-200/60">
+                          <div key={item.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-2 sm:p-4 bg-gray-50/80 rounded-lg border border-gray-200/60 space-y-2 sm:space-y-0">
                             <div className="flex-1">
-                              <h5 className="font-medium text-gray-900">{item.label}</h5>
+                              <h5 className="font-medium text-gray-900 text-sm leading-tight">{item.label}</h5>
                               {item.description && (
-                                <p className="text-sm text-gray-600 mt-1">{item.description}</p>
+                                <p className="text-xs text-gray-600 mt-1 hidden sm:block">{item.description}</p>
                               )}
-                              <p className="text-xs text-gray-500 mt-1">Current: {currentRating}</p>
+                              <p className="text-xs text-gray-500 mt-0.5">Current: {currentRating}</p>
                             </div>
                             
-                            <div className="flex items-center gap-2 ml-4">
+                            <div className="grid grid-cols-3 gap-1 sm:flex sm:items-center sm:gap-2 sm:ml-4 w-full sm:w-auto">
                               {/* Great Button */}
                               <button
                                 onClick={() => handleRatingChange(section.key, item.id, 'G', item.label)}
-                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 border-2 ${
+                                className={`px-2 py-2 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 border-2 flex-1 sm:flex-none ${
                                   currentRating === 'G'
                                     ? 'bg-emerald-600 text-white border-emerald-500 shadow-lg'
                                     : 'bg-gray-200 text-gray-700 border-gray-300 hover:bg-gray-300'
                                 }`}
                               >
-                                Great
+                                <span className="hidden sm:inline">Great</span>
+                                <span className="sm:hidden">G</span>
                               </button>
 
                               {/* Fair Button */}
                               <button
                                 onClick={() => handleRatingChange(section.key, item.id, 'F', item.label)}
-                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 border-2 ${
+                                className={`px-2 py-2 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 border-2 flex-1 sm:flex-none ${
                                   currentRating === 'F'
                                     ? 'bg-yellow-600 text-white border-yellow-500 shadow-lg'
                                     : 'bg-gray-200 text-gray-700 border-gray-300 hover:bg-gray-300'
                                 }`}
                               >
-                                Fair
+                                <span className="hidden sm:inline">Fair</span>
+                                <span className="sm:hidden">F</span>
                               </button>
 
                               {/* Needs Attention Button */}
                               <button
                                 onClick={() => handleRatingChange(section.key, item.id, 'N', item.label)}
-                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 border-2 ${
+                                className={`px-2 py-2 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 border-2 flex-1 sm:flex-none ${
                                   currentRating === 'N'
                                     ? 'bg-red-600 text-white border-red-500 shadow-lg'
                                     : 'bg-gray-200 text-gray-700 border-gray-300 hover:bg-gray-300'
                                 }`}
                               >
-                                Needs Attention
+                                <span className="hidden sm:inline">Needs Attention</span>
+                                <span className="sm:hidden">N</span>
                               </button>
                             </div>
                           </div>

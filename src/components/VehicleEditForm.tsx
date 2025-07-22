@@ -69,8 +69,11 @@ const VehicleEditForm: React.FC<VehicleEditFormProps> = ({ vehicle, onSave, onCa
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Defensive check for vehicle.id before proceeding - must be a valid string
-    if (!vehicle.id || typeof vehicle.id !== 'string' || vehicle.id.trim() === '') {
+    // Convert vehicle.id to string and validate
+    const vehicleId = typeof vehicle.id === 'string' ? vehicle.id.trim() : '';
+    
+    // Defensive check for valid vehicleId before proceeding
+    if (!vehicleId) {
       setErrors({ general: 'Invalid vehicle ID. Cannot save changes.' });
       return;
     }
@@ -92,7 +95,7 @@ const VehicleEditForm: React.FC<VehicleEditFormProps> = ({ vehicle, onSave, onCa
       notes: formData.notes.trim() || undefined
     };
 
-    onSave(vehicle.id, updatedVehicle);
+    onSave(vehicleId, updatedVehicle);
   };
 
   const handleInputChange = (field: string, value: string) => {

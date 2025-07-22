@@ -54,7 +54,6 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
   const [inspectionData, setInspectionData] = useState<any>({});
   const [isLoading, setIsLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [sectionNotes, setSectionNotes] = useState<Record<string, string>>({});
   const [isAddingNote, setIsAddingNote] = useState<string | null>(null);
   const [newNote, setNewNote] = useState('');
 
@@ -95,9 +94,6 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       console.log('📊 Normalized inspection data:', normalizedData);
       setInspectionData(normalizedData);
       
-      // Load section notes
-      setSectionNotes(normalizedData.sectionNotes || {});
-      
       // Notify parent immediately
       if (onInspectionDataChange) {
         onInspectionDataChange(normalizedData);
@@ -120,7 +116,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
     }
   };
 
-  // Simple save function
+  // Save function
   const saveToDatabase = useCallback(async (dataToSave: any) => {
     if (!user || !vehicleId) return;
     
@@ -139,40 +135,40 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
     }
   }, [user, vehicleId]);
 
-  // Handle rating changes - WORKING VERSION
+  // 🎯 CRITICAL: Handle rating changes - THIS MUST WORK
   const handleRatingChange = (sectionKey: string, itemId: string, newRating: string, itemLabel: string) => {
     if (!user) return;
 
-    console.log('🎯 BUTTON CLICKED:', { sectionKey, itemId, newRating, itemLabel });
-    console.log('🎯 Current inspection data before update:', inspectionData);
+    console.log('🎯 INSPECTION BUTTON CLICKED:', { sectionKey, itemId, newRating, itemLabel });
+    console.log('🎯 Current data before change:', inspectionData);
 
-    // Get the old rating for comparison
+    // Get old rating for team note
     const sectionData = inspectionData[sectionKey] || [];
     const existingItem = sectionData.find((item: any) => item.id === itemId);
     const oldRating = existingItem?.rating || 'not-checked';
 
-    // Create a completely new data object
-    const newData = { ...inspectionData };
+    // Create completely new data object
+    const updatedData = { ...inspectionData };
     
     // Ensure section exists
-    if (!newData[sectionKey]) {
-      newData[sectionKey] = [];
+    if (!updatedData[sectionKey]) {
+      updatedData[sectionKey] = [];
     }
 
-    // Find existing item or create new one
-    const existingIndex = newData[sectionKey].findIndex((item: any) => item.id === itemId);
+    // Find and update or create item
+    const existingIndex = updatedData[sectionKey].findIndex((item: any) => item.id === itemId);
     
     if (existingIndex >= 0) {
       // Update existing item
-      newData[sectionKey][existingIndex] = {
-        ...newData[sectionKey][existingIndex],
+      updatedData[sectionKey][existingIndex] = {
+        ...updatedData[sectionKey][existingIndex],
         rating: newRating,
         updatedBy: user.initials,
         updatedAt: new Date().toISOString()
       };
     } else {
       // Add new item
-      newData[sectionKey].push({
+      updatedData[sectionKey].push({
         id: itemId,
         label: itemLabel,
         rating: newRating,
@@ -181,21 +177,20 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       });
     }
 
-    console.log('🎯 NEW inspection data after update:', newData);
-    console.log('🎯 Updated section data:', newData[sectionKey]);
+    console.log('🎯 Updated data after change:', updatedData);
 
-    // Force state update
-    setInspectionData(newData);
+    // 🚨 CRITICAL: Update state immediately
+    setInspectionData(updatedData);
 
     // Notify parent
     if (onInspectionDataChange) {
-      onInspectionDataChange(newData);
+      onInspectionDataChange(updatedData);
     }
 
     // Save to database
-    saveToDatabase(newData);
+    saveToDatabase(updatedData);
 
-    // Create automatic team note for the status change
+    // 📝 Create automatic team note
     const getRatingLabel = (rating: string) => {
       switch (rating) {
         case 'G': return 'Great';
@@ -211,7 +206,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       return section?.label || sectionKey;
     };
 
-    // Generate automatic team note
+    // Generate team note text
     let noteText = '';
     if (oldRating === 'not-checked') {
       noteText = `${getSectionLabel(sectionKey)}: ${itemLabel} marked as "${getRatingLabel(newRating)}"`;
@@ -219,14 +214,14 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       noteText = `${getSectionLabel(sectionKey)}: ${itemLabel} updated from "${getRatingLabel(oldRating)}" to "${getRatingLabel(newRating)}"`;
     }
 
-    // Add automatic team note
+    // Create automatic team note
     const automaticNote: TeamNote = {
       id: `auto-note-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       text: noteText,
       userInitials: user.initials,
       timestamp: new Date().toISOString(),
       category: sectionKey,
-      isCertified: true // Mark as certified since it's an official inspection update
+      isCertified: true
     };
 
     console.log('📝 Creating automatic team note:', automaticNote);
@@ -256,12 +251,18 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       category: sectionKey
     };
 
-    // Add to parent component
     onAddTeamNote(teamNote);
-    
-    // Reset form
     setIsAddingNote(null);
     setNewNote('');
+  };
+
+  // 🎯 CRITICAL: Get current rating for button colors
+  const getCurrentRating = (sectionKey: string, itemId: string): string => {
+    const sectionData = inspectionData[sectionKey] || [];
+    const item = sectionData.find((data: any) => data.id === itemId);
+    const rating = item?.rating || 'not-checked';
+    console.log(`🔍 Getting rating for ${sectionKey}/${itemId}:`, rating);
+    return rating;
   };
 
   const formatTimestamp = (timestamp: string) => {
@@ -284,15 +285,6 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       case 'photos': return Camera;
       default: return CheckCircle2;
     }
-  };
-
-  // Simple function to get current rating for an item
-  const getCurrentRating = (sectionKey: string, itemId: string): string => {
-    const sectionData = inspectionData[sectionKey] || [];
-    const item = sectionData.find((data: any) => data.id === itemId);
-    const rating = item?.rating || 'not-checked';
-    console.log(`Getting rating for ${sectionKey}/${itemId}:`, rating);
-    return rating;
   };
 
   if (isLoading) {
@@ -410,37 +402,46 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
                             </div>
                             
                             <div className="flex items-center gap-2 ml-4">
-                              {/* Great Button */}
+                              {/* 🎯 GREAT BUTTON - MUST WORK */}
                               <button
-                                onClick={() => handleRatingChange(section.key, item.id, 'G', item.label)}
+                                onClick={() => {
+                                  console.log('🟢 GREAT BUTTON CLICKED!');
+                                  handleRatingChange(section.key, item.id, 'G', item.label);
+                                }}
                                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 border-2 ${
                                   currentRating === 'G'
-                                    ? 'bg-emerald-600 text-white border-emerald-500 shadow-lg'
-                                    : 'bg-gray-200 text-gray-700 border-gray-300 hover:bg-gray-300'
+                                    ? 'bg-emerald-600 text-white border-emerald-500 shadow-lg ring-2 ring-emerald-300'
+                                    : 'bg-gray-200 text-gray-700 border-gray-300 hover:bg-emerald-100 hover:border-emerald-300'
                                 }`}
                               >
                                 Great
                               </button>
 
-                              {/* Fair Button */}
+                              {/* 🎯 FAIR BUTTON - MUST WORK */}
                               <button
-                                onClick={() => handleRatingChange(section.key, item.id, 'F', item.label)}
+                                onClick={() => {
+                                  console.log('🟡 FAIR BUTTON CLICKED!');
+                                  handleRatingChange(section.key, item.id, 'F', item.label);
+                                }}
                                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 border-2 ${
                                   currentRating === 'F'
-                                    ? 'bg-yellow-600 text-white border-yellow-500 shadow-lg'
-                                    : 'bg-gray-200 text-gray-700 border-gray-300 hover:bg-gray-300'
+                                    ? 'bg-yellow-600 text-white border-yellow-500 shadow-lg ring-2 ring-yellow-300'
+                                    : 'bg-gray-200 text-gray-700 border-gray-300 hover:bg-yellow-100 hover:border-yellow-300'
                                 }`}
                               >
                                 Fair
                               </button>
 
-                              {/* Needs Attention Button */}
+                              {/* 🎯 NEEDS ATTENTION BUTTON - MUST WORK */}
                               <button
-                                onClick={() => handleRatingChange(section.key, item.id, 'N', item.label)}
+                                onClick={() => {
+                                  console.log('🔴 NEEDS ATTENTION BUTTON CLICKED!');
+                                  handleRatingChange(section.key, item.id, 'N', item.label);
+                                }}
                                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 border-2 ${
                                   currentRating === 'N'
-                                    ? 'bg-red-600 text-white border-red-500 shadow-lg'
-                                    : 'bg-gray-200 text-gray-700 border-gray-300 hover:bg-gray-300'
+                                    ? 'bg-red-600 text-white border-red-500 shadow-lg ring-2 ring-red-300'
+                                    : 'bg-gray-200 text-gray-700 border-gray-300 hover:bg-red-100 hover:border-red-300'
                                 }`}
                               >
                                 Needs Attention
@@ -457,7 +458,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
                   </div>
                 )}
 
-                {/* Section Notes */}
+                {/* 📝 TEAM NOTES SECTION */}
                 <div className="mt-6 pt-6 border-t border-gray-200/60">
                   <div className="flex items-center justify-between mb-4">
                     <h5 className="font-medium text-gray-900 flex items-center gap-2">
@@ -518,7 +519,6 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
 
                   {/* Team Notes Display */}
                   <div className="space-y-3">
-                    {/* Section-specific team notes */}
                     {vehicle.teamNotes
                       ?.filter(note => note.category === section.key)
                       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
@@ -562,7 +562,6 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
                         </div>
                       ))}
                     
-                    {/* No notes message */}
                     {!vehicle.teamNotes?.some(note => note.category === section.key) && (
                       <div className="text-center py-4 text-gray-500">
                         <MessageSquare className="w-6 h-6 mx-auto mb-2 text-gray-400" />

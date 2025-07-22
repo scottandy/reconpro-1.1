@@ -448,28 +448,16 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
                               </button>
 
                               {/* Needs Attention Button */}
-                              {note.isCertified ? (
-                                <CheckCircle2 className="w-3 h-3 text-blue-600" />
-                              ) : (
-                                <User className="w-3 h-3 text-blue-600" />
-                              )}
+                              <button
                                 onClick={() => handleRatingChange(section.key, item.id, 'N', item.label)}
                                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 border-2 ${
                                   currentRating === 'N'
                                     ? 'bg-red-600 text-white border-red-500 shadow-lg'
-                                {note.isCertified && (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium border border-green-200">
-                                    <CheckCircle2 className="w-3 h-3" />
-                                    Certified
-                                  </span>
-                                )}
                                     : 'bg-gray-200 text-gray-700 border-gray-300 hover:bg-gray-300'
                                 }`}
                               >
                                 Needs Attention
-                              <p className={`text-sm ${note.isCertified ? 'text-gray-900 font-medium' : 'text-gray-700'}`}>
-                                {note.text}
-                              </p>
+                              </button>
                             </div>
                           </div>
                         );

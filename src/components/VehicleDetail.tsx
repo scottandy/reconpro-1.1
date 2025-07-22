@@ -1,5 +1,3 @@
-Looking at this React component file, I can see several missing closing brackets. Here's the corrected version with all the necessary closing brackets added:
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';

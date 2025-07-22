@@ -55,14 +55,8 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
-  // 🎯 CRITICAL: Load inspection settings and data on mount
-  useEffect(() => {
-    if (dealership && vehicleId && user) {
-      loadData();
-    }
-  }, [dealership, vehicleId, user, loadData]);
-
-  const loadData = async () => {
+  // 🎯 CRITICAL: Load data function with useCallback
+  const loadData = useCallback(async () => {
     if (!dealership || !vehicleId || !user) return;
     
     console.log('🔄 Loading inspection data for vehicle:', vehicleId);
@@ -115,7 +109,14 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [dealership, vehicleId, user, onInspectionDataChange]);
+
+  // 🎯 CRITICAL: Load inspection settings and data on mount
+  useEffect(() => {
+    if (dealership && vehicleId && user) {
+      loadData();
+    }
+  }, [dealership, vehicleId, user, loadData]);
 
   // 🎯 BULLETPROOF: Save function with proper error handling
   const saveToDatabase = useCallback(async (dataToSave: any): Promise<void> => {

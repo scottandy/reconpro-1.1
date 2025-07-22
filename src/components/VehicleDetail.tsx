@@ -22,7 +22,9 @@ import {
   Hash, 
   Palette,
   Edit3,
-  Save,
+  Eye,
+  Edit3,
+  Save
   X,
   CheckCircle2,
   Clock,
@@ -45,6 +47,7 @@ const VehicleDetail: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
+  const [isEditingVehicle, setIsEditingVehicle] = useState(false);
   const [editedNotes, setEditedNotes] = useState('');
   const [rightPanelView, setRightPanelView] = useState<'inspection' | 'team-notes'>('inspection');
   const [showPdfModal, setShowPdfModal] = useState(false);
@@ -997,6 +1000,16 @@ const VehicleDetail: React.FC = () => {
           </div>
         </div>
 
+        {/* Edit Button */}
+        <div className="mt-4 pt-4 border-t border-gray-200/60 dark:border-gray-700/60">
+          <button
+            onClick={() => setIsEditingVehicle(true)}
+            className="w-full sm:w-auto px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors font-medium text-sm flex items-center justify-center gap-2"
+          >
+            <Edit3 className="w-4 h-4" />
+            Edit Vehicle Information
+          </button>
+        </div>
         {/* Desktop Layout */}
         <div className="hidden lg:flex gap-8">
           {/* Left Column - 1/3 width */}
@@ -1301,6 +1314,16 @@ const VehicleDetail: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Vehicle Edit Modal */}
+      {isEditingVehicle && (
+        <VehicleEditModal
+          vehicle={vehicle}
+          isOpen={isEditingVehicle}
+          onClose={() => setIsEditingVehicle(false)}
+          onSave={handleVehicleUpdate}
+        />
+      )}
 
       {/* Customer Inspection PDF Modal */}
       <CustomerInspectionPDF

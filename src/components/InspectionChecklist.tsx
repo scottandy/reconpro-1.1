@@ -146,6 +146,11 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
     console.log('🎯 BUTTON CLICKED:', { sectionKey, itemId, newRating, itemLabel });
     console.log('🎯 Current inspection data before update:', inspectionData);
 
+    // Get the old rating for comparison
+    const sectionData = inspectionData[sectionKey] || [];
+    const existingItem = sectionData.find((item: any) => item.id === itemId);
+    const oldRating = existingItem?.rating || 'not-checked';
+
     // Create a completely new data object
     const newData = { ...inspectionData };
     
@@ -190,6 +195,42 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
     // Save to database
     saveToDatabase(newData);
 
+    // Create automatic team note for the status change
+    const getRatingLabel = (rating: string) => {
+      switch (rating) {
+        case 'G': return 'Great';
+        case 'F': return 'Fair';
+        case 'N': return 'Needs Attention';
+        case 'not-checked': return 'Not Checked';
+        default: return rating;
+      }
+    };
+
+    const getSectionLabel = (sectionKey: string) => {
+      const section = inspectionSettings?.sections.find(s => s.key === sectionKey);
+      return section?.label || sectionKey;
+    };
+
+    // Generate automatic team note
+    let noteText = '';
+    if (oldRating === 'not-checked') {
+      noteText = `${getSectionLabel(sectionKey)}: ${itemLabel} marked as "${getRatingLabel(newRating)}"`;
+    } else {
+      noteText = `${getSectionLabel(sectionKey)}: ${itemLabel} updated from "${getRatingLabel(oldRating)}" to "${getRatingLabel(newRating)}"`;
+    }
+
+    // Add automatic team note
+    const automaticNote: TeamNote = {
+      id: `auto-note-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      text: noteText,
+      userInitials: user.initials,
+      timestamp: new Date().toISOString(),
+      category: sectionKey,
+      isCertified: true // Mark as certified since it's an official inspection update
+    };
+
+    console.log('📝 Creating automatic team note:', automaticNote);
+    onAddTeamNote(automaticNote);
     // Record analytics
     AnalyticsManager.recordTaskUpdate(
       vehicleId,
@@ -197,7 +238,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       sectionKey as any,
       user.initials,
       itemLabel,
-      undefined,
+      oldRating,
       newRating
     );
   };
@@ -407,16 +448,28 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
                               </button>
 
                               {/* Needs Attention Button */}
-                              <button
+                              {note.isCertified ? (
+                                <CheckCircle2 className="w-3 h-3 text-blue-600" />
+                              ) : (
+                                <User className="w-3 h-3 text-blue-600" />
+                              )}
                                 onClick={() => handleRatingChange(section.key, item.id, 'N', item.label)}
                                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 border-2 ${
                                   currentRating === 'N'
                                     ? 'bg-red-600 text-white border-red-500 shadow-lg'
+                                {note.isCertified && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium border border-green-200">
+                                    <CheckCircle2 className="w-3 h-3" />
+                                    Certified
+                                  </span>
+                                )}
                                     : 'bg-gray-200 text-gray-700 border-gray-300 hover:bg-gray-300'
                                 }`}
                               >
                                 Needs Attention
-                              </button>
+                              <p className={`text-sm ${note.isCertified ? 'text-gray-900 font-medium' : 'text-gray-700'}`}>
+                                {note.text}
+                              </p>
                             </div>
                           </div>
                         );

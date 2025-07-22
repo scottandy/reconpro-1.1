@@ -638,57 +638,25 @@ export class InspectionDataManager {
       }
 
       // First, check if a checklist already exists for this vehicle
-      const { data: existingChecklist, error: selectError } = await supabase
+      // Use upsert to handle both insert and update cases automatically
+      console.log('🔄 Upserting inspection checklist');
+      const { error: upsertError } = await supabase
         .from('inspection_checklists')
-        .select('id')
-        .eq('vehicle_id', vehicleId)
-        .maybeSingle();
+        .upsert({
+          vehicle_id: vehicleId,
+          inspector_id: inspectorId,
+          checklist_data: dataToSave,
+          status: 'in-progress',
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'vehicle_id'
+        });
 
-      if (selectError) {
-        console.error('⚠️ Error checking for existing checklist:', selectError);
-        // Don't fail completely if checklist operations fail
-        console.warn('⚠️ Continuing without checklist update');
-        return true; // Vehicle data was saved successfully
-      }
-
-      if (existingChecklist) {
-        // Update existing checklist
-        console.log('🔄 Updating existing checklist:', existingChecklist.id);
-        const { error: updateError } = await supabase
-          .from('inspection_checklists')
-          .update({
-            inspector_id: inspectorId, // Ensure current inspector is set
-            checklist_data: dataToSave,
-            status: 'in-progress',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', existingChecklist.id);
-
-        if (updateError) {
-          console.error('❌ Error updating checklist:', updateError);
-          console.warn('⚠️ Checklist update failed, but vehicle data was saved');
-        } else {
-          console.log('✅ Successfully updated existing checklist');
-        }
+      if (upsertError) {
+        console.error('❌ Error upserting checklist:', upsertError);
+        console.warn('⚠️ Checklist upsert failed, but vehicle data was saved');
       } else {
-        // Insert new checklist
-        console.log('🆕 Creating new checklist');
-        const { error: insertError } = await supabase
-          .from('inspection_checklists')
-          .insert({
-            vehicle_id: vehicleId,
-            inspector_id: inspectorId,
-            checklist_data: dataToSave,
-            status: 'in-progress',
-            updated_at: new Date().toISOString()
-          });
-
-        if (insertError) {
-          console.error('❌ Error inserting checklist:', insertError);
-          console.warn('⚠️ Checklist creation failed, but vehicle data was saved');
-        } else {
-          console.log('✅ Successfully created new checklist');
-        }
+        console.log('✅ Successfully upserted inspection checklist');
       }
 
       return true;

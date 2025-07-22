@@ -480,7 +480,7 @@ const VehicleDetail: React.FC = () => {
     return 'not-started';
   };
 
-  const handleSaveVehicle = async (updatedVehicle: Vehicle) => {
+  const handleSaveVehicle = async (vehicleId: string, updates: Partial<Vehicle>) => {
     if (!vehicle?.id) {
       console.error('Vehicle ID is missing');
       alert('Error: Vehicle ID is missing. Cannot save changes.');
@@ -489,7 +489,7 @@ const VehicleDetail: React.FC = () => {
     
     setIsSaving(true);
     try {
-      await saveVehicleUpdate(vehicle.id, updatedVehicle);
+      await saveVehicleUpdate(vehicleId, updates);
       setIsEditingVehicle(false);
     } catch (error) {
       console.error('Error saving vehicle:', error);

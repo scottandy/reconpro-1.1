@@ -507,21 +507,36 @@ const VehicleDetail: React.FC = () => {
   // Check if vehicle is ready for sale based on inspection data (all ratings are 'G')
   const isReadyForSale = inspectionData && allSections.length > 0 && (() => {
     const sectionKeys = allSections.map((section: any) => section.key);
-    const allRatings: string[] = [];
     
+    // Check each section to ensure it's fully inspected and all items are 'G'
     for (const sectionKey of sectionKeys) {
-      const items = inspectionData[sectionKey] || [];
-      if (Array.isArray(items)) {
-        items.forEach((item: any) => {
-          if (item.rating) {
-            allRatings.push(item.rating);
-          }
-        });
+      const section = allSections.find((s: any) => s.key === sectionKey);
+      if (!section || !section.items || section.items.length === 0) {
+        continue; // Skip sections with no items
+      }
+      
+      const inspectedItems = inspectionData[sectionKey] || [];
+      const sectionItems = section.items.filter((item: any) => item.isActive);
+      
+      // If this section doesn't have data for all its items, not ready
+      if (inspectedItems.length < sectionItems.length) {
+        return false;
+      }
+      
+      // Check if ALL items in this section are rated 'G'
+      for (const inspectedItem of inspectedItems) {
+        if (!inspectedItem.rating || inspectedItem.rating !== 'G') {
+          return false;
+        }
       }
     }
     
-    // Ready for sale: ALL ratings are 'G' and we have at least some ratings
-    return allRatings.length > 0 && allRatings.every(rating => rating === 'G');
+    // Only ready for sale if we actually have sections with items to inspect
+    const totalActiveItems = allSections.reduce((count: number, section: any) => {
+      return count + (section.items?.filter((item: any) => item.isActive)?.length || 0);
+    }, 0);
+    
+    return totalActiveItems > 0; // Only ready if there are items to inspect and all are 'G'
   })();
   
   const locationStyle = getLocationStyle(vehicle.location);

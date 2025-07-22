@@ -30,8 +30,8 @@ const VehicleEditForm: React.FC<VehicleEditFormProps> = ({ vehicle, onSave, onCa
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
-    // Validate vehicle ID first
-    if (!vehicle.id || vehicle.id.trim() === '') {
+    // Validate vehicle ID first - must be a valid string
+    if (!vehicle.id || typeof vehicle.id !== 'string' || vehicle.id.trim() === '') {
       newErrors.general = 'Invalid vehicle ID. Cannot save changes.';
       setErrors(newErrors);
       return false;
@@ -69,8 +69,8 @@ const VehicleEditForm: React.FC<VehicleEditFormProps> = ({ vehicle, onSave, onCa
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Defensive check for vehicle.id before proceeding
-    if (!vehicle.id || vehicle.id.trim() === '') {
+    // Defensive check for vehicle.id before proceeding - must be a valid string
+    if (!vehicle.id || typeof vehicle.id !== 'string' || vehicle.id.trim() === '') {
       setErrors({ general: 'Invalid vehicle ID. Cannot save changes.' });
       return;
     }

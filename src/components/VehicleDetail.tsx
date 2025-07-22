@@ -384,6 +384,12 @@ const VehicleDetail: React.FC = () => {
     return price.toLocaleString('en-US', { minimumFractionDigits: 0 });
   };
 
+  // Helper function to truncate long section labels
+  const truncateLabel = (label: string, maxLength: number = 15) => {
+    if (label.length <= maxLength) return label;
+    return label.substring(0, maxLength).trim() + '...';
+  };
+
   const getSummaryNotes = () => {
     if (!vehicle?.teamNotes) return [];
     return vehicle.teamNotes.filter(note => note.category === 'summary');
@@ -741,7 +747,7 @@ const VehicleDetail: React.FC = () => {
                         : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                     }`}
                   >
-                    <StatusBadge status={sectionStatuses[section.key]} label={section.label} section={section.key} size="sm" />
+                    <StatusBadge status={sectionStatuses[section.key]} label={truncateLabel(section.label)} section={section.key} size="sm" />
                   </button>
                 );
               })}
@@ -1003,7 +1009,7 @@ const VehicleDetail: React.FC = () => {
                           : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                       }`}
                     >
-                      <StatusBadge status={sectionStatuses[section.key]} label={section.label} section={section.key} size="sm" />
+                      <StatusBadge status={sectionStatuses[section.key]} label={truncateLabel(section.label)} section={section.key} size="sm" />
                     </button>
                   );
                 })}

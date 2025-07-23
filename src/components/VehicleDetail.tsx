@@ -872,6 +872,42 @@ const VehicleDetail: React.FC = () => {
               })}
             </div>
 
+            {/* Sold/Pending Actions - Mobile */}
+            <div className="border-t border-gray-200/60 pt-4 mt-4">
+              <div className="flex gap-3">
+                <button
+                  onClick={() => handleMarkAsSold()}
+                  className={`flex-1 p-3 rounded-lg border transition-all duration-200 hover:shadow-md ${
+                    vehicle.status === 'sold'
+                      ? 'border-red-300 bg-red-50 shadow-md'
+                      : 'border-gray-200 hover:border-red-300 hover:bg-red-50 bg-white'
+                  }`}
+                >
+                  <div className={`flex items-center justify-center gap-2 font-medium text-sm ${
+                    vehicle.status === 'sold' ? 'text-red-700' : 'text-red-600'
+                  }`}>
+                    <Archive className="w-4 h-4" />
+                    Mark as Sold
+                  </div>
+                </button>
+                <button
+                  onClick={() => handleMarkAsPending()}
+                  className={`flex-1 p-3 rounded-lg border transition-all duration-200 hover:shadow-md ${
+                    vehicle.status === 'pending'
+                      ? 'border-purple-300 bg-purple-50 shadow-md'
+                      : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50 bg-white'
+                  }`}
+                >
+                  <div className={`flex items-center justify-center gap-2 font-medium text-sm ${
+                    vehicle.status === 'pending' ? 'text-purple-700' : 'text-purple-600'
+                  }`}>
+                    <Clock className="w-4 h-4" />
+                    Mark as Pending
+                  </div>
+                </button>
+              </div>
+            </div>
+
             {/* Vehicle Notes Section - SMALLER HEADER */}
             <div className="border-t border-gray-200/60 pt-4 mt-4">
               <div className="flex items-center justify-between mb-2">

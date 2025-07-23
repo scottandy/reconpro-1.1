@@ -246,7 +246,7 @@ const Dashboard: React.FC = () => {
         vehiclesToFilter = pendingVehicles;
         break;
       case 'all':
-        vehiclesToFilter = [...vehicles, ...soldVehicles, ...pendingVehicles];
+        vehiclesToFilter = vehicles; // Only active vehicles (exclude sold/pending)
         break;
       default:
         vehiclesToFilter = vehicles;
@@ -273,8 +273,15 @@ const Dashboard: React.FC = () => {
               }
             }
             
-            // Completed: ALL ratings are 'G'
-            return allRatings.length > 0 && allRatings.every(rating => rating === 'G');
+            // Completed: ALL sections have ratings AND all ratings are 'G'
+            const sectionsWithRatings = sectionKeys.filter(sectionKey => {
+              const items = inspectionData[sectionKey] || [];
+              return items.length > 0 && items.some((item: any) => item.rating);
+            });
+            
+            return allRatings.length > 0 && 
+                   allRatings.every(rating => rating === 'G') &&
+                   sectionsWithRatings.length === sectionKeys.length;
           });
           break;
 
@@ -316,10 +323,18 @@ const Dashboard: React.FC = () => {
               }
             }
             
-            // Working: pending (no ratings OR has F/not-checked but no N) OR active (mixed states)
-            if (allRatings.length === 0) return true; // No ratings = pending/working
+            // Working: no ratings OR has incomplete sections OR has F/not-checked but no N
+            if (allRatings.length === 0) return true; // No ratings = working
             if (allRatings.some(rating => rating === 'N')) return false; // Has N = issues
-            if (allRatings.every(rating => rating === 'G')) return false; // All G = ready
+            
+            // Check if any section is incomplete (missing ratings) - if so, it's working
+            const sectionsWithRatings = sectionKeys.filter(sectionKey => {
+              const items = inspectionData[sectionKey] || [];
+              return items.length > 0 && items.some((item: any) => item.rating);
+            });
+            
+            if (sectionsWithRatings.length < sectionKeys.length) return true; // Incomplete sections = working
+            if (allRatings.every(rating => rating === 'G')) return false; // All complete + all G = ready
             return true; // Everything else = working
           });
           break;
@@ -405,26 +420,37 @@ const Dashboard: React.FC = () => {
         return 'pending';
       }
       
-      // Priority logic:
+      // Priority logic - check for issues FIRST:
       // 1. If ANY rating is 'N' (needs attention), it's needs-attention
       if (allRatings.some(rating => rating === 'N')) {
         console.log(`Vehicle ${vehicle.id} categorized as: needs-attention`);
         return 'needs-attention';
       }
+      
+      // 2. Check if any section is incomplete (missing ratings) - if so, mark as working
+      const sectionsWithRatings = sectionKeys.filter(sectionKey => {
+        const items = inspectionData[sectionKey] || [];
+        return items.length > 0 && items.some((item: any) => item.rating);
+      });
+      
+      if (sectionsWithRatings.length < sectionKeys.length) {
+        console.log(`Vehicle ${vehicle.id} categorized as: pending (incomplete sections)`);
+        return 'pending';
+      }
        
-      // 2. If ALL ratings are 'G' (great), it's completed
+              // 3. If ALL sections complete AND all ratings are 'G' (great), it's completed
       if (allRatings.every(rating => rating === 'G')) {
         console.log(`Vehicle ${vehicle.id} categorized as: completed`);
         return 'completed';
       }
        
-      // 3. If has 'F' ratings or 'not-checked', it's pending/working
+      // 4. If has 'F' ratings or 'not-checked', it's pending/working
       if (allRatings.some(rating => rating === 'F' || rating === 'not-checked')) {
         console.log(`Vehicle ${vehicle.id} categorized as: pending (has F or not-checked)`);
         return 'pending';
       }
        
-      // 4. Default to active
+      // 5. Default to active
       console.log(`Vehicle ${vehicle.id} categorized as: active (default)`);
       return 'active';
     };
@@ -462,7 +488,7 @@ const Dashboard: React.FC = () => {
     const locationCounts = getLocationFilterCounts();
     
     return {
-      totalVehicles: vehicles.length + soldVehicles.length + pendingVehicles.length, // ALL vehicles regardless of status
+      totalVehicles: vehicles.length, // Only active vehicles (exclude sold/pending)
       activeVehicles: counts.pending + counts.active, // Working: pending (F/not-checked) + active (mixed states)
       completedVehicles: counts.completed,
       pendingVehicles: counts.pending,
@@ -495,7 +521,7 @@ const Dashboard: React.FC = () => {
   const inventorySummary = getInventorySummary();
 
   const sidebarItems = [
-    { id: 'inventory', label: 'Inventory', icon: Car, count: vehicles.length + soldVehicles.length + pendingVehicles.length },
+    { id: 'inventory', label: 'Inventory', icon: Car, count: vehicles.length },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
     { id: 'todos', label: 'Todo & Calendar', icon: Calendar },
     { id: 'contacts', label: 'Contacts', icon: Phone },
@@ -508,7 +534,7 @@ const Dashboard: React.FC = () => {
   ];
 
   const filterOptions = [
-    { id: 'all', label: 'All Vehicles', icon: Car, count: vehicles.length + soldVehicles.length + pendingVehicles.length },
+    { id: 'all', label: 'All Vehicles', icon: Car, count: vehicles.length },
     { id: 'active', label: 'Working', icon: Activity, count: filterCounts.pending + filterCounts.active },
     { id: 'completed', label: 'Ready', icon: CheckCircle2, count: filterCounts.completed },
     { id: 'needs-attention', label: 'Issues', icon: AlertTriangle, count: filterCounts['needs-attention'] },

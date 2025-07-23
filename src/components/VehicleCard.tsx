@@ -187,6 +187,9 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
       return null; // Don't count in Ready/Working/Issues
     }
 
+    // Check if any section is incomplete (has gray status) - if so, mark as working
+    if (sectionKeys.some(sectionKey => getSectionStatus(sectionKey, inspectionData) === 'not-started')) return 'pending';
+    
     // Use the same dynamic sectionKeys as the rest of the component
     const allRatings: string[] = [];
     

@@ -281,8 +281,11 @@ const VehicleDetail: React.FC = () => {
     console.log('[VehicleDetail] handleSaveVehicleInfo');
     if (!vehicle || !user) return;
 
+    // Destructure to exclude inspection data from updates
+    const { inspection, ...vehicleWithoutInspection } = vehicle;
+    
     const updatedVehicle = {
-      ...vehicle,
+      ...vehicleWithoutInspection,
       year: editedVehicleInfo.year,
       make: editedVehicleInfo.make.trim(),
       model: editedVehicleInfo.model.trim(),
@@ -1059,7 +1062,7 @@ const VehicleDetail: React.FC = () => {
                       setEditedVehicleInfo({...editedVehicleInfo, year: value === '' ? 0 : parseInt(value, 10)});
                     }}
                     placeholder="Enter year"
-                    maxLength="4"
+                    maxLength={4}
                     className="w-full text-sm text-gray-900 border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 ) : (
@@ -1430,7 +1433,7 @@ const VehicleDetail: React.FC = () => {
                           setEditedVehicleInfo({...editedVehicleInfo, year: value === '' ? 0 : parseInt(value, 10)});
                         }}
                         placeholder="Enter year"
-                        maxLength="4"
+                        maxLength={4}
                         className="w-full text-sm text-gray-900 border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                     ) : (

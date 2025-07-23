@@ -269,7 +269,7 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
       for (const inspectedItem of inspectedItems) {
         if (!inspectedItem.rating || inspectedItem.rating !== 'G') {
           return false;
-        }
+          }
       }
     }
     

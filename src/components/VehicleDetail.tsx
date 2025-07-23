@@ -53,6 +53,20 @@ const VehicleDetail: React.FC = () => {
   const [isEditingLocation, setIsEditingLocation] = useState(false);
   const [editedLocation, setEditedLocation] = useState('');
 
+  // Vehicle Information editing state
+  const [isEditingVehicleInfo, setIsEditingVehicleInfo] = useState(false);
+  const [editedVehicleInfo, setEditedVehicleInfo] = useState({
+    year: 0,
+    make: '',
+    model: '',
+    trim: '',
+    mileage: 0,
+    color: '',
+    price: 0,
+    location: '',
+    dateAcquired: ''
+  });
+
   const [inspectionData, setInspectionData] = useState<any>(null);
   const [inspectionLoading, setInspectionLoading] = useState(true);
   const [inspectionSettings, setInspectionSettings] = useState<any>(null);
@@ -126,6 +140,18 @@ const VehicleDetail: React.FC = () => {
       setVehicle(vehicle);
       setEditedNotes(vehicle.notes || '');
       setEditedLocation(vehicle.location);
+      // Initialize vehicle info editing state
+      setEditedVehicleInfo({
+        year: vehicle.year,
+        make: vehicle.make,
+        model: vehicle.model,
+        trim: vehicle.trim || '',
+        mileage: vehicle.mileage,
+        color: vehicle.color,
+        price: vehicle.price,
+        location: vehicle.location || '',
+        dateAcquired: vehicle.dateAcquired
+      });
     } else {
       setVehicle(null);
     }
@@ -232,6 +258,71 @@ const VehicleDetail: React.FC = () => {
   const handleCancelEditLocation = () => {
     setEditedLocation(vehicle?.location || '');
     setIsEditingLocation(false);
+  };
+
+  // Vehicle Information editing handlers
+  const handleEditVehicleInfo = () => {
+    if (!vehicle) return;
+    setEditedVehicleInfo({
+      year: vehicle.year,
+      make: vehicle.make,
+      model: vehicle.model,
+      trim: vehicle.trim || '',
+      mileage: vehicle.mileage,
+      color: vehicle.color,
+      price: vehicle.price,
+      location: vehicle.location || '',
+      dateAcquired: vehicle.dateAcquired
+    });
+    setIsEditingVehicleInfo(true);
+  };
+
+  const handleSaveVehicleInfo = () => {
+    console.log('[VehicleDetail] handleSaveVehicleInfo');
+    if (!vehicle || !user) return;
+
+    const updatedVehicle = {
+      ...vehicle,
+      year: editedVehicleInfo.year,
+      make: editedVehicleInfo.make.trim(),
+      model: editedVehicleInfo.model.trim(),
+      trim: editedVehicleInfo.trim.trim() || undefined,
+      mileage: editedVehicleInfo.mileage,
+      color: editedVehicleInfo.color.trim(),
+      price: editedVehicleInfo.price,
+      location: editedVehicleInfo.location.trim(),
+      dateAcquired: editedVehicleInfo.dateAcquired
+    };
+
+    // Add team note about vehicle info change
+    const infoNote: TeamNote = {
+      id: Date.now().toString(),
+      text: `Vehicle information updated by ${user.firstName} ${user.lastName}.`,
+      userInitials: user.initials,
+      timestamp: new Date().toISOString(),
+      category: 'general'
+    };
+
+    updatedVehicle.teamNotes = [infoNote, ...(vehicle.teamNotes || [])];
+
+    saveVehicleUpdate(updatedVehicle);
+    setIsEditingVehicleInfo(false);
+  };
+
+  const handleCancelEditVehicleInfo = () => {
+    if (!vehicle) return;
+    setEditedVehicleInfo({
+      year: vehicle.year,
+      make: vehicle.make,
+      model: vehicle.model,
+      trim: vehicle.trim || '',
+      mileage: vehicle.mileage,
+      color: vehicle.color,
+      price: vehicle.price,
+      location: vehicle.location || '',
+      dateAcquired: vehicle.dateAcquired
+    });
+    setIsEditingVehicleInfo(false);
   };
 
   const handleMarkAsSold = async () => {
@@ -513,7 +604,7 @@ const VehicleDetail: React.FC = () => {
   const allSections = inspectionSettings?.sections
     ?.filter((section: any) => section.isActive)
     ?.sort((a: any, b: any) => a.order - b.order) || [];
-
+  
   // Check if vehicle is ready for sale based on inspection data (all ratings are 'G')
   const isReadyForSale = inspectionData && allSections.length > 0 && (() => {
     const sectionKeys = allSections.map((section: any) => section.key);
@@ -537,7 +628,7 @@ const VehicleDetail: React.FC = () => {
       for (const inspectedItem of inspectedItems) {
         if (!inspectedItem.rating || inspectedItem.rating !== 'G') {
           return false;
-        }
+          }
       }
     }
     
@@ -914,11 +1005,40 @@ const VehicleDetail: React.FC = () => {
           </div>
 
           {/* Mobile Vehicle Information - At Bottom */}
-          <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-              <Car className="w-6 h-6" />
-              Vehicle Information
-            </h2>
+          <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6 relative">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <Car className="w-6 h-6" />
+                Vehicle Information
+              </h2>
+              
+              {/* Edit/Save/Cancel Buttons */}
+              <div className="flex gap-2">
+                {!isEditingVehicleInfo ? (
+                  <button
+                    onClick={handleEditVehicleInfo}
+                    className="px-3 py-1 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors text-sm font-medium"
+                  >
+                    Edit
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      onClick={handleSaveVehicleInfo}
+                      className="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={handleCancelEditVehicleInfo}
+                      className="px-3 py-1 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors text-sm font-medium"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
             
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
@@ -928,62 +1048,164 @@ const VehicleDetail: React.FC = () => {
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
-                <p className="text-sm text-gray-900">{vehicle.year}</p>
+                {isEditingVehicleInfo ? (
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={editedVehicleInfo.year.toString()}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, ''); // Remove non-digits
+                      setEditedVehicleInfo({...editedVehicleInfo, year: value === '' ? 0 : parseInt(value, 10)});
+                    }}
+                    placeholder="Enter year"
+                    maxLength="4"
+                    className="w-full text-sm text-gray-900 border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                ) : (
+                  <p className="text-sm text-gray-900">{vehicle.year}</p>
+                )}
               </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Make</label>
-                <p className="text-sm text-gray-900">{vehicle.make}</p>
+                {isEditingVehicleInfo ? (
+                  <input
+                    type="text"
+                    value={editedVehicleInfo.make}
+                    onChange={(e) => setEditedVehicleInfo({...editedVehicleInfo, make: e.target.value})}
+                    className="w-full text-sm text-gray-900 border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                ) : (
+                  <p className="text-sm text-gray-900">{vehicle.make}</p>
+                )}
               </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
-                <p className="text-sm text-gray-900">{vehicle.model}</p>
+                {isEditingVehicleInfo ? (
+                  <input
+                    type="text"
+                    value={editedVehicleInfo.model}
+                    onChange={(e) => setEditedVehicleInfo({...editedVehicleInfo, model: e.target.value})}
+                    className="w-full text-sm text-gray-900 border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                ) : (
+                  <p className="text-sm text-gray-900">{vehicle.model}</p>
+                )}
               </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Trim</label>
-                <p className="text-sm text-gray-900">{vehicle.trim || 'N/A'}</p>
+                {isEditingVehicleInfo ? (
+                  <input
+                    type="text"
+                    value={editedVehicleInfo.trim}
+                    onChange={(e) => setEditedVehicleInfo({...editedVehicleInfo, trim: e.target.value})}
+                    placeholder="N/A"
+                    className="w-full text-sm text-gray-900 border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                ) : (
+                  <p className="text-sm text-gray-900">{vehicle.trim || 'N/A'}</p>
+                )}
               </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Mileage</label>
-                <div className="flex items-center gap-2">
-                  <Gauge className="w-4 h-4 text-gray-500" />
-                  <p className="text-sm text-gray-900">{vehicle.mileage.toLocaleString()}</p>
-                </div>
+                {isEditingVehicleInfo ? (
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={editedVehicleInfo.mileage === 0 ? '' : editedVehicleInfo.mileage.toString()}
+                                          onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, ''); // Remove non-digits
+                        const numValue = value === '' ? 0 : parseInt(value, 10) || 0;
+                        setEditedVehicleInfo({...editedVehicleInfo, mileage: numValue});
+                      }}
+                    placeholder="Enter mileage"
+                    className="w-full text-sm text-gray-900 border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Gauge className="w-4 h-4 text-gray-500" />
+                    <p className="text-sm text-gray-900">{vehicle.mileage.toLocaleString()}</p>
+                  </div>
+                )}
               </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
-                <div className="flex items-center gap-2">
-                  <Palette className="w-4 h-4 text-gray-500" />
-                  <p className="text-sm text-gray-900">{vehicle.color}</p>
-                </div>
+                {isEditingVehicleInfo ? (
+                  <input
+                    type="text"
+                    value={editedVehicleInfo.color}
+                    onChange={(e) => setEditedVehicleInfo({...editedVehicleInfo, color: e.target.value})}
+                    className="w-full text-sm text-gray-900 border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Palette className="w-4 h-4 text-gray-500" />
+                    <p className="text-sm text-gray-900">{vehicle.color}</p>
+                  </div>
+                )}
               </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Price</label>
-                <div className="flex items-center gap-2">
-                  <DollarSign className="w-4 h-4 text-gray-500" />
-                  <p className="text-sm text-gray-900">{formatPrice(vehicle.price)}</p>
-                </div>
+                {isEditingVehicleInfo ? (
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={editedVehicleInfo.price === 0 ? '' : editedVehicleInfo.price.toString()}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^\d.]/g, ''); // Allow digits and decimal point
+                      setEditedVehicleInfo({...editedVehicleInfo, price: value === '' ? 0 : parseFloat(value) || 0});
+                    }}
+                    placeholder="Enter price"
+                    className="w-full text-sm text-gray-900 border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="w-4 h-4 text-gray-500" />
+                    <p className="text-sm text-gray-900">{formatPrice(vehicle.price)}</p>
+                  </div>
+                )}
               </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-gray-500" />
-                  <p className="text-sm text-gray-900">{vehicle.location || 'N/A'}</p>
-                </div>
+                {isEditingVehicleInfo ? (
+                  <input
+                    type="text"
+                    value={editedVehicleInfo.location}
+                    onChange={(e) => setEditedVehicleInfo({...editedVehicleInfo, location: e.target.value})}
+                    placeholder="Enter location"
+                    className="w-full text-sm text-gray-900 border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-gray-500" />
+                    <p className="text-sm text-gray-900">{vehicle.location || 'N/A'}</p>
+                  </div>
+                )}
               </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Date Acquired</label>
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-gray-500" />
-                  <p className="text-sm text-gray-900">{formatDate(vehicle.dateAcquired)}</p>
-                </div>
+                {isEditingVehicleInfo ? (
+                  <input
+                    type="date"
+                    value={editedVehicleInfo.dateAcquired}
+                    onChange={(e) => setEditedVehicleInfo({...editedVehicleInfo, dateAcquired: e.target.value})}
+                    className="w-full text-sm text-gray-900 border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-gray-500" />
+                    <p className="text-sm text-gray-900">{formatDate(vehicle.dateAcquired)}</p>
+                  </div>
+                )}
               </div>
               
               <div>
@@ -1153,11 +1375,40 @@ const VehicleDetail: React.FC = () => {
             </div>
 
             {/* Desktop Vehicle Information */}
-            <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                <Car className="w-6 h-6" />
-                Vehicle Information
-              </h2>
+            <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6 relative">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                  <Car className="w-6 h-6" />
+                  Vehicle Information
+                </h2>
+                
+                {/* Edit/Save/Cancel Buttons */}
+                <div className="flex gap-2">
+                  {!isEditingVehicleInfo ? (
+                    <button
+                      onClick={handleEditVehicleInfo}
+                      className="px-3 py-1 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors text-sm font-medium"
+                    >
+                      Edit
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={handleSaveVehicleInfo}
+                        className="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={handleCancelEditVehicleInfo}
+                        className="px-3 py-1 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors text-sm font-medium"
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
               
               <div className="space-y-4">
                 <div>
@@ -1168,63 +1419,164 @@ const VehicleDetail: React.FC = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
-                    <p className="text-sm text-gray-900">{vehicle.year}</p>
+                    {isEditingVehicleInfo ? (
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={editedVehicleInfo.year.toString()}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/\D/g, ''); // Remove non-digits
+                          setEditedVehicleInfo({...editedVehicleInfo, year: value === '' ? 0 : parseInt(value, 10)});
+                        }}
+                        placeholder="Enter year"
+                        maxLength="4"
+                        className="w-full text-sm text-gray-900 border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    ) : (
+                      <p className="text-sm text-gray-900">{vehicle.year}</p>
+                    )}
                   </div>
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Make</label>
-                    <p className="text-sm text-gray-900">{vehicle.make}</p>
+                    {isEditingVehicleInfo ? (
+                      <input
+                        type="text"
+                        value={editedVehicleInfo.make}
+                        onChange={(e) => setEditedVehicleInfo({...editedVehicleInfo, make: e.target.value})}
+                        className="w-full text-sm text-gray-900 border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    ) : (
+                      <p className="text-sm text-gray-900">{vehicle.make}</p>
+                    )}
                   </div>
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
-                    <p className="text-sm text-gray-900">{vehicle.model}</p>
+                    {isEditingVehicleInfo ? (
+                      <input
+                        type="text"
+                        value={editedVehicleInfo.model}
+                        onChange={(e) => setEditedVehicleInfo({...editedVehicleInfo, model: e.target.value})}
+                        className="w-full text-sm text-gray-900 border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    ) : (
+                      <p className="text-sm text-gray-900">{vehicle.model}</p>
+                    )}
                   </div>
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Trim</label>
-                    <p className="text-sm text-gray-900">{vehicle.trim || 'N/A'}</p>
+                    {isEditingVehicleInfo ? (
+                      <input
+                        type="text"
+                        value={editedVehicleInfo.trim}
+                        onChange={(e) => setEditedVehicleInfo({...editedVehicleInfo, trim: e.target.value})}
+                        placeholder="N/A"
+                        className="w-full text-sm text-gray-900 border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    ) : (
+                      <p className="text-sm text-gray-900">{vehicle.trim || 'N/A'}</p>
+                    )}
                   </div>
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Mileage</label>
-                  <div className="flex items-center gap-2">
-                    <Gauge className="w-4 h-4 text-gray-500" />
-                    <p className="text-sm text-gray-900">{vehicle.mileage.toLocaleString()}</p>
-                  </div>
+                  {isEditingVehicleInfo ? (
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={editedVehicleInfo.mileage === 0 ? '' : editedVehicleInfo.mileage.toString()}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, ''); // Remove non-digits
+                        setEditedVehicleInfo({...editedVehicleInfo, mileage: value === '' ? 0 : parseInt(value)});
+                      }}
+                      placeholder="Enter mileage"
+                      className="w-full text-sm text-gray-900 border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Gauge className="w-4 h-4 text-gray-500" />
+                      <p className="text-sm text-gray-900">{vehicle.mileage.toLocaleString()}</p>
+                    </div>
+                  )}
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
-                  <div className="flex items-center gap-2">
-                    <Palette className="w-4 h-4 text-gray-500" />
-                    <p className="text-sm text-gray-900">{vehicle.color}</p>
-                  </div>
+                  {isEditingVehicleInfo ? (
+                    <input
+                      type="text"
+                      value={editedVehicleInfo.color}
+                      onChange={(e) => setEditedVehicleInfo({...editedVehicleInfo, color: e.target.value})}
+                      className="w-full text-sm text-gray-900 border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Palette className="w-4 h-4 text-gray-500" />
+                      <p className="text-sm text-gray-900">{vehicle.color}</p>
+                    </div>
+                  )}
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Price</label>
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="w-4 h-4 text-gray-500" />
-                    <p className="text-sm text-gray-900">{formatPrice(vehicle.price)}</p>
-                  </div>
+                  {isEditingVehicleInfo ? (
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={editedVehicleInfo.price === 0 ? '' : editedVehicleInfo.price.toString()}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/[^\d.]/g, ''); // Allow digits and decimal point
+                        setEditedVehicleInfo({...editedVehicleInfo, price: value === '' ? 0 : parseFloat(value) || 0});
+                      }}
+                      placeholder="Enter price"
+                      className="w-full text-sm text-gray-900 border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="w-4 h-4 text-gray-500" />
+                      <p className="text-sm text-gray-900">{formatPrice(vehicle.price)}</p>
+                    </div>
+                  )}
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-gray-500" />
-                    <p className="text-sm text-gray-900">{vehicle.location || 'N/A'}</p>
-                  </div>
+                  {isEditingVehicleInfo ? (
+                    <input
+                      type="text"
+                      value={editedVehicleInfo.location}
+                      onChange={(e) => setEditedVehicleInfo({...editedVehicleInfo, location: e.target.value})}
+                      placeholder="Enter location"
+                      className="w-full text-sm text-gray-900 border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-gray-500" />
+                      <p className="text-sm text-gray-900">{vehicle.location || 'N/A'}</p>
+                    </div>
+                  )}
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Date Acquired</label>
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-gray-500" />
-                    <p className="text-sm text-gray-900">{formatDate(vehicle.dateAcquired)}</p>
-                  </div>
+                  {isEditingVehicleInfo ? (
+                    <input
+                      type="date"
+                      value={editedVehicleInfo.dateAcquired}
+                      onChange={(e) => setEditedVehicleInfo({...editedVehicleInfo, dateAcquired: e.target.value})}
+                      className="w-full text-sm text-gray-900 border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-gray-500" />
+                      <p className="text-sm text-gray-900">{formatDate(vehicle.dateAcquired)}</p>
+                    </div>
+                  )}
                 </div>
                 
                 <div>

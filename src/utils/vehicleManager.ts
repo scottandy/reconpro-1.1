@@ -377,4 +377,52 @@ export class VehicleManager {
     if (error) return [];
     return (data || []).map(this.fromDatabaseFormat);
   }
+
+  static async updateVehicleLocation(dealershipId: string, vehicleId: string, locationUpdate: {
+    location: string;
+    locationChangedBy?: string;
+    locationChangedDate?: string;
+  }): Promise<Vehicle | null> {
+    const dbUpdates: any = {
+      location_name: locationUpdate.location,
+      updated_at: new Date().toISOString()
+    };
+
+    const { data, error } = await supabase
+      .from('vehicles')
+      .update(dbUpdates)
+      .eq('id', vehicleId)
+      .eq('dealership_id', dealershipId)
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('Error updating vehicle location in Supabase:', error);
+      return null;
+    }
+    
+    return this.fromDatabaseFormat(data);
+  }
+
+  static async updateVehicleNotes(dealershipId: string, vehicleId: string, notes: string): Promise<Vehicle | null> {
+    const dbUpdates: any = {
+      notes: notes || null,
+      updated_at: new Date().toISOString()
+    };
+
+    const { data, error } = await supabase
+      .from('vehicles')
+      .update(dbUpdates)
+      .eq('id', vehicleId)
+      .eq('dealership_id', dealershipId)
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('Error updating vehicle notes in Supabase:', error);
+      return null;
+    }
+    
+    return this.fromDatabaseFormat(data);
+  }
 }

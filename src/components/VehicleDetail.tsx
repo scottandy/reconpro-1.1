@@ -205,15 +205,38 @@ const VehicleDetail: React.FC = () => {
     saveVehicleUpdate(updatedVehicle);
   };
 
-  const handleSaveNotes = () => {
+  const handleSaveNotes = async () => {
     console.log('[VehicleDetail] handleSaveNotes');
-    if (!vehicle) return;
-    const updatedVehicle = {
-      ...vehicle,
-      notes: editedNotes.trim() || undefined
-    };
-    saveVehicleUpdate(updatedVehicle);
-    setIsEditingNotes(false);
+    if (!vehicle || !user) return;
+    
+    const newNotes = editedNotes.trim() || '';
+    
+    // Only update the notes field, not the entire vehicle object
+    if (!user.dealershipId) return;
+    setIsLoading(true);
+    
+    try {
+      const result = await VehicleManager.updateVehicleNotes(
+        user.dealershipId, 
+        vehicle.id, 
+        newNotes
+      );
+      
+      if (result) {
+        // Update local vehicle state with new notes
+        setVehicle(prev => prev ? {
+          ...prev,
+          notes: newNotes || undefined
+        } : null);
+      } else {
+        console.error('Error updating vehicle notes');
+      }
+    } catch (error) {
+      console.error('Error updating vehicle notes:', error);
+    } finally {
+      setIsLoading(false);
+      setIsEditingNotes(false);
+    }
   };
 
   const handleCancelEditNotes = () => {
@@ -222,7 +245,7 @@ const VehicleDetail: React.FC = () => {
   };
 
   // NEW: Location update handlers
-  const handleSaveLocation = () => {
+  const handleSaveLocation = async () => {
     console.log('[VehicleDetail] handleSaveLocation');
     if (!vehicle || !user) return;
     const oldLocation = vehicle.location;
@@ -233,8 +256,8 @@ const VehicleDetail: React.FC = () => {
       return;
     }
 
-    const updatedVehicle = {
-      ...vehicle,
+    // Only update the location field, not the entire vehicle object
+    const locationUpdate = {
       location: newLocation,
       locationChangedBy: user.initials,
       locationChangedDate: new Date().toISOString()
@@ -249,10 +272,35 @@ const VehicleDetail: React.FC = () => {
       category: 'general'
     };
 
-    updatedVehicle.teamNotes = [locationNote, ...(vehicle.teamNotes || [])];
-
-    saveVehicleUpdate(updatedVehicle);
-    setIsEditingLocation(false);
+    // Update location in database
+    if (!user.dealershipId) return;
+    setIsLoading(true);
+    
+    try {
+      const result = await VehicleManager.updateVehicleLocation(
+        user.dealershipId, 
+        vehicle.id, 
+        locationUpdate
+      );
+      
+      if (result) {
+        // Update local vehicle state with new location
+        setVehicle(prev => prev ? {
+          ...prev,
+          location: newLocation,
+          locationChangedBy: user.initials,
+          locationChangedDate: new Date().toISOString(),
+          teamNotes: [locationNote, ...(prev.teamNotes || [])]
+        } : null);
+      } else {
+        console.error('Error updating vehicle location');
+      }
+    } catch (error) {
+      console.error('Error updating vehicle location:', error);
+    } finally {
+      setIsLoading(false);
+      setIsEditingLocation(false);
+    }
   };
 
   const handleCancelEditLocation = () => {

@@ -235,7 +235,7 @@ const VehicleDetail: React.FC = () => {
       console.error('Error updating vehicle notes:', error);
     } finally {
       setIsLoading(false);
-      setIsEditingNotes(false);
+    setIsEditingNotes(false);
     }
   };
 
@@ -299,7 +299,7 @@ const VehicleDetail: React.FC = () => {
       console.error('Error updating vehicle location:', error);
     } finally {
       setIsLoading(false);
-      setIsEditingLocation(false);
+    setIsEditingLocation(false);
     }
   };
 

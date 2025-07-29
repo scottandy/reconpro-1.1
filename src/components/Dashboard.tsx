@@ -55,6 +55,7 @@ import ContactManagement from './ContactManagement';
 import TodoCalendar from './TodoCalendar';
 import InspectionSettings from './InspectionSettings';
 import { ProgressCalculator } from '../utils/progressCalculator';
+import { InspectionSection } from '../types/inspectionSettings';
 
 type DashboardView = 'inventory' | 'analytics' | 'users' | 'locations' | 'contacts' | 'todos' | 'settings' | 'inspection-settings';
 type VehicleFilter = 'all' | 'active' | 'completed' | 'pending' | 'needs-attention' | 'sold' | 'vehicle-pending';
@@ -79,6 +80,40 @@ const Dashboard: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [vehicleInspectionData, setVehicleInspectionData] = useState<Record<string, any>>({});
   const [inspectionDataLoaded, setInspectionDataLoaded] = useState(false);
+
+  // NEW: Dynamic sections state
+  const [allSections, setAllSections] = useState<InspectionSection[]>([]);
+  const [isLoadingSettings, setIsLoadingSettings] = useState(true);
+
+  // Load all sections asynchronously
+  useEffect(() => {
+    const loadAllSections = async () => {
+      if (!dealership) {
+        setAllSections([]);
+        setIsLoadingSettings(false);
+        return;
+      }
+
+      try {
+        const settings = await InspectionDataManager.getSettings(dealership.id);
+        if (settings) {
+          const sections = settings.sections
+            .filter(section => section.isActive)
+            .sort((a, b) => a.order - b.order);
+          setAllSections(sections);
+        } else {
+          setAllSections([]);
+        }
+      } catch (error) {
+        console.error('Error loading sections:', error);
+        setAllSections([]);
+      } finally {
+        setIsLoadingSettings(false);
+      }
+    };
+
+    loadAllSections();
+  }, [dealership]);
 
   // Load all vehicles on component mount
   useEffect(() => {
@@ -254,12 +289,13 @@ const Dashboard: React.FC = () => {
     }
 
     // Apply status filter for active vehicles
-    if (vehicleFilter !== 'sold' && vehicleFilter !== 'vehicle-pending' && inspectionDataLoaded) {
+    if (vehicleFilter !== 'sold' && vehicleFilter !== 'vehicle-pending' && inspectionDataLoaded && !isLoadingSettings && allSections.length > 0) {
+      const sectionKeys = allSections.map(section => section.key);
+      
       switch (vehicleFilter) {
         case 'completed':
           vehiclesToFilter = vehiclesToFilter.filter(vehicle => {
             const inspectionData = vehicleInspectionData[vehicle.id] || {};
-            const sectionKeys = ['emissions', 'cosmetic', 'mechanical', 'cleaning', 'photos'];
             const allRatings: string[] = [];
             
             for (const sectionKey of sectionKeys) {
@@ -288,7 +324,6 @@ const Dashboard: React.FC = () => {
         case 'needs-attention':
           vehiclesToFilter = vehiclesToFilter.filter(vehicle => {
             const inspectionData = vehicleInspectionData[vehicle.id] || {};
-            const sectionKeys = ['emissions', 'cosmetic', 'mechanical', 'cleaning', 'photos'];
             const allRatings: string[] = [];
             
             for (const sectionKey of sectionKeys) {
@@ -309,7 +344,6 @@ const Dashboard: React.FC = () => {
         case 'active':
           vehiclesToFilter = vehiclesToFilter.filter(vehicle => {
             const inspectionData = vehicleInspectionData[vehicle.id] || {};
-            const sectionKeys = ['emissions', 'cosmetic', 'mechanical', 'cleaning', 'photos'];
             const allRatings: string[] = [];
             
             for (const sectionKey of sectionKeys) {
@@ -370,8 +404,8 @@ const Dashboard: React.FC = () => {
   };
 
   const getFilterCounts = () => {
-    // Don't categorize until inspection data is loaded
-    if (!inspectionDataLoaded) {
+    // Don't categorize until inspection data and settings are loaded
+    if (!inspectionDataLoaded || isLoadingSettings || allSections.length === 0) {
       return {
         all: vehicles.length,
         active: 0,
@@ -383,7 +417,7 @@ const Dashboard: React.FC = () => {
       };
     }
 
-    // Helper function to categorize a vehicle based on inspection status
+      // Helper function to categorize a vehicle based on inspection status
     const categorizeVehicle = (vehicle: Vehicle) => {
       // First check vehicle.status - if sold or pending, don't categorize by inspection
       if (vehicle.status === 'sold' || vehicle.status === 'pending') {
@@ -391,8 +425,14 @@ const Dashboard: React.FC = () => {
         return null; // Don't count in Ready/Working/Issues
       }
 
+      // Don't categorize until settings are loaded
+      if (isLoadingSettings || allSections.length === 0) {
+        console.log(`Vehicle ${vehicle.id} skipped categorization - settings not loaded`);
+        return 'pending';
+      }
+
       const inspectionData = vehicleInspectionData[vehicle.id] || {};
-      const sectionKeys = ['emissions', 'cosmetic', 'mechanical', 'cleaning', 'photos'];
+      const sectionKeys = allSections.map(section => section.key);
       
       // Collect all ratings from all sections (same as VehicleCard logic)
       const allRatings: string[] = [];
@@ -411,7 +451,8 @@ const Dashboard: React.FC = () => {
       console.log(`Vehicle ${vehicle.id} (${vehicle.year} ${vehicle.make} ${vehicle.model}):`, {
         allRatings,
         inspectionData,
-        vehicleStatus: vehicle.status
+        vehicleStatus: vehicle.status,
+        sectionKeys
       });
 
       // If no ratings at all, it's pending/working (not started)
@@ -437,8 +478,8 @@ const Dashboard: React.FC = () => {
         console.log(`Vehicle ${vehicle.id} categorized as: pending (incomplete sections)`);
         return 'pending';
       }
-       
-              // 3. If ALL sections complete AND all ratings are 'G' (great), it's completed
+
+      // 3. If ALL sections complete AND all ratings are 'G' (great), it's completed
       if (allRatings.every(rating => rating === 'G')) {
         console.log(`Vehicle ${vehicle.id} categorized as: completed`);
         return 'completed';

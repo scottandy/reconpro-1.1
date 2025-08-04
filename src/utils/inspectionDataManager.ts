@@ -537,12 +537,24 @@ export class InspectionDataManager {
         const oldItem = oldItemsMap.get(newItem.id);
         
         if (oldItem && oldItem.rating !== newItem.rating) {
+          // Rating changed from existing item
           const oldRatingLabel = this.getRatingLabel(oldItem.rating);
           const newRatingLabel = this.getRatingLabel(newItem.rating);
           
           notes.push({
             id: `rating-change-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             text: `Changed "${newItem.label}" from "${oldRatingLabel}" to "${newRatingLabel}"`,
+            userInitials: inspectorId,
+            timestamp,
+            category: sectionKey
+          });
+        } else if (!oldItem && newItem.rating) {
+          // New item rated for the first time
+          const newRatingLabel = this.getRatingLabel(newItem.rating);
+          
+          notes.push({
+            id: `rating-first-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            text: `Rated "${newItem.label}" as "${newRatingLabel}"`,
             userInitials: inspectorId,
             timestamp,
             category: sectionKey

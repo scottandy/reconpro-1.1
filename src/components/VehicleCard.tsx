@@ -354,20 +354,20 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle }) => {
 
         {/* 🎯 NEW: Vehicle Notes Section - Shows first 60 characters */}
         {truncatedNotes && (
-          <div className="mb-5 p-3 bg-amber-50/80 dark:bg-amber-900/60 backdrop-blur-sm rounded-lg border border-amber-200/60 dark:border-amber-800/60">
+          <div className="mb-5 p-3 bg-blue-50/80 dark:bg-blue-900/60 backdrop-blur-sm rounded-lg border border-blue-200/60 dark:border-blue-800/60">
             <div className="flex items-start gap-2">
-              <div className="w-4 h-4 bg-amber-100 dark:bg-amber-800 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                <AlertTriangle className="w-2.5 h-2.5 text-amber-600 dark:text-amber-300" />
+              <div className="w-4 h-4 bg-blue-100 dark:bg-blue-800 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                <FileText className="w-2.5 h-2.5 text-blue-600 dark:text-blue-300" />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <FileText className="w-3 h-3 text-amber-600 dark:text-amber-300" />
-                  <span className="text-xs font-semibold text-amber-800 dark:text-amber-200 uppercase tracking-wide">Issues</span>
+                  <FileText className="w-3 h-3 text-blue-600 dark:text-blue-300" />
+                  <span className="text-xs font-semibold text-blue-800 dark:text-blue-200 uppercase tracking-wide">Notes</span>
                 </div>
-                <p className="text-sm text-amber-700 dark:text-amber-100 font-medium leading-relaxed">
+                <p className="text-sm text-blue-700 dark:text-blue-100 font-medium leading-relaxed">
                   {truncatedNotes}
                   {vehicle.notes && vehicle.notes.length > 60 && (
-                    <span className="text-amber-600 dark:text-amber-200 font-semibold ml-1">Click to read more</span>
+                    <span className="text-blue-600 dark:text-blue-200 font-semibold ml-1">Click to read more</span>
                   )}
                 </p>
               </div>

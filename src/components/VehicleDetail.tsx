@@ -228,6 +228,29 @@ const VehicleDetail: React.FC = () => {
           ...prev,
           notes: newNotes || undefined
         } : null);
+
+        // Add team note for issue note addition
+        if (newNotes) {
+          const issueNote = {
+            id: (Date.now() + Math.random()).toString(),
+            text: `Issue Note added By ${user.firstName} ${user.lastName} - ${newNotes}`,
+            userInitials: user.initials,
+            timestamp: new Date().toISOString(),
+            category: 'general'
+          };
+
+          // Add the team note to the vehicle
+          const updatedVehicle = await VehicleManager.updateVehicle(user.dealershipId, vehicle.id, {
+            ...vehicle,
+            teamNotes: [issueNote, ...(vehicle.teamNotes || [])]
+          });
+
+          if (updatedVehicle) {
+            console.log('Successfully added team note for issue note');
+            // Update local vehicle state with new team note
+            setVehicle(updatedVehicle);
+          }
+        }
       } else {
         console.error('Error updating vehicle notes');
       }

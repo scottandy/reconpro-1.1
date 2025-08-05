@@ -34,7 +34,8 @@ import {
   ClipboardList,
   Download,
   Printer,
-  Archive
+  Archive,
+  Trash2
 } from 'lucide-react';
 
 const VehicleDetail: React.FC = () => {
@@ -48,6 +49,7 @@ const VehicleDetail: React.FC = () => {
   const [editedNotes, setEditedNotes] = useState('');
   const [rightPanelView, setRightPanelView] = useState<'inspection' | 'team-notes'>('inspection');
   const [showPdfModal, setShowPdfModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   
   // NEW: Location editing state
   const [isEditingLocation, setIsEditingLocation] = useState(false);
@@ -510,6 +512,33 @@ const VehicleDetail: React.FC = () => {
     setIsLoading(false);
   };
 
+  const handleDeleteVehicle = async () => {
+    if (!vehicle || !user || !user.dealershipId) return;
+    
+    console.log('🔍 Delete vehicle request:', { 
+      vehicleId: vehicle.id, 
+      dealershipId: user.dealershipId,
+      userId: user.id,
+      userRole: user.role
+    });
+    
+    try {
+      const result = await VehicleManager.deleteVehicle(user.dealershipId, vehicle.id);
+      console.log('🗑️ Delete result:', result);
+      
+      if (result) {
+        console.log('✅ Successfully deleted vehicle');
+        navigate('/');
+      } else {
+        console.error('❌ Failed to delete vehicle');
+        alert('Failed to delete vehicle. Please try again.');
+      }
+    } catch (error) {
+      console.error('❌ Error deleting vehicle:', error);
+      alert('Error deleting vehicle. Please try again.');
+    }
+  };
+
   // 🎯 NEW: Mobile scroll to section functionality
   const handleMobileSectionClick = (section: string) => {
     // Set the active filter
@@ -637,6 +666,9 @@ const VehicleDetail: React.FC = () => {
     if (items.every((item: any) => item.rating === 'G')) return 'completed';
     return 'not-started';
   };
+
+  // Add a helper to check if user can delete
+  const canDeleteVehicle = user && ['manager', 'admin', 'super-admin'].includes(user.role);
 
   if (isLoading) {
     return (
@@ -1326,6 +1358,18 @@ const VehicleDetail: React.FC = () => {
                 </div>
               </div>
             </div>
+            
+            {canDeleteVehicle && (
+              <div className="flex justify-end pt-4 border-t border-gray-200/60">
+                <button
+                  onClick={() => setShowDeleteModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-200 font-medium text-sm"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete Vehicle
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1520,7 +1564,7 @@ const VehicleDetail: React.FC = () => {
                 </div>
               </div>
               
-              <div className="space-y-4">
+              <div className="space-y-4 pb-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">VIN</label>
                   <p className="text-sm font-mono bg-gray-50 p-2 rounded border">{vehicle.vin}</p>
@@ -1697,6 +1741,18 @@ const VehicleDetail: React.FC = () => {
                   </div>
                 </div>
               </div>
+              
+              {canDeleteVehicle && (
+                <div className="flex justify-end pt-4 border-t border-gray-200/60">
+                  <button
+                    onClick={() => setShowDeleteModal(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-200 font-medium text-sm"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete Vehicle
+                  </button>
+                </div>
+              )}
             </div>
             </div>
           </div>
@@ -1770,6 +1826,47 @@ const VehicleDetail: React.FC = () => {
         isOpen={showPdfModal}
         onClose={() => setShowPdfModal(false)}
       />
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-2xl max-w-md w-full border border-white/20">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                  <Trash2 className="w-5 h-5 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Delete Vehicle</h3>
+                  <p className="text-sm text-gray-600">This action cannot be undone</p>
+                </div>
+              </div>
+              
+              <p className="text-gray-700 mb-6">
+                Do you really want to delete this vehicle?
+              </p>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDeleteModal(false)}
+                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    handleDeleteVehicle();
+                  }}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                >
+                  Confirm Deletion
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

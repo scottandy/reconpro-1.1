@@ -210,13 +210,47 @@ export class VehicleManager {
   }
 
   static async deleteVehicle(dealershipId: string, vehicleId: string): Promise<boolean> {
-    const { error } = await supabase
+    // First, let's check the current user's authentication context
+    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+    if (authError) {
+      return false;
+    }
+    // Check if the user exists in the profiles table
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, dealership_id, role')
+      .eq('id', authUser?.id)
+      .single();
+    if (profileError) {
+      return false;
+    }
+    // Check if the vehicle exists and belongs to the correct dealership
+    const { data: vehicle, error: vehicleError } = await supabase
+      .from('vehicles')
+      .select('id, dealership_id')
+      .eq('id', vehicleId)
+      .single();
+    if (vehicleError) {
+      return false;
+    }
+    // Test if we can at least SELECT the vehicle (to verify RLS SELECT policy works)
+    const { data: selectTest, error: selectError } = await supabase
+      .from('vehicles')
+      .select('id, dealership_id')
+      .eq('id', vehicleId)
+      .eq('dealership_id', dealershipId);
+    // Now attempt the delete
+    const { data, error, count } = await supabase
       .from('vehicles')
       .delete()
       .eq('id', vehicleId)
-      .eq('dealership_id', dealershipId);
+      .eq('dealership_id', dealershipId)
+      .select('id');
     if (error) {
-      console.error('Error deleting vehicle from Supabase:', error);
+      return false;
+    }
+    // Check if any rows were actually deleted
+    if (!data || data.length === 0) {
       return false;
     }
     return true;

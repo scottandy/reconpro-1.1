@@ -177,7 +177,7 @@ const Dashboard: React.FC = () => {
   };
 
   const handleAddVehicle = async (vehicleData: Omit<Vehicle, 'id'>) => {
-    if (!dealership) return;
+    if (!dealership || !user) return;
 
     console.log('Dashboard received vehicle data:', vehicleData);
     console.log('Dealership ID:', dealership.id);
@@ -186,6 +186,26 @@ const Dashboard: React.FC = () => {
       const newVehicle = await VehicleManager.addVehicle(dealership.id, vehicleData);
       if (newVehicle) {
         console.log('Successfully added vehicle:', newVehicle);
+        
+        // Add team note for vehicle creation
+        const creationNote = {
+          id: (Date.now() + Math.random()).toString(),
+          text: `Vehicle Created By ${user.firstName} ${user.lastName} - ${new Date().toLocaleDateString()}`,
+          userInitials: user.initials,
+          timestamp: new Date().toISOString(),
+          category: 'general'
+        };
+
+        // Add the team note to the vehicle
+        const updatedVehicle = await VehicleManager.updateVehicle(dealership.id, newVehicle.id, {
+          ...newVehicle,
+          teamNotes: [creationNote, ...(newVehicle.teamNotes || [])]
+        });
+
+        if (updatedVehicle) {
+          console.log('Successfully added team note for vehicle creation');
+        }
+        
         // Reload all vehicles to get the updated list
         await loadAllVehicles();
         setShowAddVehicle(false);
@@ -417,7 +437,7 @@ const Dashboard: React.FC = () => {
       };
     }
 
-      // Helper function to categorize a vehicle based on inspection status
+    // Helper function to categorize a vehicle based on inspection status
     const categorizeVehicle = (vehicle: Vehicle) => {
       // First check vehicle.status - if sold or pending, don't categorize by inspection
       if (vehicle.status === 'sold' || vehicle.status === 'pending') {
@@ -484,7 +504,7 @@ const Dashboard: React.FC = () => {
         console.log(`Vehicle ${vehicle.id} categorized as: completed`);
         return 'completed';
       }
-       
+
       // 4. If has 'F' ratings or 'not-checked', it's pending/working
       if (allRatings.some(rating => rating === 'F' || rating === 'not-checked')) {
         console.log(`Vehicle ${vehicle.id} categorized as: pending (has F or not-checked)`);

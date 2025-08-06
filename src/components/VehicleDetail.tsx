@@ -265,13 +265,6 @@ const VehicleDetail: React.FC = () => {
       return;
     }
 
-    // Only update the location field, not the entire vehicle object
-    const locationUpdate = {
-      location: newLocation,
-      locationChangedBy: user.initials,
-      locationChangedDate: new Date().toISOString()
-    };
-
     // Add team note about location change
     const locationNote: TeamNote = {
       id: Date.now().toString(),
@@ -281,26 +274,23 @@ const VehicleDetail: React.FC = () => {
       category: 'general'
     };
 
-    // Update location in database
+    // Update location and team notes in database
     if (!user.dealershipId) return;
     setIsLoading(true);
     
     try {
-      const result = await VehicleManager.updateVehicleLocation(
-        user.dealershipId, 
-        vehicle.id, 
-        locationUpdate
-      );
+      const updatedVehicle = await VehicleManager.updateVehicle(user.dealershipId, vehicle.id, {
+        ...vehicle,
+        location: newLocation,
+        locationChangedBy: user.initials,
+        locationChangedDate: new Date().toISOString(),
+        teamNotes: [locationNote, ...(vehicle.teamNotes || [])]
+      });
       
-      if (result) {
-        // Update local vehicle state with new location
-        setVehicle(prev => prev ? {
-          ...prev,
-          location: newLocation,
-          locationChangedBy: user.initials,
-          locationChangedDate: new Date().toISOString(),
-          teamNotes: [locationNote, ...(prev.teamNotes || [])]
-        } : null);
+      if (updatedVehicle) {
+        // Update local vehicle state with new location and team notes
+        setVehicle(updatedVehicle);
+        console.log('Successfully updated vehicle location and added team note');
       } else {
         console.error('Error updating vehicle location');
       }
@@ -308,7 +298,7 @@ const VehicleDetail: React.FC = () => {
       console.error('Error updating vehicle location:', error);
     } finally {
       setIsLoading(false);
-    setIsEditingLocation(false);
+      setIsEditingLocation(false);
     }
   };
 

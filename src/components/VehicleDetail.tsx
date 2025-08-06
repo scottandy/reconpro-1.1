@@ -213,46 +213,30 @@ const VehicleDetail: React.FC = () => {
     
     const newNotes = editedNotes.trim() || '';
     
-    // Only update the notes field, not the entire vehicle object
     if (!user.dealershipId) return;
     setIsLoading(true);
     
     try {
-      const result = await VehicleManager.updateVehicleNotes(
-        user.dealershipId, 
-        vehicle.id, 
-        newNotes
-      );
+      // Create team note for issue note addition if notes are being added
+      const teamNotesToAdd = newNotes ? [{
+        id: (Date.now() + Math.random()).toString(),
+        text: `Issue Note added By ${user.firstName} ${user.lastName} - ${newNotes}`,
+        userInitials: user.initials,
+        timestamp: new Date().toISOString(),
+        category: 'general'
+      }] : [];
+
+      // Update both vehicle notes and team notes in one operation
+      const updatedVehicle = await VehicleManager.updateVehicle(user.dealershipId, vehicle.id, {
+        ...vehicle,
+        notes: newNotes || undefined,
+        teamNotes: [...teamNotesToAdd, ...(vehicle.teamNotes || [])]
+      });
       
-      if (result) {
-        // Update local vehicle state with new notes
-        setVehicle(prev => prev ? {
-          ...prev,
-          notes: newNotes || undefined
-        } : null);
-
-        // Add team note for issue note addition
-        if (newNotes) {
-          const issueNote = {
-            id: (Date.now() + Math.random()).toString(),
-            text: `Issue Note added By ${user.firstName} ${user.lastName} - ${newNotes}`,
-            userInitials: user.initials,
-            timestamp: new Date().toISOString(),
-            category: 'general'
-          };
-
-          // Add the team note to the vehicle
-          const updatedVehicle = await VehicleManager.updateVehicle(user.dealershipId, vehicle.id, {
-            ...vehicle,
-            teamNotes: [issueNote, ...(vehicle.teamNotes || [])]
-          });
-
-          if (updatedVehicle) {
-            console.log('Successfully added team note for issue note');
-            // Update local vehicle state with new team note
-            setVehicle(updatedVehicle);
-          }
-        }
+      if (updatedVehicle) {
+        // Update local vehicle state with new notes and team notes
+        setVehicle(updatedVehicle);
+        console.log('Successfully updated vehicle notes and added team note');
       } else {
         console.error('Error updating vehicle notes');
       }
@@ -260,7 +244,7 @@ const VehicleDetail: React.FC = () => {
       console.error('Error updating vehicle notes:', error);
     } finally {
       setIsLoading(false);
-    setIsEditingNotes(false);
+      setIsEditingNotes(false);
     }
   };
 

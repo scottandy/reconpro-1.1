@@ -194,17 +194,33 @@ const VehicleDetail: React.FC = () => {
 
   const handleAddTeamNote = (note: Omit<TeamNote, 'id' | 'timestamp'>) => {
     console.log('[VehicleDetail] handleAddTeamNote', note);
-    if (!vehicle) return;
+    if (!vehicle || !user) return;
     const newNote: TeamNote = {
       ...note,
       id: Date.now().toString(),
       timestamp: new Date().toISOString()
     };
-    const updatedVehicle = {
-      ...vehicle,
-      teamNotes: [newNote, ...(vehicle.teamNotes || [])]
-    };
-    saveVehicleUpdate(updatedVehicle);
+
+    // Use specialized update function that only updates team notes
+    if (!user.dealershipId) return;
+    setIsLoading(true);
+    
+    VehicleManager.updateVehicleTeamNotes(
+      user.dealershipId,
+      vehicle.id,
+      [newNote, ...(vehicle.teamNotes || [])]
+    ).then(updatedVehicle => {
+      if (updatedVehicle) {
+        setVehicle(updatedVehicle);
+        console.log('Successfully added team note');
+      } else {
+        console.error('Error adding team note');
+      }
+      setIsLoading(false);
+    }).catch(error => {
+      console.error('Error adding team note:', error);
+      setIsLoading(false);
+    });
   };
 
   const handleSaveNotes = async () => {
@@ -226,12 +242,13 @@ const VehicleDetail: React.FC = () => {
         category: 'general'
       }] : [];
 
-      // Update both vehicle notes and team notes in one operation
-      const updatedVehicle = await VehicleManager.updateVehicle(user.dealershipId, vehicle.id, {
-        ...vehicle,
-        notes: newNotes || undefined,
-        teamNotes: [...teamNotesToAdd, ...(vehicle.teamNotes || [])]
-      });
+      // Use specialized update function that only updates notes and team notes
+      const updatedVehicle = await VehicleManager.updateVehicleNotesAndTeamNotes(
+        user.dealershipId, 
+        vehicle.id, 
+        newNotes || undefined,
+        [...teamNotesToAdd, ...(vehicle.teamNotes || [])]
+      );
       
       if (updatedVehicle) {
         // Update local vehicle state with new notes and team notes
@@ -274,18 +291,17 @@ const VehicleDetail: React.FC = () => {
       category: 'general'
     };
 
-    // Update location and team notes in database
+    // Update location and team notes in database using specialized method
     if (!user.dealershipId) return;
     setIsLoading(true);
     
     try {
-      const updatedVehicle = await VehicleManager.updateVehicle(user.dealershipId, vehicle.id, {
-        ...vehicle,
-        location: newLocation,
-        locationChangedBy: user.initials,
-        locationChangedDate: new Date().toISOString(),
-        teamNotes: [locationNote, ...(vehicle.teamNotes || [])]
-      });
+      const updatedVehicle = await VehicleManager.updateVehicleLocationAndTeamNotes(
+        user.dealershipId,
+        vehicle.id,
+        newLocation,
+        [locationNote, ...(vehicle.teamNotes || [])]
+      );
       
       if (updatedVehicle) {
         // Update local vehicle state with new location and team notes
@@ -328,22 +344,6 @@ const VehicleDetail: React.FC = () => {
     console.log('[VehicleDetail] handleSaveVehicleInfo');
     if (!vehicle || !user) return;
 
-    // Destructure to exclude inspection data from updates
-    const { inspection, ...vehicleWithoutInspection } = vehicle;
-    
-    const updatedVehicle = {
-      ...vehicleWithoutInspection,
-      year: editedVehicleInfo.year,
-      make: editedVehicleInfo.make.trim(),
-      model: editedVehicleInfo.model.trim(),
-      trim: editedVehicleInfo.trim.trim() || undefined,
-      mileage: editedVehicleInfo.mileage,
-      color: editedVehicleInfo.color.trim(),
-      price: editedVehicleInfo.price,
-      location: editedVehicleInfo.location.trim(),
-      dateAcquired: editedVehicleInfo.dateAcquired
-    };
-
     // Add team note about vehicle info change
     const infoNote: TeamNote = {
       id: Date.now().toString(),
@@ -353,10 +353,38 @@ const VehicleDetail: React.FC = () => {
       category: 'general'
     };
 
-    updatedVehicle.teamNotes = [infoNote, ...(vehicle.teamNotes || [])];
-
-    saveVehicleUpdate(updatedVehicle);
-    setIsEditingVehicleInfo(false);
+    // Use specialized update function that only updates vehicle info and team notes
+    if (!user.dealershipId) return;
+    setIsLoading(true);
+    
+    VehicleManager.updateVehicleInfoAndTeamNotes(
+      user.dealershipId,
+      vehicle.id,
+      {
+        year: editedVehicleInfo.year,
+        make: editedVehicleInfo.make.trim(),
+        model: editedVehicleInfo.model.trim(),
+        trim: editedVehicleInfo.trim.trim() || undefined,
+        mileage: editedVehicleInfo.mileage,
+        color: editedVehicleInfo.color.trim(),
+        price: editedVehicleInfo.price,
+        location: editedVehicleInfo.location.trim(),
+        dateAcquired: editedVehicleInfo.dateAcquired
+      },
+      [infoNote, ...(vehicle.teamNotes || [])]
+    ).then(updatedVehicle => {
+      if (updatedVehicle) {
+        setVehicle(updatedVehicle);
+        console.log('Successfully updated vehicle info and added team note');
+      } else {
+        console.error('Error updating vehicle info');
+      }
+      setIsLoading(false);
+      setIsEditingVehicleInfo(false);
+    }).catch(error => {
+      console.error('Error updating vehicle info:', error);
+      setIsLoading(false);
+    });
   };
 
   const handleCancelEditVehicleInfo = () => {
@@ -383,11 +411,6 @@ const VehicleDetail: React.FC = () => {
       const confirmation = confirm('Are you sure you want to unmark this vehicle as sold?');
       if (!confirmation) return;
 
-      const updatedVehicle = {
-        ...vehicle,
-        status: null // Clear the status
-      };
-
       // Add team note about status change
       const statusNote: TeamNote = {
         id: Date.now().toString(),
@@ -397,17 +420,33 @@ const VehicleDetail: React.FC = () => {
         category: 'general'
       };
 
-      updatedVehicle.teamNotes = [statusNote, ...(vehicle.teamNotes || [])];
-      await saveVehicleUpdate(updatedVehicle);
+      // Use specialized update function
+      if (!user.dealershipId) return;
+      setIsLoading(true);
+      
+      try {
+        const updatedVehicle = await VehicleManager.updateVehicleStatusAndTeamNotes(
+          user.dealershipId,
+          vehicle.id,
+          null, // Clear the status
+          [statusNote, ...(vehicle.teamNotes || [])]
+        );
+        
+        if (updatedVehicle) {
+          setVehicle(updatedVehicle);
+          console.log('Successfully updated vehicle status and added team note');
+        } else {
+          console.error('Error updating vehicle status');
+        }
+      } catch (error) {
+        console.error('Error updating vehicle status:', error);
+      } finally {
+        setIsLoading(false);
+      }
     } else {
       // Mark as sold
       const confirmation = confirm('Are you sure you want to mark this vehicle as sold?');
       if (!confirmation) return;
-
-      const updatedVehicle = {
-        ...vehicle,
-        status: 'sold' as const
-      };
 
       // Add team note about status change
       const statusNote: TeamNote = {
@@ -418,8 +457,29 @@ const VehicleDetail: React.FC = () => {
         category: 'general'
       };
 
-      updatedVehicle.teamNotes = [statusNote, ...(vehicle.teamNotes || [])];
-      await saveVehicleUpdate(updatedVehicle);
+      // Use specialized update function
+      if (!user.dealershipId) return;
+      setIsLoading(true);
+      
+      try {
+        const updatedVehicle = await VehicleManager.updateVehicleStatusAndTeamNotes(
+          user.dealershipId,
+          vehicle.id,
+          'sold',
+          [statusNote, ...(vehicle.teamNotes || [])]
+        );
+        
+        if (updatedVehicle) {
+          setVehicle(updatedVehicle);
+          console.log('Successfully updated vehicle status and added team note');
+        } else {
+          console.error('Error updating vehicle status');
+        }
+      } catch (error) {
+        console.error('Error updating vehicle status:', error);
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -431,11 +491,6 @@ const VehicleDetail: React.FC = () => {
       const confirmation = confirm('Are you sure you want to unmark this vehicle as pending?');
       if (!confirmation) return;
 
-      const updatedVehicle = {
-        ...vehicle,
-        status: null // Clear the status
-      };
-
       // Add team note about status change
       const statusNote: TeamNote = {
         id: Date.now().toString(),
@@ -445,17 +500,33 @@ const VehicleDetail: React.FC = () => {
         category: 'general'
       };
 
-      updatedVehicle.teamNotes = [statusNote, ...(vehicle.teamNotes || [])];
-      await saveVehicleUpdate(updatedVehicle);
+      // Use specialized update function
+      if (!user.dealershipId) return;
+      setIsLoading(true);
+      
+      try {
+        const updatedVehicle = await VehicleManager.updateVehicleStatusAndTeamNotes(
+          user.dealershipId,
+          vehicle.id,
+          null, // Clear the status
+          [statusNote, ...(vehicle.teamNotes || [])]
+        );
+        
+        if (updatedVehicle) {
+          setVehicle(updatedVehicle);
+          console.log('Successfully updated vehicle status and added team note');
+        } else {
+          console.error('Error updating vehicle status');
+        }
+      } catch (error) {
+        console.error('Error updating vehicle status:', error);
+      } finally {
+        setIsLoading(false);
+      }
     } else {
       // Mark as pending
       const confirmation = confirm('Are you sure you want to mark this vehicle as pending?');
       if (!confirmation) return;
-
-      const updatedVehicle = {
-        ...vehicle,
-        status: 'pending' as const
-      };
 
       // Add team note about status change
       const statusNote: TeamNote = {
@@ -466,8 +537,29 @@ const VehicleDetail: React.FC = () => {
         category: 'general'
       };
 
-      updatedVehicle.teamNotes = [statusNote, ...(vehicle.teamNotes || [])];
-      await saveVehicleUpdate(updatedVehicle);
+      // Use specialized update function
+      if (!user.dealershipId) return;
+      setIsLoading(true);
+      
+      try {
+        const updatedVehicle = await VehicleManager.updateVehicleStatusAndTeamNotes(
+          user.dealershipId,
+          vehicle.id,
+          'pending',
+          [statusNote, ...(vehicle.teamNotes || [])]
+        );
+        
+        if (updatedVehicle) {
+          setVehicle(updatedVehicle);
+          console.log('Successfully updated vehicle status and added team note');
+        } else {
+          console.error('Error updating vehicle status');
+        }
+      } catch (error) {
+        console.error('Error updating vehicle status:', error);
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 

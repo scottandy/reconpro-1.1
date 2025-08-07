@@ -439,11 +439,36 @@ export class VehicleManager {
   }
 
   static async updateVehicleNotes(dealershipId: string, vehicleId: string, notes: string): Promise<Vehicle | null> {
-    const dbUpdates: any = {
-      notes: notes || null,
-      updated_at: new Date().toISOString()
-    };
+    const { data, error } = await supabase
+      .from('vehicles')
+      .update({
+        notes: notes,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', vehicleId)
+      .eq('dealership_id', dealershipId)
+      .select()
+      .single();
+    if (error) {
+      console.error('Error updating vehicle notes in Supabase:', error);
+      return null;
+    }
+    return this.fromDatabaseFormat(data);
+  }
 
+  // NEW: Specialized method to update only notes and team notes without affecting inspection data
+  static async updateVehicleNotesAndTeamNotes(
+    dealershipId: string, 
+    vehicleId: string, 
+    notes: string | undefined, 
+    teamNotes: any[]
+  ): Promise<Vehicle | null> {
+    const dbUpdates: any = { updated_at: new Date().toISOString() };
+    
+    // Only update notes and team_notes fields
+    if (notes !== undefined) dbUpdates.notes = notes;
+    if (teamNotes !== undefined) dbUpdates.team_notes = teamNotes;
+    
     const { data, error } = await supabase
       .from('vehicles')
       .update(dbUpdates)
@@ -451,12 +476,136 @@ export class VehicleManager {
       .eq('dealership_id', dealershipId)
       .select()
       .single();
-    
     if (error) {
-      console.error('Error updating vehicle notes in Supabase:', error);
+      console.error('Error updating vehicle notes and team notes in Supabase:', error);
       return null;
     }
+    return this.fromDatabaseFormat(data);
+  }
+
+  // NEW: Specialized method to update only location and team notes without affecting inspection data
+  static async updateVehicleLocationAndTeamNotes(
+    dealershipId: string, 
+    vehicleId: string, 
+    location: string, 
+    teamNotes: any[]
+  ): Promise<Vehicle | null> {
+    const dbUpdates: any = { 
+      location_name: location,
+      updated_at: new Date().toISOString(),
+      team_notes: teamNotes
+    };
     
+    const { data, error } = await supabase
+      .from('vehicles')
+      .update(dbUpdates)
+      .eq('id', vehicleId)
+      .eq('dealership_id', dealershipId)
+      .select()
+      .single();
+    if (error) {
+      console.error('Error updating vehicle location and team notes in Supabase:', error);
+      return null;
+    }
+    return this.fromDatabaseFormat(data);
+  }
+
+  // NEW: Specialized method to update vehicle info and team notes without affecting inspection data
+  static async updateVehicleInfoAndTeamNotes(
+    dealershipId: string, 
+    vehicleId: string, 
+    vehicleInfo: {
+      year?: number;
+      make?: string;
+      model?: string;
+      trim?: string;
+      mileage?: number;
+      color?: string;
+      price?: number;
+      location?: string;
+      dateAcquired?: string;
+    },
+    teamNotes: any[]
+  ): Promise<Vehicle | null> {
+    const dbUpdates: any = { 
+      updated_at: new Date().toISOString(),
+      team_notes: teamNotes
+    };
+    
+    // Only update the provided vehicle info fields
+    if (vehicleInfo.year !== undefined) dbUpdates.year = vehicleInfo.year;
+    if (vehicleInfo.make !== undefined) dbUpdates.make = vehicleInfo.make;
+    if (vehicleInfo.model !== undefined) dbUpdates.model = vehicleInfo.model;
+    if (vehicleInfo.trim !== undefined) dbUpdates.trim = vehicleInfo.trim;
+    if (vehicleInfo.mileage !== undefined) dbUpdates.mileage = vehicleInfo.mileage;
+    if (vehicleInfo.color !== undefined) dbUpdates.color = vehicleInfo.color;
+    if (vehicleInfo.price !== undefined) dbUpdates.price = vehicleInfo.price;
+    if (vehicleInfo.location !== undefined) dbUpdates.location_name = vehicleInfo.location;
+    if (vehicleInfo.dateAcquired !== undefined) dbUpdates.date_acquired = vehicleInfo.dateAcquired;
+    
+    const { data, error } = await supabase
+      .from('vehicles')
+      .update(dbUpdates)
+      .eq('id', vehicleId)
+      .eq('dealership_id', dealershipId)
+      .select()
+      .single();
+    if (error) {
+      console.error('Error updating vehicle info and team notes in Supabase:', error);
+      return null;
+    }
+    return this.fromDatabaseFormat(data);
+  }
+
+  // NEW: Specialized method to update vehicle status and team notes without affecting inspection data
+  static async updateVehicleStatusAndTeamNotes(
+    dealershipId: string, 
+    vehicleId: string, 
+    status: string | null, 
+    teamNotes: any[]
+  ): Promise<Vehicle | null> {
+    const dbUpdates: any = { 
+      status: status,
+      updated_at: new Date().toISOString(),
+      team_notes: teamNotes
+    };
+    
+    const { data, error } = await supabase
+      .from('vehicles')
+      .update(dbUpdates)
+      .eq('id', vehicleId)
+      .eq('dealership_id', dealershipId)
+      .select()
+      .single();
+    if (error) {
+      console.error('Error updating vehicle status and team notes in Supabase:', error);
+      return null;
+    }
+    return this.fromDatabaseFormat(data);
+  }
+
+  // NEW: Specialized method to update only team notes without affecting inspection data
+  static async updateVehicleTeamNotes(
+    dealershipId: string, 
+    vehicleId: string, 
+    teamNotes: any[]
+  ): Promise<Vehicle | null> {
+    const dbUpdates: any = { 
+      updated_at: new Date().toISOString(),
+      team_notes: teamNotes
+    };
+    
+    const { data, error } = await supabase
+      .from('vehicles')
+      .update(dbUpdates)
+      .eq('id', vehicleId)
+      .eq('dealership_id', dealershipId)
+      .select()
+      .single();
+    if (error) {
+      console.error('Error updating vehicle team notes in Supabase:', error);
+      return null;
+    }
     return this.fromDatabaseFormat(data);
   }
 }

@@ -56,18 +56,20 @@ import TodoCalendar from './TodoCalendar';
 import InspectionSettings from './InspectionSettings';
 import { ProgressCalculator } from '../utils/progressCalculator';
 import { InspectionSection } from '../types/inspectionSettings';
+import { Menu as HeadlessMenu } from '@headlessui/react';
+import { ChevronDownIcon } from '@heroicons/react/20/solid';
 
 type DashboardView = 'inventory' | 'analytics' | 'users' | 'locations' | 'contacts' | 'todos' | 'settings' | 'inspection-settings';
 type VehicleFilter = 'all' | 'active' | 'completed' | 'pending' | 'needs-attention' | 'sold' | 'vehicle-pending';
-type LocationFilter = 'all' | 'on-site' | 'off-site' | 'in-transit';
+type LocationFilter = 'all' | 'on-site' | 'off-site' | 'in-transit' | string; // string allows for specific location names
 
 const Dashboard: React.FC = () => {
   const { user, dealership, logout } = useAuth();
   // Theme context available if needed
   useTheme();
   const [activeView, setActiveView] = useState<DashboardView>('inventory');
-  const [vehicleFilter, setVehicleFilter] = useState<VehicleFilter>('active');
-  const [locationFilter, setLocationFilter] = useState<LocationFilter>('all');
+  const [vehicleFilter, setVehicleFilter] = useState<VehicleFilter[]>(['active', 'needs-attention']);
+  const [locationFilter, setLocationFilter] = useState<LocationFilter[]>(['all']);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddVehicle, setShowAddVehicle] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -84,6 +86,10 @@ const Dashboard: React.FC = () => {
   // NEW: Dynamic sections state
   const [allSections, setAllSections] = useState<InspectionSection[]>([]);
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
+
+  // NEW: Locations state
+  const [locations, setLocations] = useState<any[]>([]);
+  const [isLoadingLocations, setIsLoadingLocations] = useState(true);
 
   // Load all sections asynchronously
   useEffect(() => {
@@ -114,6 +120,81 @@ const Dashboard: React.FC = () => {
 
     loadAllSections();
   }, [dealership]);
+
+  // NEW: Load locations from the locations table
+  useEffect(() => {
+    const loadLocations = async () => {
+      if (!dealership) {
+        setLocations([]);
+        setIsLoadingLocations(false);
+        return;
+      }
+
+      try {
+        // Get formal locations from database
+        const { data: formalLocations, error } = await supabase
+          .from('locations')
+          .select('*')
+          .eq('dealership_id', dealership.id)
+          .order('name', { ascending: true });
+
+        if (error) {
+          console.error('Error loading formal locations:', error);
+          setLocations([]);
+        } else {
+          // Create virtual locations based on actual vehicle locations
+          const vehicleLocationNames = new Set<string>();
+          
+          // Get unique location names from all vehicles (active, sold, pending)
+          [...vehicles, ...soldVehicles, ...pendingVehicles].forEach(vehicle => {
+            if (vehicle.location && vehicle.location.trim()) {
+              vehicleLocationNames.add(vehicle.location.trim());
+            }
+          });
+
+          // Create virtual locations for vehicle locations that don't exist in formal locations
+          const virtualLocations = Array.from(vehicleLocationNames)
+            .filter(locationName => !formalLocations.some((loc: any) => loc.name === locationName))
+            .map(locationName => {
+              // Determine the proper type for virtual locations
+              let locationType = 'on-site'; // Default type
+              
+              const locationLower = locationName.toLowerCase();
+              if (locationLower.includes('transit') || locationLower.includes('transport')) {
+                locationType = 'in-transit';
+              } else if (locationLower.includes('off-site') || 
+                         locationLower.includes('storage') || 
+                         locationLower.includes('external')) {
+                locationType = 'off-site';
+              }
+              
+              return {
+                id: `virtual-${locationName}`,
+                name: locationName,
+                type: locationType,
+                isActive: true,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+              };
+            });
+
+          // Combine formal and virtual locations
+          const allLocations = [...(formalLocations || []), ...virtualLocations];
+          setLocations(allLocations);
+        }
+      } catch (error) {
+        console.error('Error loading locations:', error);
+        setLocations([]);
+      } finally {
+        setIsLoadingLocations(false);
+      }
+    };
+
+    // Only load locations after vehicles are loaded
+    if (vehicles.length > 0 || soldVehicles.length > 0 || pendingVehicles.length > 0) {
+      loadLocations();
+    }
+  }, [dealership, vehicles, soldVehicles, pendingVehicles]);
 
   // Load all vehicles on component mount
   useEffect(() => {
@@ -272,7 +353,9 @@ const Dashboard: React.FC = () => {
 
   // NEW: Location type detection function
   const getVehicleLocationType = (location: string): LocationFilter => {
-    const locationLower = (location || '').toLowerCase();
+    if (!location) return 'on-site';
+    
+    const locationLower = location.toLowerCase();
     
     // Check for In-Transit indicators
     if (locationLower.includes('transit') || locationLower.includes('transport')) {
@@ -286,6 +369,15 @@ const Dashboard: React.FC = () => {
       return 'off-site';
     }
     
+    // Check if this matches a specific location name from the locations table
+    const specificLocation = locations.find(loc => 
+      loc.name.toLowerCase() === locationLower
+    );
+    
+    if (specificLocation) {
+      return specificLocation.name; // Return the specific location name
+    }
+    
     // Default to On-Site for most locations
     return 'on-site';
   };
@@ -293,117 +385,147 @@ const Dashboard: React.FC = () => {
   const getFilteredVehicles = () => {
     let vehiclesToFilter: Vehicle[] = [];
     
-    switch (vehicleFilter) {
-      case 'sold':
-        vehiclesToFilter = soldVehicles;
-        break;
-      case 'vehicle-pending':
-        vehiclesToFilter = pendingVehicles;
-        break;
-      case 'all':
-        vehiclesToFilter = vehicles; // Only active vehicles (exclude sold/pending)
-        break;
-      default:
-        vehiclesToFilter = vehicles;
-        break;
+    // Handle multiple vehicle filters
+    if (vehicleFilter.includes('sold')) {
+      vehiclesToFilter = [...vehiclesToFilter, ...soldVehicles];
+    }
+    if (vehicleFilter.includes('vehicle-pending')) {
+      vehiclesToFilter = [...vehiclesToFilter, ...pendingVehicles];
+    }
+    if (vehicleFilter.includes('all') || vehicleFilter.includes('active') || vehicleFilter.includes('completed') || vehicleFilter.includes('needs-attention')) {
+      vehiclesToFilter = [...vehiclesToFilter, ...vehicles];
     }
 
-    // Apply status filter for active vehicles
-    if (vehicleFilter !== 'sold' && vehicleFilter !== 'vehicle-pending' && inspectionDataLoaded && !isLoadingSettings && allSections.length > 0) {
+    // If no specific filters are selected, show all active vehicles
+    if (vehiclesToFilter.length === 0) {
+      vehiclesToFilter = vehicles;
+    }
+
+    // Apply status filter for active vehicles ONLY if inspection-based filters are selected
+    // AND we're not showing sold/pending vehicles
+    const hasInspectionFilters = vehicleFilter.includes('completed') || vehicleFilter.includes('needs-attention') || vehicleFilter.includes('active');
+    const hasSoldPendingFilters = vehicleFilter.includes('sold') || vehicleFilter.includes('vehicle-pending');
+    
+    if (hasInspectionFilters && inspectionDataLoaded && !isLoadingSettings && allSections.length > 0) {
       const sectionKeys = allSections.map(section => section.key);
       
-      switch (vehicleFilter) {
-        case 'completed':
-          vehiclesToFilter = vehiclesToFilter.filter(vehicle => {
-            const inspectionData = vehicleInspectionData[vehicle.id] || {};
-            const allRatings: string[] = [];
-            
-            for (const sectionKey of sectionKeys) {
-              const items = inspectionData[sectionKey] || [];
-              if (Array.isArray(items)) {
-                items.forEach((item: any) => {
-                  if (item.rating) {
-                    allRatings.push(item.rating);
-                  }
-                });
-              }
-            }
-            
-            // Completed: ALL sections have ratings AND all ratings are 'G'
-            const sectionsWithRatings = sectionKeys.filter(sectionKey => {
-              const items = inspectionData[sectionKey] || [];
-              return items.length > 0 && items.some((item: any) => item.rating);
-            });
-            
-            return allRatings.length > 0 && 
-                   allRatings.every(rating => rating === 'G') &&
-                   sectionsWithRatings.length === sectionKeys.length;
-          });
-          break;
+      // Filter by inspection status for active vehicles only
+      const activeVehicles = vehiclesToFilter.filter(vehicle => {
+        // Skip sold/pending vehicles for inspection-based filtering
+        if (vehicle.status === 'sold' || vehicle.status === 'pending') {
+          return false;
+        }
 
-        case 'needs-attention':
-          vehiclesToFilter = vehiclesToFilter.filter(vehicle => {
-            const inspectionData = vehicleInspectionData[vehicle.id] || {};
-            const allRatings: string[] = [];
-            
-            for (const sectionKey of sectionKeys) {
-              const items = inspectionData[sectionKey] || [];
-              if (Array.isArray(items)) {
-                items.forEach((item: any) => {
-                  if (item.rating) {
-                    allRatings.push(item.rating);
-                  }
-                });
+        const inspectionData = vehicleInspectionData[vehicle.id] || {};
+        const allRatings: string[] = [];
+        
+        for (const sectionKey of sectionKeys) {
+          const items = inspectionData[sectionKey] || [];
+          if (Array.isArray(items)) {
+            items.forEach((item: any) => {
+              if (item.rating) {
+                allRatings.push(item.rating);
               }
-            }
-            
-            // Issues: has ANY 'N' rating
-            return allRatings.some(rating => rating === 'N');
-          });
-          break;
-        case 'active':
-          vehiclesToFilter = vehiclesToFilter.filter(vehicle => {
-            const inspectionData = vehicleInspectionData[vehicle.id] || {};
-            const allRatings: string[] = [];
-            
-            for (const sectionKey of sectionKeys) {
-              const items = inspectionData[sectionKey] || [];
-              if (Array.isArray(items)) {
-                items.forEach((item: any) => {
-                  if (item.rating) {
-                    allRatings.push(item.rating);
-                  }
-                });
-              }
-            }
-            
-            // Working: no ratings OR has incomplete sections OR has F/not-checked but no N
-            if (allRatings.length === 0) return true; // No ratings = working
-            if (allRatings.some(rating => rating === 'N')) return false; // Has N = issues
-            
-            // Check if any section is incomplete (missing ratings) - if so, it's working
-            const sectionsWithRatings = sectionKeys.filter(sectionKey => {
-              const items = inspectionData[sectionKey] || [];
-              return items.length > 0 && items.some((item: any) => item.rating);
             });
-            
-            if (sectionsWithRatings.length < sectionKeys.length) return true; // Incomplete sections = working
-            if (allRatings.every(rating => rating === 'G')) return false; // All complete + all G = ready
-            return true; // Everything else = working
+          }
+        }
+        
+        // Check if this vehicle matches any of the selected inspection filters
+        if (vehicleFilter.includes('completed')) {
+          // Completed: ALL sections have ratings AND all ratings are 'G'
+          const sectionsWithRatings = sectionKeys.filter(sectionKey => {
+            const items = inspectionData[sectionKey] || [];
+            return items.length > 0 && items.some((item: any) => item.rating);
           });
-          break;
-        case 'all':
-        default:
-          // Show all active vehicles
-          break;
+          
+          if (allRatings.length > 0 && 
+              allRatings.every(rating => rating === 'G') &&
+              sectionsWithRatings.length === sectionKeys.length) {
+            return true;
+          }
+        }
+        
+        if (vehicleFilter.includes('needs-attention')) {
+          // Issues: has ANY 'N' rating
+          if (allRatings.some(rating => rating === 'N')) {
+            return true;
+          }
+        }
+        
+        if (vehicleFilter.includes('active')) {
+          // Working: no ratings OR has incomplete sections OR has F/not-checked but no N
+          if (allRatings.length === 0) return true; // No ratings = working
+          if (allRatings.some(rating => rating === 'N')) return false; // Has N = issues
+          
+          // Check if any section is incomplete (missing ratings) - if so, it's working
+          const sectionsWithRatings = sectionKeys.filter(sectionKey => {
+            const items = inspectionData[sectionKey] || [];
+            return items.length > 0 && items.some((item: any) => item.rating);
+          });
+          
+          if (sectionsWithRatings.length < sectionKeys.length) return true; // Incomplete sections = working
+          if (allRatings.every(rating => rating === 'G')) return false; // All complete + all G = ready
+          return true; // Everything else = working
+        }
+        
+        return false;
+      });
+
+      // Combine sold/pending vehicles with filtered active vehicles
+      if (hasSoldPendingFilters) {
+        // If we have both sold/pending AND inspection filters, combine them
+        const soldPendingVehicles = vehiclesToFilter.filter(vehicle => 
+          vehicle.status === 'sold' || vehicle.status === 'pending'
+        );
+        vehiclesToFilter = [...soldPendingVehicles, ...activeVehicles];
+      } else {
+        // Only inspection filters, use the filtered active vehicles
+        vehiclesToFilter = activeVehicles;
       }
     }
 
-    // NEW: Apply location filter
-    if (locationFilter !== 'all') {
+    // Apply location filter
+    if (!locationFilter.includes('all')) {
       vehiclesToFilter = vehiclesToFilter.filter(vehicle => {
-        const vehicleLocationType = getVehicleLocationType(vehicle.location);
-        return vehicleLocationType === locationFilter;
+        if (!vehicle.location) return false;
+        
+        // Check if the vehicle's location matches any of the selected location filters
+        return locationFilter.some(filter => {
+          if (filter === 'on-site' || filter === 'off-site' || filter === 'in-transit') {
+            // Find the location in our locations array to get its type
+            const location = locations.find(loc => 
+              loc.name.toLowerCase() === vehicle.location?.toLowerCase()
+            );
+            
+            if (location) {
+              // Use the actual location type from the locations table
+              return location.type === filter;
+            } else {
+              // Fallback logic for locations not in the table
+              const locationLower = vehicle.location.toLowerCase();
+              
+              if (filter === 'on-site') {
+                return !locationLower.includes('transit') && 
+                       !locationLower.includes('transport') &&
+                       !locationLower.includes('off-site') && 
+                       !locationLower.includes('storage') && 
+                       !locationLower.includes('external');
+              } else if (filter === 'off-site') {
+                return locationLower.includes('off-site') || 
+                       locationLower.includes('storage') || 
+                       locationLower.includes('external');
+              } else if (filter === 'in-transit') {
+                // Include both "in-transit" and "in transit" (without dash) in the general category
+                return locationLower.includes('transit') || locationLower.includes('transport');
+              }
+            }
+          } else {
+            // Specific location name filter
+            return vehicle.location.toLowerCase() === filter.toLowerCase();
+          }
+          
+          return false;
+        });
       });
     }
 
@@ -536,12 +658,66 @@ const Dashboard: React.FC = () => {
   // NEW: Get location filter counts
   const getLocationFilterCounts = () => {
     const allActiveVehicles = vehicles;
-    return {
+    const counts: Record<string, number> = {
       all: allActiveVehicles.length,
-      'on-site': allActiveVehicles.filter(v => getVehicleLocationType(v.location) === 'on-site').length,
-      'off-site': allActiveVehicles.filter(v => getVehicleLocationType(v.location) === 'off-site').length,
-      'in-transit': allActiveVehicles.filter(v => getVehicleLocationType(v.location) === 'in-transit').length
+      'on-site': 0,
+      'off-site': 0,
+      'in-transit': 0
     };
+    
+    // Count vehicles by location
+    allActiveVehicles.forEach(vehicle => {
+      if (!vehicle.location) {
+        counts['on-site']++; // Default to on-site if no location
+        return;
+      }
+      
+      // Find the location in our locations array to get its type
+      const location = locations.find(loc => 
+        loc.name.toLowerCase() === vehicle.location?.toLowerCase()
+      );
+      
+      if (location) {
+        // Use the actual location type from the locations table
+        if (location.type === 'off-site') {
+          counts['off-site']++;
+        } else if (location.type === 'in-transit') {
+          counts['in-transit']++;
+        } else {
+          // Default to on-site for most locations
+          counts['on-site']++;
+        }
+        
+        // Also count for specific location name (but exclude "in transit" to avoid duplication)
+        const locationNameLower = location.name.toLowerCase();
+        if (locationNameLower !== 'in transit' && locationNameLower !== 'in-transit') {
+          if (!counts[location.name]) {
+            counts[location.name] = 0;
+          }
+          counts[location.name]++;
+        }
+      } else {
+        // If location not found in locations table, use fallback logic
+        const locationLower = vehicle.location.toLowerCase();
+        
+        // Check for In-Transit indicators (including "in transit" without dash)
+        if (locationLower.includes('transit') || locationLower.includes('transport')) {
+          counts['in-transit']++;
+        }
+        // Check for Off-Site indicators
+        else if (locationLower.includes('off-site') || 
+                 locationLower.includes('storage') || 
+                 locationLower.includes('external')) {
+          counts['off-site']++;
+        }
+        // Default to On-Site for most locations
+        else {
+          counts['on-site']++;
+        }
+      }
+    });
+    
+    return counts;
   };
 
   const getInventorySummary = () => {
@@ -563,13 +739,62 @@ const Dashboard: React.FC = () => {
   };
 
   const handleInventoryCardClick = (filterType: VehicleFilter) => {
-    setVehicleFilter(filterType);
+    if (filterType === 'all') {
+      setVehicleFilter(['all']);
+    } else {
+      setVehicleFilter([filterType]);
+    }
     setActiveView('inventory');
   };
 
   const handleLocationCardClick = (filterType: LocationFilter) => {
-    setLocationFilter(filterType);
+    if (filterType === 'all') {
+      setLocationFilter(['all']);
+    } else {
+      setLocationFilter([filterType]);
+    }
     setActiveView('inventory');
+  };
+
+  // Helper functions for multi-select filters
+  const handleVehicleFilterChange = (filterType: VehicleFilter) => {
+    if (filterType === 'all') {
+      // If "All" is selected, deselect everything else
+      setVehicleFilter(['all']);
+    } else {
+      // Remove 'all' if it was selected
+      const newFilters = vehicleFilter.filter(f => f !== 'all');
+      
+      if (vehicleFilter.includes(filterType)) {
+        // Remove the filter if it was already selected
+        const updatedFilters = newFilters.filter(f => f !== filterType);
+        // If no filters left, default to 'all'
+        setVehicleFilter(updatedFilters.length > 0 ? updatedFilters : ['all']);
+      } else {
+        // Add the new filter
+        setVehicleFilter([...newFilters, filterType]);
+      }
+    }
+  };
+
+  const handleLocationFilterChange = (filterType: LocationFilter) => {
+    if (filterType === 'all') {
+      // If "All" is selected, deselect everything else
+      setLocationFilter(['all']);
+    } else {
+      // Remove 'all' if it was selected
+      const newFilters = locationFilter.filter(f => f !== 'all');
+      
+      if (locationFilter.includes(filterType)) {
+        // Remove the filter if it was already selected
+        const updatedFilters = newFilters.filter(f => f !== filterType);
+        // If no filters left, default to 'all'
+        setLocationFilter(updatedFilters.length > 0 ? updatedFilters : ['all']);
+      } else {
+        // Add the new filter
+        setLocationFilter([...newFilters, filterType]);
+      }
+    }
   };
 
   const handleLogout = () => {
@@ -608,7 +833,25 @@ const Dashboard: React.FC = () => {
     { id: 'all', label: 'All Locations', icon: MapPin, count: locationFilterCounts.all },
     { id: 'on-site', label: 'On-Site', icon: MapPin, count: locationFilterCounts['on-site'], color: 'text-green-600' },
     { id: 'off-site', label: 'Off-Site', icon: MapPin, count: locationFilterCounts['off-site'], color: 'text-yellow-600' },
-    { id: 'in-transit', label: 'In-Transit', icon: MapPin, count: locationFilterCounts['in-transit'], color: 'text-red-600' }
+    { id: 'in-transit', label: 'In-Transit', icon: MapPin, count: locationFilterCounts['in-transit'], color: 'text-red-600' },
+    // Add specific locations from the locations table, ordered alphabetically, but only if they have vehicles
+    ...locations
+      .filter(location => {
+        // Only include locations that have vehicles AND exclude "in transit" to prevent duplication
+        const vehicleCount = locationFilterCounts[location.name] || 0;
+        const locationNameLower = location.name.toLowerCase();
+        return vehicleCount > 0 && 
+               locationNameLower !== 'in transit' && 
+               locationNameLower !== 'in-transit';
+      })
+      .sort((a, b) => a.name.localeCompare(b.name)) // Sort alphabetically
+      .map(location => ({
+        id: location.name,
+        label: location.name,
+        icon: MapPin,
+        count: locationFilterCounts[location.name] || 0,
+        color: location.type === 'off-site' ? 'text-yellow-600' : 'text-green-600'
+      }))
   ];
 
   if (!user || !dealership) {
@@ -831,7 +1074,7 @@ const Dashboard: React.FC = () => {
                 </div>
 
                 {/* MOBILE OPTIMIZED: Compact search and filters - SAME AS TODO/CALENDAR */}
-                <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 p-3 sm:p-4 transition-colors duration-300">
+                <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 p-3 sm:p-4 transition-colors duration-300 relative z-10">
                   {/* Search and Filter Toggle Row */}
                   <div className="flex gap-2 mb-3">
                     <div className="flex-1 relative">
@@ -862,79 +1105,147 @@ const Dashboard: React.FC = () => {
                   {/* Collapsible Filters */}
                   {showFilters && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 pt-3 border-t border-gray-200/60 dark:border-gray-700/60">
-                      {/* Status Filter */}
-                      <div>
+                      {/* Status Filter - Multi-select */}
+                      <div className="relative z-20">
                         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
-                        <select
-                          value={vehicleFilter}
-                          onChange={(e) => setVehicleFilter(e.target.value as VehicleFilter)}
-                          className="w-full px-2 py-1.5 sm:px-3 sm:py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        >
-                          {filterOptions.map((option) => (
-                            <option key={option.id} value={option.id}>
-                              {option.label} ({option.count})
-                            </option>
-                          ))}
-                        </select>
+                        <HeadlessMenu as="div" className="relative inline-block w-full">
+                          <HeadlessMenu.Button className="inline-flex w-full justify-between items-center gap-x-1.5 rounded-md bg-white dark:bg-gray-700 px-3 py-2 text-sm font-medium text-gray-900 dark:text-white shadow-sm border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <span className="truncate">
+                              {vehicleFilter.includes('all') 
+                                ? 'All Vehicles' 
+                                : vehicleFilter.length === 1 
+                                  ? filterOptions.find(opt => opt.id === vehicleFilter[0])?.label
+                                  : `${vehicleFilter.length} selected`
+                              }
+                            </span>
+                            <ChevronDownIcon className="-mr-1 h-4 w-4 text-gray-400" aria-hidden="true" />
+                          </HeadlessMenu.Button>
+
+                          <HeadlessMenu.Items className="absolute right-0 z-[9999] mt-2 w-56 origin-top-right rounded-md bg-white dark:bg-gray-700 shadow-2xl ring-1 ring-black ring-opacity-5 focus:outline-none">
+                            <div className="py-1">
+                              {filterOptions.map((option) => (
+                                <HeadlessMenu.Item key={option.id}>
+                                  {({ active }) => (
+                                    <button
+                                      onClick={() => handleVehicleFilterChange(option.id as VehicleFilter)}
+                                      className={`${
+                                        active ? 'bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'
+                                      } flex w-full items-center px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600`}
+                                    >
+                                      <div className="flex items-center w-full">
+                                        <div className={`w-4 h-4 border-2 rounded mr-3 flex items-center justify-center ${
+                                          vehicleFilter.includes(option.id as VehicleFilter)
+                                            ? 'bg-blue-600 border-blue-600'
+                                            : 'border-gray-300 dark:border-gray-500'
+                                        }`}>
+                                          {vehicleFilter.includes(option.id as VehicleFilter) && (
+                                            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                            </svg>
+                                          )}
+                                        </div>
+                                        <span className="flex-1 text-left">{option.label}</span>
+                                        <span className="text-xs text-gray-500 dark:text-gray-400">({option.count})</span>
+                                      </div>
+                                    </button>
+                                  )}
+                                </HeadlessMenu.Item>
+                              ))}
+                            </div>
+                          </HeadlessMenu.Items>
+                        </HeadlessMenu>
                       </div>
 
-                      {/* Location Filter */}
-                      <div>
+                      {/* Location Filter - Multi-select */}
+                      <div className="relative z-20">
                         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Location</label>
-                        <select
-                          value={locationFilter}
-                          onChange={(e) => setLocationFilter(e.target.value as LocationFilter)}
-                          className="w-full px-2 py-1.5 sm:px-3 sm:py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        >
-                          {locationFilterOptions.map((option) => (
-                            <option key={option.id} value={option.id}>
-                              {option.label} ({option.count})
-                            </option>
-                          ))}
-                        </select>
+                        <HeadlessMenu as="div" className="relative inline-block w-full">
+                          <HeadlessMenu.Button className="inline-flex w-full justify-between items-center gap-x-1.5 rounded-md bg-white dark:bg-gray-700 px-3 py-2 text-sm font-medium text-gray-900 dark:text-white shadow-sm border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <span className="truncate">
+                              {locationFilter.includes('all') 
+                                ? 'All Locations' 
+                                : locationFilter.length === 1 
+                                  ? locationFilterOptions.find(opt => opt.id === locationFilter[0])?.label
+                                  : `${locationFilter.length} selected`
+                              }
+                            </span>
+                            <ChevronDownIcon className="-mr-1 h-4 w-4 text-gray-400" aria-hidden="true" />
+                          </HeadlessMenu.Button>
+
+                          <HeadlessMenu.Items className="absolute right-0 z-[9999] mt-2 w-56 origin-top-right rounded-md bg-white dark:bg-gray-700 shadow-2xl ring-1 ring-black ring-opacity-5 focus:outline-none">
+                            <div className="py-1">
+                              {locationFilterOptions.map((option) => (
+                                <HeadlessMenu.Item key={option.id}>
+                                  {({ active }) => (
+                                    <button
+                                      onClick={() => handleLocationFilterChange(option.id as LocationFilter)}
+                                      className={`${
+                                        active ? 'bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'
+                                      } flex w-full items-center px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600`}
+                                    >
+                                      <div className="flex items-center w-full">
+                                        <div className={`w-4 h-4 border-2 rounded mr-3 flex items-center justify-center ${
+                                          locationFilter.includes(option.id as LocationFilter)
+                                            ? 'bg-blue-600 border-blue-600'
+                                            : 'border-gray-300 dark:border-gray-500'
+                                        }`}>
+                                          {locationFilter.includes(option.id as LocationFilter) && (
+                                            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                            </svg>
+                                          )}
+                                        </div>
+                                        <span className="flex-1 text-left">{option.label}</span>
+                                        <span className="text-xs text-gray-500 dark:text-gray-400">({option.count})</span>
+                                      </div>
+                                    </button>
+                                  )}
+                                </HeadlessMenu.Item>
+                              ))}
+                            </div>
+                          </HeadlessMenu.Items>
+                        </HeadlessMenu>
                       </div>
                     </div>
                   )}
 
                   {/* Active Filter Indicators */}
-                  {(vehicleFilter !== 'all' || locationFilter !== 'all') && (
+                  {(vehicleFilter.length > 0 && !vehicleFilter.includes('all')) || (locationFilter.length > 0 && !locationFilter.includes('all')) ? (
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       <span className="text-xs text-gray-600 dark:text-gray-400">Active filters:</span>
-                      {vehicleFilter !== 'all' && (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full text-xs font-medium">
-                          {filterOptions.find(opt => opt.id === vehicleFilter)?.label}
+                      {vehicleFilter.length > 0 && !vehicleFilter.includes('all') && vehicleFilter.map(filter => (
+                        <span key={filter} className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full text-xs font-medium">
+                          {filterOptions.find(opt => opt.id === filter)?.label}
                           <button
-                            onClick={() => setVehicleFilter('all')}
+                            onClick={() => handleVehicleFilterChange(filter)}
                             className="ml-1 p-0.5 hover:bg-blue-200 dark:hover:bg-blue-800 rounded-full transition-colors"
                           >
                             <X className="w-3 h-3" />
                           </button>
                         </span>
-                      )}
-                      {locationFilter !== 'all' && (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-full text-xs font-medium">
-                          {locationFilterOptions.find(opt => opt.id === locationFilter)?.label}
+                      ))}
+                      {locationFilter.length > 0 && !locationFilter.includes('all') && locationFilter.map(filter => (
+                        <span key={filter} className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-full text-xs font-medium">
+                          {locationFilterOptions.find(opt => opt.id === filter)?.label}
                           <button
-                            onClick={() => setLocationFilter('all')}
+                            onClick={() => handleLocationFilterChange(filter)}
                             className="ml-1 p-0.5 hover:bg-green-200 dark:hover:bg-green-800 rounded-full transition-colors"
                           >
                             <X className="w-3 h-3" />
                           </button>
                         </span>
-                      )}
-                      {(vehicleFilter !== 'all' || locationFilter !== 'all') && (
-                        <button
-                          onClick={() => {
-                            setVehicleFilter('all');
-                            setLocationFilter('all');
-                          }}
-                          className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 underline"
-                        >
-                          Clear all
-                        </button>
-                      )}
+                      ))}
+                      <button
+                        onClick={() => {
+                          setVehicleFilter(['all']);
+                          setLocationFilter(['all']);
+                        }}
+                        className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 underline"
+                      >
+                        Clear all
+                      </button>
                     </div>
-                  )}
+                  ) : null}
                 </div>
 
                 {/* Vehicle Grid */}
@@ -943,12 +1254,12 @@ const Dashboard: React.FC = () => {
                     filteredVehicles.map((vehicle) => (
                       <div key={vehicle.id} className="relative">
                         <VehicleCard vehicle={vehicle} />
-                        {(vehicleFilter === 'sold' || vehicleFilter === 'vehicle-pending') && (
+                        {(vehicleFilter.includes('sold') || vehicleFilter.includes('vehicle-pending')) && (
                           <div className="absolute top-2 right-2">
                             <button
-                              onClick={() => handleReactivateVehicle(vehicle.id, vehicleFilter === 'sold' ? 'sold' : 'pending')}
+                              onClick={() => handleReactivateVehicle(vehicle.id, vehicleFilter.includes('sold') ? 'sold' : 'pending')}
                               className="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors shadow-lg"
-                              title={`Reactivate from ${vehicleFilter === 'sold' ? 'sold' : 'pending'} status`}
+                              title={`Reactivate from ${vehicleFilter.includes('sold') ? 'sold' : 'pending'} status`}
                             >
                               <RotateCcw className="w-4 h-4" />
                             </button>
@@ -961,25 +1272,25 @@ const Dashboard: React.FC = () => {
                       <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/20 p-8 sm:p-12 text-center transition-colors duration-300">
                         <Car className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
                         <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                          {searchTerm || vehicleFilter !== 'all' || locationFilter !== 'all' ? 'No vehicles found' : 'No vehicles in this category'}
+                          {searchTerm || (vehicleFilter.length > 0 && !vehicleFilter.includes('all')) || (locationFilter.length > 0 && !locationFilter.includes('all')) ? 'No vehicles found' : 'No vehicles in this category'}
                         </h3>
                         <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-4">
-                          {searchTerm || vehicleFilter !== 'all' || locationFilter !== 'all'
+                          {searchTerm || (vehicleFilter.length > 0 && !vehicleFilter.includes('all')) || (locationFilter.length > 0 && !locationFilter.includes('all'))
                             ? 'Try adjusting your search terms or filters.'
-                            : vehicleFilter === 'all' 
+                            : vehicleFilter.includes('all') 
                               ? 'Add your first vehicle to get started.'
-                              : vehicleFilter === 'sold'
+                              : vehicleFilter.includes('sold')
                                 ? 'No vehicles have been sold yet.'
-                                : vehicleFilter === 'vehicle-pending'
+                                : vehicleFilter.includes('vehicle-pending')
                                   ? 'No vehicles are currently pending.'
-                                  : vehicleFilter === 'needs-attention'
+                                  : vehicleFilter.includes('needs-attention')
                                     ? 'Great! No vehicles currently need attention.'
-                                    : vehicleFilter === 'completed'
+                                    : vehicleFilter.includes('completed')
                                       ? 'No vehicles are ready for sale yet.'
                                       : 'No vehicles found in this category.'
                           }
                         </p>
-                        {!searchTerm && vehicleFilter === 'all' && locationFilter === 'all' && (
+                        {!searchTerm && vehicleFilter.includes('all') && locationFilter.includes('all') && (
                           <button
                             onClick={() => setShowAddVehicle(true)}
                             className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 font-semibold"
@@ -988,11 +1299,11 @@ const Dashboard: React.FC = () => {
                             Add Vehicle
                           </button>
                         )}
-                        {(vehicleFilter !== 'all' || locationFilter !== 'all') && (
+                        {((vehicleFilter.length > 0 && !vehicleFilter.includes('all')) || (locationFilter.length > 0 && !locationFilter.includes('all'))) && (
                           <button
                             onClick={() => {
-                              setVehicleFilter('all');
-                              setLocationFilter('all');
+                              setVehicleFilter(['all']);
+                              setLocationFilter(['all']);
                             }}
                             className="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all duration-200 font-semibold"
                           >

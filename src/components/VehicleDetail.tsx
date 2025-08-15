@@ -380,7 +380,7 @@ const VehicleDetail: React.FC = () => {
         console.error('Error updating vehicle info');
       }
       setIsLoading(false);
-      setIsEditingVehicleInfo(false);
+    setIsEditingVehicleInfo(false);
     }).catch(error => {
       console.error('Error updating vehicle info:', error);
       setIsLoading(false);

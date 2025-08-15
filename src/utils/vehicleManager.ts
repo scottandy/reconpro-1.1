@@ -490,12 +490,12 @@ export class VehicleManager {
     location: string, 
     teamNotes: any[]
   ): Promise<Vehicle | null> {
-    const dbUpdates: any = { 
+    const dbUpdates: any = {
       location_name: location,
       updated_at: new Date().toISOString(),
       team_notes: teamNotes
     };
-    
+
     const { data, error } = await supabase
       .from('vehicles')
       .update(dbUpdates)

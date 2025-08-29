@@ -64,6 +64,9 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
   const [viewingPhoto, setViewingPhoto] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  
+  // NEW: Track photos for all inspection items
+  const [allItemPhotos, setAllItemPhotos] = useState<Record<string, {url: string, path: string, name: string}[]>>({});
 
   // Load inspection settings and data on mount
   useEffect(() => {
@@ -98,6 +101,9 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       console.log('📊 Normalized inspection data:', normalizedData);
       setInspectionData(normalizedData);
       
+      // Load photos for all inspection items
+      await loadAllItemPhotos(settings);
+      
       // Notify parent immediately
       if (onInspectionDataChange) {
         onInspectionDataChange(normalizedData);
@@ -118,6 +124,72 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // NEW: Load photos for all inspection items
+  const loadAllItemPhotos = async (settings: InspectionSettings) => {
+    try {
+      const photosMap: Record<string, {url: string, path: string, name: string}[]> = {};
+      
+      // Load photos for each section and item
+      for (const section of settings.sections) {
+        if (!section.isActive) continue;
+        
+        for (const item of section.items) {
+          if (!item.isActive) continue;
+          
+          const itemKey = `${section.key}_${item.id}`;
+          const folderPath = `inspection-photos/${vehicleId}/${section.key}/${item.id}`;
+          
+          try {
+            const { data: files, error } = await supabase.storage
+              .from('reconpro-vehicles')
+              .list(folderPath);
+
+            if (error) {
+              console.error(`Error loading photos for ${itemKey}:`, error);
+              photosMap[itemKey] = [];
+              continue;
+            }
+
+            if (files && files.length > 0) {
+              const itemPhotos = await Promise.all(
+                files.map(async (file) => {
+                  const { data: { publicUrl } } = supabase.storage
+                    .from('reconpro-vehicles')
+                    .getPublicUrl(`${folderPath}/${file.name}`);
+                  
+                  return {
+                    url: publicUrl,
+                    path: `${folderPath}/${file.name}`,
+                    name: file.name
+                  };
+                })
+              );
+              
+              photosMap[itemKey] = itemPhotos;
+            } else {
+              photosMap[itemKey] = [];
+            }
+          } catch (error) {
+            console.error(`Error processing photos for ${itemKey}:`, error);
+            photosMap[itemKey] = [];
+          }
+        }
+      }
+      
+      setAllItemPhotos(photosMap);
+      console.log('📸 Loaded photos for all items:', photosMap);
+    } catch (error) {
+      console.error('❌ Error loading all item photos:', error);
+      setAllItemPhotos({});
+    }
+  };
+
+  // NEW: Get photo count for a specific item
+  const getItemPhotoCount = (sectionKey: string, itemId: string): number => {
+    const itemKey = `${sectionKey}_${itemId}`;
+    return allItemPhotos[itemKey]?.length || 0;
   };
 
   // Simple save function
@@ -371,7 +443,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
         const fileName = `${timestamp}_${Math.random().toString(36).substring(2)}.${fileExtension}`;
         
         // Create folder path using standard Supabase storage
-        const folderPath = `inspection-photos/${vehicleId}/${currentPhotoItem.sectionKey}/${currentPhotoItem.itemId}`;
+        const folderPath = `${vehicleId}/${currentPhotoItem.sectionKey}/${currentPhotoItem.itemId}`;
         const filePath = `${folderPath}/${fileName}`;
         
         console.log('📂 Upload path:', filePath);
@@ -433,6 +505,13 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
         setPhotos(prev => [...prev, ...uploadedPhotos]);
         setHasUnsavedChanges(true);
         
+        // Update allItemPhotos state
+        const itemKey = `${currentPhotoItem.sectionKey}_${currentPhotoItem.itemId}`;
+        setAllItemPhotos(prev => ({
+          ...prev,
+          [itemKey]: [...(prev[itemKey] || []), ...uploadedPhotos]
+        }));
+        
         console.log('🎉 Photos uploaded successfully:', uploadedPhotos);
         setUploadError(null); // Clear any previous errors
       } else {
@@ -469,6 +548,15 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       // Remove from local state
       setPhotos(prev => prev.filter((_, index) => index !== photoIndex));
       setHasUnsavedChanges(true);
+      
+      // Update allItemPhotos state
+      if (currentPhotoItem) {
+        const itemKey = `${currentPhotoItem.sectionKey}_${currentPhotoItem.itemId}`;
+        setAllItemPhotos(prev => ({
+          ...prev,
+          [itemKey]: (prev[itemKey] || []).filter(photo => photo.path !== photoToRemove.path)
+        }));
+      }
       
       console.log('✅ Photo removed successfully from storage:', photoToRemove.path);
       setUploadError(null); // Clear any previous errors
@@ -647,6 +735,15 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
                               >
                                 <FileImage className="w-3 h-3 sm:w-4 sm:h-4" />
                                 <span className="hidden sm:inline">Photos</span>
+                                {/* Photo Count Badge */}
+                                {(() => {
+                                  const photoCount = getItemPhotoCount(section.key, item.id);
+                                  return photoCount > 0 ? (
+                                    <span className="ml-1 px-1.5 py-0.5 bg-blue-600 text-white text-xs rounded-full font-medium min-w-[1.25rem] flex items-center justify-center">
+                                      {photoCount}
+                                    </span>
+                                  ) : null;
+                                })()}
                               </button>
 
                               <div className="grid grid-cols-3 gap-1 sm:flex sm:items-center sm:gap-2">

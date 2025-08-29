@@ -126,11 +126,10 @@ const Dashboard: React.FC = () => {
             .sort((a, b) => a.order - b.order);
           setAllSections(sections);
           
-          // Initialize selectedSection with the first available section
+          // Initialize selectedSection with "emissions" if available, otherwise "all-sections"
           if (sections.length > 0) {
-            // Check if "emissions" exists, if so use it as default, otherwise use first section
             const emissionsSection = sections.find(section => section.key === 'emissions');
-            setSelectedSection(emissionsSection ? 'emissions' : sections[0].key);
+            setSelectedSection(emissionsSection ? 'emissions' : 'all-sections');
           }
         } else {
           setAllSections([]);
@@ -840,6 +839,30 @@ const Dashboard: React.FC = () => {
       return { ready: 0, working: 0, issues: 0, unchecked: 0 };
     }
 
+    // If "All Sections" is selected, return combined totals
+    if (sectionKey === 'all-sections') {
+      let totalReady = 0;
+      let totalWorking = 0;
+      let totalIssues = 0;
+      let totalUnchecked = 0;
+
+      // Sum up counts from all sections
+      allSections.forEach(section => {
+        const sectionCounts = getSectionProgressCounts(section.key);
+        totalReady += sectionCounts.ready;
+        totalWorking += sectionCounts.working;
+        totalIssues += sectionCounts.issues;
+        totalUnchecked += sectionCounts.unchecked;
+      });
+
+      return { 
+        ready: totalReady, 
+        working: totalWorking, 
+        issues: totalIssues, 
+        unchecked: totalUnchecked 
+      };
+    }
+
     let ready = 0;
     let working = 0;
     let issues = 0;
@@ -1035,7 +1058,7 @@ const Dashboard: React.FC = () => {
 
   // NEW: Handle section progress box clicks to filter vehicles by section status
   const handleSectionProgressFilter = (filterType: 'ready' | 'working' | 'issues' | 'unchecked') => {
-    if (!selectedSection) return;
+    if (!selectedSection || selectedSection === 'all-sections') return;
     
     // Clear existing filters when applying section filter
     setVehicleFilter(['all']);
@@ -1257,7 +1280,7 @@ const Dashboard: React.FC = () => {
                               className="appearance-none w-full text-xs px-3 py-1.5 pr-8 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer text-left"
                               onClick={handleDropdownToggle}
                             >
-                              <span className="block truncate">{selectedSection || 'Select Section'}</span>
+                              <span className="block truncate">{selectedSection === 'all-sections' ? 'All Sections' : selectedSection || 'Select Section'}</span>
                               <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
                                 <svg className="h-3 w-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -1269,6 +1292,15 @@ const Dashboard: React.FC = () => {
                               <div 
                                 className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-700 rounded-md shadow-2xl ring-1 ring-black ring-opacity-5 py-1 text-xs max-h-60 overflow-auto z-[80]"
                               >
+                                <button
+                                  onClick={() => {
+                                    setSelectedSection('all-sections');
+                                    setShowSectionDropdown(false);
+                                  }}
+                                  className="block w-full text-left px-3 py-2 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-gray-900 dark:text-gray-100 hover:text-blue-900 dark:hover:text-blue-100 font-medium"
+                                >
+                                  All Sections
+                                </button>
                                 {allSections.map((section) => (
                                   <button
                                     key={section.key}
@@ -1289,7 +1321,12 @@ const Dashboard: React.FC = () => {
                         {/* Ready */}
                         <button 
                           onClick={() => handleSectionProgressFilter('ready')}
-                          className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 p-2 rounded-lg border border-emerald-200/60 dark:border-emerald-700/60 hover:from-emerald-100 hover:to-green-100 dark:hover:from-emerald-900/30 dark:hover:to-green-900/30 transition-all duration-200 hover:shadow-lg hover:scale-[1.02] cursor-pointer"
+                          disabled={selectedSection === 'all-sections'}
+                          className={`p-2 rounded-lg border transition-all duration-200 hover:shadow-lg hover:scale-[1.02] ${
+                            selectedSection === 'all-sections'
+                              ? 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-600 cursor-not-allowed opacity-60'
+                              : 'bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 border-emerald-200/60 dark:border-emerald-700/60 hover:from-emerald-100 hover:to-green-100 dark:hover:from-emerald-900/30 dark:hover:to-green-900/30 cursor-pointer'
+                          }`}
                         >
                           <div className="flex items-center justify-between">
                             <div>
@@ -1298,7 +1335,11 @@ const Dashboard: React.FC = () => {
                                 <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">Ready</span>
                               </div>
                               <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-                                {inventorySummary.totalVehicles > 0 ? Math.round((getSectionProgressCounts(selectedSection).ready / inventorySummary.totalVehicles) * 100) : 0}%
+                                {(() => {
+                                  const counts = getSectionProgressCounts(selectedSection);
+                                  const total = counts.ready + counts.working + counts.issues + counts.unchecked;
+                                  return total > 0 ? Math.round((counts.ready / total) * 100) : 0;
+                                })()}%
                               </p>
                             </div>
                             <p className="text-2xl font-bold text-emerald-900 dark:text-emerald-100">
@@ -1310,7 +1351,12 @@ const Dashboard: React.FC = () => {
                         {/* Working */}
                         <button 
                           onClick={() => handleSectionProgressFilter('working')}
-                          className="bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 p-2 rounded-lg border border-amber-200/60 dark:border-amber-700/60 hover:from-amber-100 hover:to-yellow-100 dark:hover:from-amber-900/30 dark:hover:to-yellow-900/30 transition-all duration-200 hover:shadow-lg hover:scale-[1.02] cursor-pointer"
+                          disabled={selectedSection === 'all-sections'}
+                          className={`p-2 rounded-lg border transition-all duration-200 hover:shadow-lg hover:scale-[1.02] ${
+                            selectedSection === 'all-sections'
+                              ? 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-600 cursor-not-allowed opacity-60'
+                              : 'bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border-amber-200/60 dark:border-amber-700/60 hover:from-amber-100 hover:to-yellow-100 dark:hover:from-amber-900/30 dark:hover:to-yellow-900/30 cursor-pointer'
+                          }`}
                         >
                           <div className="flex items-center justify-between">
                             <div>
@@ -1319,7 +1365,11 @@ const Dashboard: React.FC = () => {
                                 <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wide">Working</span>
                               </div>
                               <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
-                                {inventorySummary.totalVehicles > 0 ? Math.round((getSectionProgressCounts(selectedSection).working / inventorySummary.totalVehicles) * 100) : 0}%
+                                {(() => {
+                                  const counts = getSectionProgressCounts(selectedSection);
+                                  const total = counts.ready + counts.working + counts.issues + counts.unchecked;
+                                  return total > 0 ? Math.round((counts.working / total) * 100) : 0;
+                                })()}%
                               </p>
                             </div>
                             <p className="text-2xl font-bold text-amber-900 dark:text-amber-100">
@@ -1331,7 +1381,12 @@ const Dashboard: React.FC = () => {
                         {/* Issues */}
                         <button 
                           onClick={() => handleSectionProgressFilter('issues')}
-                          className="bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20 p-2 rounded-lg border border-red-200/60 dark:border-red-700/60 hover:from-red-100 hover:to-rose-100 dark:hover:from-red-900/30 dark:hover:to-rose-900/30 transition-all duration-200 hover:shadow-lg hover:scale-[1.02] cursor-pointer"
+                          disabled={selectedSection === 'all-sections'}
+                          className={`p-2 rounded-lg border transition-all duration-200 hover:shadow-lg hover:scale-[1.02] ${
+                            selectedSection === 'all-sections'
+                              ? 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-600 cursor-not-allowed opacity-60'
+                              : 'bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20 border-red-200/60 dark:border-red-700/60 hover:from-red-100 hover:to-rose-100 dark:hover:from-red-900/30 dark:hover:to-rose-900/30 cursor-pointer'
+                          }`}
                         >
                           <div className="flex items-center justify-between">
                             <div>
@@ -1340,7 +1395,11 @@ const Dashboard: React.FC = () => {
                                 <span className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wide">Issues</span>
                               </div>
                               <p className="text-xs text-red-600 dark:text-red-400 font-medium">
-                                {inventorySummary.totalVehicles > 0 ? Math.round((getSectionProgressCounts(selectedSection).issues / inventorySummary.totalVehicles) * 100) : 0}%
+                                {(() => {
+                                  const counts = getSectionProgressCounts(selectedSection);
+                                  const total = counts.ready + counts.working + counts.issues + counts.unchecked;
+                                  return total > 0 ? Math.round((counts.issues / total) * 100) : 0;
+                                })()}%
                               </p>
                             </div>
                             <p className="text-2xl font-bold text-red-900 dark:text-red-100">
@@ -1352,7 +1411,12 @@ const Dashboard: React.FC = () => {
                         {/* Unchecked */}
                         <button 
                           onClick={() => handleSectionProgressFilter('unchecked')}
-                          className="bg-gradient-to-br from-gray-50 to-slate-50 dark:from-gray-900/20 dark:to-slate-900/20 p-2 rounded-lg border border-gray-200/60 dark:border-gray-700/60 hover:from-gray-100 hover:to-slate-100 dark:hover:from-gray-900/30 dark:hover:to-slate-900/30 transition-all duration-200 hover:shadow-lg hover:scale-[1.02] cursor-pointer"
+                          disabled={selectedSection === 'all-sections'}
+                          className={`p-2 rounded-lg border transition-all duration-200 hover:shadow-lg hover:scale-[1.02] ${
+                            selectedSection === 'all-sections'
+                              ? 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-600 cursor-not-allowed opacity-60'
+                              : 'bg-gradient-to-br from-gray-50 to-slate-50 dark:from-gray-900/20 dark:to-slate-900/20 border-gray-200/60 dark:border-gray-700/60 hover:from-gray-100 hover:to-slate-100 dark:hover:from-gray-900/30 dark:hover:to-slate-900/30 cursor-pointer'
+                          }`}
                         >
                           <div className="flex items-center justify-between">
                             <div>
@@ -1361,7 +1425,11 @@ const Dashboard: React.FC = () => {
                                 <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">Unchecked</span>
                               </div>
                               <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">
-                                {inventorySummary.totalVehicles > 0 ? Math.round((getSectionProgressCounts(selectedSection).unchecked / inventorySummary.totalVehicles) * 100) : 0}%
+                                {(() => {
+                                  const counts = getSectionProgressCounts(selectedSection);
+                                  const total = counts.ready + counts.working + counts.issues + counts.unchecked;
+                                  return total > 0 ? Math.round((counts.unchecked / total) * 100) : 0;
+                                })()}%
                               </p>
                             </div>
                             <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">

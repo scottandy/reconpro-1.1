@@ -1497,7 +1497,7 @@ const Dashboard: React.FC = () => {
                   {showFilters && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 pt-3 border-t border-gray-200/60 dark:border-gray-700/60">
                       {/* Status Filter - Multi-select */}
-                      <div className="relative z-10">
+                      <div className="relative z-50">
                         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
                         <HeadlessMenu as="div" className="relative inline-block w-full">
                           <HeadlessMenu.Button className="inline-flex w-full justify-between items-center gap-x-1.5 rounded-md bg-white dark:bg-gray-700 px-3 py-2 text-sm font-medium text-gray-900 dark:text-white shadow-sm border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
@@ -1512,7 +1512,7 @@ const Dashboard: React.FC = () => {
                             <ChevronDownIcon className="-mr-1 h-4 w-4 text-gray-400" aria-hidden="true" />
                           </HeadlessMenu.Button>
 
-                          <HeadlessMenu.Items className="absolute right-0 z-40 mt-2 w-56 origin-top-right rounded-md bg-white dark:bg-gray-700 shadow-2xl ring-1 ring-black ring-opacity-5 focus:outline-none">
+                          <HeadlessMenu.Items className="absolute right-0 z-50 mt-2 w-56 origin-top-right rounded-md bg-white dark:bg-gray-700 shadow-2xl ring-1 ring-black ring-opacity-5 focus:outline-none">
                             <div className="py-1">
                               {filterOptions.map((option) => (
                                 <HeadlessMenu.Item key={option.id}>
@@ -1548,7 +1548,7 @@ const Dashboard: React.FC = () => {
                       </div>
 
                       {/* Location Filter - Multi-select */}
-                      <div className="relative z-10">
+                      <div className="relative z-40">
                         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Location</label>
                         <HeadlessMenu as="div" className="relative inline-block w-full">
                           <HeadlessMenu.Button className="inline-flex w-full justify-between items-center gap-x-1.5 rounded-md bg-white dark:bg-gray-700 px-3 py-2 text-sm font-medium text-gray-900 dark:text-white shadow-sm border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">

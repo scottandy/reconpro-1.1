@@ -139,7 +139,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
           if (!item.isActive) continue;
           
           const itemKey = `${section.key}_${item.id}`;
-          const folderPath = `inspection-photos/${vehicleId}/${section.key}/${item.id}`;
+          const folderPath = `${vehicleId}/${section.key}/${item.id}`;
           
           try {
             const { data: files, error } = await supabase.storage
@@ -339,7 +339,7 @@ const InspectionChecklist: React.FC<InspectionChecklistProps> = ({
       console.log('📸 Loading existing photos...');
       
       // Create a unique folder path for this inspection item
-      const folderPath = `inspection-photos/${vehicleId}/${sectionKey}/${itemId}`;
+      const folderPath = `${vehicleId}/${sectionKey}/${itemId}`;
       
       console.log('📂 Looking for photos in:', folderPath);
       

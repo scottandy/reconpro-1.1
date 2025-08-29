@@ -451,56 +451,70 @@ const Dashboard: React.FC = () => {
           return false;
         }
 
-            const inspectionData = vehicleInspectionData[vehicle.id] || {};
-            const allRatings: string[] = [];
-            
-            for (const sectionKey of sectionKeys) {
-              const items = inspectionData[sectionKey] || [];
-              if (Array.isArray(items)) {
-                items.forEach((item: any) => {
-                  if (item.rating) {
-                    allRatings.push(item.rating);
-                  }
-                });
-              }
-            }
-            
+        const inspectionData = vehicleInspectionData[vehicle.id] || {};
+        
+        // Calculate section statuses for this vehicle (SAME logic as getFilterCounts)
+        const sectionStatuses: string[] = [];
+        
+        for (const sectionKey of sectionKeys) {
+          const sectionItems = inspectionData[sectionKey] || [];
+          const sectionSettings = allSections.find(s => s.key === sectionKey);
+          
+          if (!sectionSettings) {
+            sectionStatuses.push('not-started');
+            continue;
+          }
+          
+          const allSectionItems = sectionSettings.items || [];
+          
+          if (sectionItems.length === 0) {
+            sectionStatuses.push('not-started');
+            continue;
+          }
+
+          // Use the SAME logic as VehicleCard for section status
+          const inspectedItems = sectionItems.filter((item: any) => item.rating && item.rating !== 'not-checked');
+          
+          // If not all items have been inspected, stay gray
+          if (inspectedItems.length < allSectionItems.length) {
+            sectionStatuses.push('not-started');
+            continue;
+          }
+          
+          // If any inspected item is 'not-checked', return 'not-started' (grey)
+          if (sectionItems.some((item: any) => item.rating === 'not-checked' || !item.rating)) {
+            sectionStatuses.push('not-started');
+            continue;
+          }
+          
+          // Now check the actual ratings since all items are inspected
+          if (sectionItems.some((item: any) => item.rating === 'N')) {
+            sectionStatuses.push('needs-attention');
+          } else if (sectionItems.some((item: any) => item.rating === 'F')) {
+            sectionStatuses.push('pending');
+          } else if (sectionItems.every((item: any) => item.rating === 'G')) {
+            sectionStatuses.push('completed');
+          } else {
+            sectionStatuses.push('not-started');
+          }
+        }
+        
         // Check if this vehicle matches any of the selected inspection filters
         if (vehicleFilter.includes('completed')) {
-            // Completed: ALL sections have ratings AND all ratings are 'G'
-            const sectionsWithRatings = sectionKeys.filter(sectionKey => {
-              const items = inspectionData[sectionKey] || [];
-              return items.length > 0 && items.some((item: any) => item.rating);
-            });
-            
-          if (allRatings.length > 0 && 
-                   allRatings.every(rating => rating === 'G') &&
-              sectionsWithRatings.length === sectionKeys.length) {
-            return true;
-          }
+          // Completed: ALL sections are 'completed' (green)
+          return sectionStatuses.length > 0 && sectionStatuses.every(status => status === 'completed');
         }
         
         if (vehicleFilter.includes('needs-attention')) {
-            // Issues: has ANY 'N' rating
-          if (allRatings.some(rating => rating === 'N')) {
-            return true;
-          }
+          // Issues: ANY section has 'needs-attention' (red)
+          return sectionStatuses.some(status => status === 'needs-attention');
         }
         
         if (vehicleFilter.includes('active')) {
-            // Working: no ratings OR has incomplete sections OR has F/not-checked but no N
-            if (allRatings.length === 0) return true; // No ratings = working
-            if (allRatings.some(rating => rating === 'N')) return false; // Has N = issues
-            
-            // Check if any section is incomplete (missing ratings) - if so, it's working
-            const sectionsWithRatings = sectionKeys.filter(sectionKey => {
-              const items = inspectionData[sectionKey] || [];
-              return items.length > 0 && items.some((item: any) => item.rating);
-            });
-            
-            if (sectionsWithRatings.length < sectionKeys.length) return true; // Incomplete sections = working
-            if (allRatings.every(rating => rating === 'G')) return false; // All complete + all G = ready
-            return true; // Everything else = working
+          // Working: Everything else (not all green, and not any red)
+          const hasRed = sectionStatuses.some(status => status === 'needs-attention');
+          const allGreen = sectionStatuses.length > 0 && sectionStatuses.every(status => status === 'completed');
+          return !hasRed && !allGreen;
         }
         
         return false;
@@ -656,7 +670,7 @@ const Dashboard: React.FC = () => {
       };
     }
 
-    // Helper function to categorize a vehicle based on inspection status
+    // Helper function to categorize a vehicle based on SECTION STATUSES (not individual ratings)
     const categorizeVehicle = (vehicle: Vehicle) => {
       // First check vehicle.status - if sold or pending, don't categorize by inspection
       if (vehicle.status === 'sold' || vehicle.status === 'pending') {
@@ -673,66 +687,79 @@ const Dashboard: React.FC = () => {
       const inspectionData = vehicleInspectionData[vehicle.id] || {};
       const sectionKeys = allSections.map(section => section.key);
       
-      // Collect all ratings from all sections (same as VehicleCard logic)
-      const allRatings: string[] = [];
+      // Calculate section statuses for this vehicle (same logic as VehicleCard)
+      const sectionStatuses: string[] = [];
       
       for (const sectionKey of sectionKeys) {
-        const items = inspectionData[sectionKey] || [];
-        if (Array.isArray(items)) {
-          items.forEach((item: any) => {
-            if (item.rating) {
-              allRatings.push(item.rating);
-            }
-          });
+        const sectionItems = inspectionData[sectionKey] || [];
+        const sectionSettings = allSections.find(s => s.key === sectionKey);
+        
+        if (!sectionSettings) {
+          sectionStatuses.push('not-started');
+          continue;
+        }
+        
+        const allSectionItems = sectionSettings.items || [];
+        
+        if (sectionItems.length === 0) {
+          sectionStatuses.push('not-started');
+          continue;
+        }
+
+        // Use the SAME logic as VehicleCard for section status
+        const inspectedItems = sectionItems.filter((item: any) => item.rating && item.rating !== 'not-checked');
+        
+        // If not all items have been inspected, stay gray
+        if (inspectedItems.length < allSectionItems.length) {
+          sectionStatuses.push('not-started');
+          continue;
+        }
+        
+        // If any inspected item is 'not-checked', return 'not-started' (grey)
+        if (sectionItems.some((item: any) => item.rating === 'not-checked' || !item.rating)) {
+          sectionStatuses.push('not-started');
+          continue;
+        }
+        
+        // Now check the actual ratings since all items are inspected
+        if (sectionItems.some((item: any) => item.rating === 'N')) {
+          sectionStatuses.push('needs-attention');
+        } else if (sectionItems.some((item: any) => item.rating === 'F')) {
+          sectionStatuses.push('pending');
+        } else if (sectionItems.every((item: any) => item.rating === 'G')) {
+          sectionStatuses.push('completed');
+        } else {
+          sectionStatuses.push('not-started');
         }
       }
-       
+      
       console.log(`Vehicle ${vehicle.id} (${vehicle.year} ${vehicle.make} ${vehicle.model}):`, {
-        allRatings,
-        inspectionData,
+        sectionStatuses,
         vehicleStatus: vehicle.status,
         sectionKeys
       });
 
-      // If no ratings at all, it's pending/working (not started)
-      if (allRatings.length === 0) {
-        console.log(`Vehicle ${vehicle.id} categorized as: pending (no ratings)`);
-        return 'pending';
-      }
-      
-      // Priority logic - check for issues FIRST:
-      // 1. If ANY rating is 'N' (needs attention), it's needs-attention
-      if (allRatings.some(rating => rating === 'N')) {
-        console.log(`Vehicle ${vehicle.id} categorized as: needs-attention`);
+      // NEW LOGIC: Base overall status on section statuses
+      // 1. If ANY section has 'needs-attention' (red), vehicle is 'needs-attention'
+      if (sectionStatuses.some(status => status === 'needs-attention')) {
+        console.log(`Vehicle ${vehicle.id} categorized as: needs-attention (has red sections)`);
         return 'needs-attention';
       }
       
-      // 2. Check if any section is incomplete (missing ratings) - if so, mark as working
-      const sectionsWithRatings = sectionKeys.filter(sectionKey => {
-        const items = inspectionData[sectionKey] || [];
-        return items.length > 0 && items.some((item: any) => item.rating);
-      });
-      
-      if (sectionsWithRatings.length < sectionKeys.length) {
-        console.log(`Vehicle ${vehicle.id} categorized as: pending (incomplete sections)`);
-        return 'pending';
-      }
-
-      // 3. If ALL sections complete AND all ratings are 'G' (great), it's completed
-      if (allRatings.every(rating => rating === 'G')) {
-        console.log(`Vehicle ${vehicle.id} categorized as: completed`);
+      // 2. If ALL sections are 'completed' (green), vehicle is 'completed'
+      if (sectionStatuses.length > 0 && sectionStatuses.every(status => status === 'completed')) {
+        console.log(`Vehicle ${vehicle.id} categorized as: completed (all sections green)`);
         return 'completed';
       }
-
-      // 4. If has 'F' ratings or 'not-checked', it's pending/working
-      if (allRatings.some(rating => rating === 'F' || rating === 'not-checked')) {
-        console.log(`Vehicle ${vehicle.id} categorized as: pending (has F or not-checked)`);
-        return 'pending';
-      }
-       
-      // 5. Default to active
-      console.log(`Vehicle ${vehicle.id} categorized as: active (default)`);
-      return 'active';
+      
+      // 3. Everything else is 'pending' (working):
+      // - All sections unchecked
+      // - Some sections working + some unchecked
+      // - Some sections green + some unchecked
+      // - Some sections green + some working
+      // - etc.
+      console.log(`Vehicle ${vehicle.id} categorized as: pending (working - mixed statuses)`);
+      return 'pending';
     };
     
     const categorizedVehicles = vehicles.map(categorizeVehicle);

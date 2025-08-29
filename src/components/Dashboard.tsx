@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { Vehicle } from '../types/vehicle';
@@ -91,6 +92,33 @@ const Dashboard: React.FC = () => {
   const [locations, setLocations] = useState<any[]>([]);
   const [isLoadingLocations, setIsLoadingLocations] = useState(true);
 
+  // NEW: Selected section for progress overview
+  const [selectedSection, setSelectedSection] = useState<string | undefined>(undefined);
+
+  // NEW: Portal dropdown state
+  const [showSectionDropdown, setShowSectionDropdown] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
+  const dropdownButtonRef = useRef<HTMLButtonElement>(null);
+
+  // NEW: Section-based filter state
+  const [sectionFilter, setSectionFilter] = useState<{section: string | null, status: string | null}>({
+    section: null,
+    status: null
+  });
+
+  // Calculate dropdown position when opening
+  const handleDropdownToggle = () => {
+    if (!showSectionDropdown && dropdownButtonRef.current) {
+      const rect = dropdownButtonRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + 2, // Add small gap
+        left: rect.left,
+        width: rect.width
+      });
+    }
+    setShowSectionDropdown(!showSectionDropdown);
+  };
+
   // Load all sections asynchronously
   useEffect(() => {
     const loadAllSections = async () => {
@@ -107,6 +135,13 @@ const Dashboard: React.FC = () => {
             .filter(section => section.isActive)
             .sort((a, b) => a.order - b.order);
           setAllSections(sections);
+          
+          // Initialize selectedSection with the first available section
+          if (sections.length > 0) {
+            // Check if "emissions" exists, if so use it as default, otherwise use first section
+            const emissionsSection = sections.find(section => section.key === 'emissions');
+            setSelectedSection(emissionsSection ? 'emissions' : sections[0].key);
+          }
         } else {
           setAllSections([]);
         }
@@ -398,7 +433,7 @@ const Dashboard: React.FC = () => {
 
     // If no specific filters are selected, show all active vehicles
     if (vehiclesToFilter.length === 0) {
-      vehiclesToFilter = vehicles;
+        vehiclesToFilter = vehicles;
     }
 
     // Apply status filter for active vehicles ONLY if inspection-based filters are selected
@@ -416,56 +451,56 @@ const Dashboard: React.FC = () => {
           return false;
         }
 
-        const inspectionData = vehicleInspectionData[vehicle.id] || {};
-        const allRatings: string[] = [];
-        
-        for (const sectionKey of sectionKeys) {
-          const items = inspectionData[sectionKey] || [];
-          if (Array.isArray(items)) {
-            items.forEach((item: any) => {
-              if (item.rating) {
-                allRatings.push(item.rating);
+            const inspectionData = vehicleInspectionData[vehicle.id] || {};
+            const allRatings: string[] = [];
+            
+            for (const sectionKey of sectionKeys) {
+              const items = inspectionData[sectionKey] || [];
+              if (Array.isArray(items)) {
+                items.forEach((item: any) => {
+                  if (item.rating) {
+                    allRatings.push(item.rating);
+                  }
+                });
               }
-            });
-          }
-        }
-        
+            }
+            
         // Check if this vehicle matches any of the selected inspection filters
         if (vehicleFilter.includes('completed')) {
-          // Completed: ALL sections have ratings AND all ratings are 'G'
-          const sectionsWithRatings = sectionKeys.filter(sectionKey => {
-            const items = inspectionData[sectionKey] || [];
-            return items.length > 0 && items.some((item: any) => item.rating);
-          });
-          
+            // Completed: ALL sections have ratings AND all ratings are 'G'
+            const sectionsWithRatings = sectionKeys.filter(sectionKey => {
+              const items = inspectionData[sectionKey] || [];
+              return items.length > 0 && items.some((item: any) => item.rating);
+            });
+            
           if (allRatings.length > 0 && 
-              allRatings.every(rating => rating === 'G') &&
+                   allRatings.every(rating => rating === 'G') &&
               sectionsWithRatings.length === sectionKeys.length) {
             return true;
           }
         }
         
         if (vehicleFilter.includes('needs-attention')) {
-          // Issues: has ANY 'N' rating
+            // Issues: has ANY 'N' rating
           if (allRatings.some(rating => rating === 'N')) {
             return true;
           }
         }
         
         if (vehicleFilter.includes('active')) {
-          // Working: no ratings OR has incomplete sections OR has F/not-checked but no N
-          if (allRatings.length === 0) return true; // No ratings = working
-          if (allRatings.some(rating => rating === 'N')) return false; // Has N = issues
-          
-          // Check if any section is incomplete (missing ratings) - if so, it's working
-          const sectionsWithRatings = sectionKeys.filter(sectionKey => {
-            const items = inspectionData[sectionKey] || [];
-            return items.length > 0 && items.some((item: any) => item.rating);
-          });
-          
-          if (sectionsWithRatings.length < sectionKeys.length) return true; // Incomplete sections = working
-          if (allRatings.every(rating => rating === 'G')) return false; // All complete + all G = ready
-          return true; // Everything else = working
+            // Working: no ratings OR has incomplete sections OR has F/not-checked but no N
+            if (allRatings.length === 0) return true; // No ratings = working
+            if (allRatings.some(rating => rating === 'N')) return false; // Has N = issues
+            
+            // Check if any section is incomplete (missing ratings) - if so, it's working
+            const sectionsWithRatings = sectionKeys.filter(sectionKey => {
+              const items = inspectionData[sectionKey] || [];
+              return items.length > 0 && items.some((item: any) => item.rating);
+            });
+            
+            if (sectionsWithRatings.length < sectionKeys.length) return true; // Incomplete sections = working
+            if (allRatings.every(rating => rating === 'G')) return false; // All complete + all G = ready
+            return true; // Everything else = working
         }
         
         return false;
@@ -540,6 +575,68 @@ const Dashboard: React.FC = () => {
         vehicle.color.toLowerCase().includes(search) ||
         vehicle.location.toLowerCase().includes(search)
       );
+    }
+
+    // Apply section-based filter if active
+    if (sectionFilter.section && sectionFilter.status && inspectionDataLoaded && !isLoadingSettings) {
+      vehiclesToFilter = vehiclesToFilter.filter(vehicle => {
+        const inspectionData = vehicleInspectionData[vehicle.id] || {};
+        const sectionItems = inspectionData[sectionFilter.section!] || [];
+        
+        // DEBUG: Log the section data for each vehicle
+        console.log(`\n=== VEHICLE ${vehicle.year} ${vehicle.make} ${vehicle.model} ===`);
+        console.log(`Section: ${sectionFilter.section}, Filter: ${sectionFilter.status}`);
+        console.log(`Section items:`, sectionItems);
+        
+        // Get the section settings to know how many items should exist (SAME as VehicleCard)
+        const sectionSettings = allSections.find(s => s.key === sectionFilter.section);
+        if (!sectionSettings) {
+          console.log(`No section settings found - categorized as unchecked`);
+          return sectionFilter.status === 'unchecked';
+        }
+        
+        const allSectionItems = sectionSettings.items || [];
+        console.log(`Section has ${allSectionItems.length} total items, ${sectionItems.length} saved items`);
+        
+        // Use the EXACT same logic as VehicleCard and getSectionProgressCounts
+        if (sectionItems.length === 0) {
+          console.log(`No items in section - categorized as unchecked`);
+          return sectionFilter.status === 'unchecked';
+        }
+
+        // Check if ALL items have been inspected (no missing items and no 'not-checked' ratings)
+        const inspectedItems = sectionItems.filter((item: any) => item.rating && item.rating !== 'not-checked');
+        
+        // If not all items have been inspected, it's unchecked (gray)
+        if (inspectedItems.length < allSectionItems.length) {
+          console.log(`Not all items inspected (${inspectedItems.length}/${allSectionItems.length}) - categorized as unchecked`);
+          return sectionFilter.status === 'unchecked';
+        }
+        
+        // If any inspected item is 'not-checked', it's unchecked (gray) 
+        if (sectionItems.some((item: any) => item.rating === 'not-checked' || !item.rating)) {
+          console.log(`Some items are not-checked - categorized as unchecked`);
+          return sectionFilter.status === 'unchecked';
+        }
+
+        // Check for issues (any 'N' rating) - same as getSectionProgressCounts
+        const hasIssues = sectionItems.some((item: any) => item.rating === 'N');
+        if (hasIssues) {
+          console.log(`Has N ratings - categorized as issues`);
+          return sectionFilter.status === 'issues';
+        }
+
+        // Check if all items are 'G' (ready) - same as getSectionProgressCounts
+        const allGood = sectionItems.every((item: any) => item.rating === 'G');
+        if (allGood) {
+          console.log(`All items are G - categorized as ready`);
+          return sectionFilter.status === 'ready';
+        }
+
+        // Everything else is working - same as getSectionProgressCounts
+        console.log(`Mixed ratings - categorized as working`);
+        return sectionFilter.status === 'working';
+      });
     }
 
     return vehiclesToFilter;
@@ -720,6 +817,71 @@ const Dashboard: React.FC = () => {
     return counts;
   };
 
+  // NEW: Get section progress counts for a specific section
+  const getSectionProgressCounts = (sectionKey: string | undefined) => {
+    if (!sectionKey || !inspectionDataLoaded || isLoadingSettings || allSections.length === 0) {
+      return { ready: 0, working: 0, issues: 0, unchecked: 0 };
+    }
+
+    let ready = 0;
+    let working = 0;
+    let issues = 0;
+    let unchecked = 0;
+
+    vehicles.forEach(vehicle => {
+      const inspectionData = vehicleInspectionData[vehicle.id] || {};
+      const sectionItems = inspectionData[sectionKey] || [];
+      
+      // Get the section settings to know how many items should exist
+      const sectionSettings = allSections.find(s => s.key === sectionKey);
+      if (!sectionSettings) {
+        unchecked++;
+        return;
+      }
+      
+      const allSectionItems = sectionSettings.items || [];
+      
+      if (sectionItems.length === 0) {
+        unchecked++;
+        return;
+      }
+
+      // Use the SAME logic as VehicleCard/VehicleDetail for consistency
+      const inspectedItems = sectionItems.filter((item: any) => item.rating && item.rating !== 'not-checked');
+      
+      // If not all items have been inspected, it's unchecked (gray)
+      if (inspectedItems.length < allSectionItems.length) {
+        unchecked++;
+        return;
+      }
+      
+      // If any inspected item is 'not-checked', it's unchecked (gray) 
+      if (sectionItems.some((item: any) => item.rating === 'not-checked' || !item.rating)) {
+        unchecked++;
+        return;
+      }
+
+      // Check for issues (any 'N' rating)
+      const hasIssues = sectionItems.some((item: any) => item.rating === 'N');
+      if (hasIssues) {
+        issues++;
+        return;
+      }
+
+      // Check if all items are 'G' (ready)
+      const allGood = sectionItems.every((item: any) => item.rating === 'G');
+      if (allGood) {
+        ready++;
+        return;
+      }
+
+      // Everything else is working
+      working++;
+    });
+
+    return { ready, working, issues, unchecked };
+  };
+
   const getInventorySummary = () => {
     const counts = getFilterCounts();
     const locationCounts = getLocationFilterCounts();
@@ -853,6 +1015,21 @@ const Dashboard: React.FC = () => {
         color: location.type === 'off-site' ? 'text-yellow-600' : 'text-green-600'
       }))
   ];
+
+  // NEW: Handle section progress box clicks to filter vehicles by section status
+  const handleSectionProgressFilter = (filterType: 'ready' | 'working' | 'issues' | 'unchecked') => {
+    if (!selectedSection) return;
+    
+    // Clear existing filters when applying section filter
+    setVehicleFilter(['all']);
+    setLocationFilter(['all']);
+    
+    // Set section-based filter
+    setSectionFilter({
+      section: selectedSection,
+      status: filterType
+    });
+  };
 
   if (!user || !dealership) {
     return (
@@ -1050,6 +1227,148 @@ const Dashboard: React.FC = () => {
                     </button>
                   </div>
 
+                  {/* NEW: Section Progress Overview */}
+                  {allSections.length > 0 && (
+                    <div className="mt-3 sm:mt-6" style={{ isolation: 'isolate', zIndex: 9999, position: 'relative' }}>
+                      <div className="grid grid-cols-5 gap-2 sm:gap-3">
+                        {/* First column: Title and Dropdown */}
+                        <div className="flex flex-col gap-2">
+                          <h3 className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">Section Progress</h3>
+                          <div className="relative">
+                            <button 
+                              ref={dropdownButtonRef}
+                              className="appearance-none w-full text-xs px-3 py-1.5 pr-8 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer text-left"
+                              onClick={handleDropdownToggle}
+                            >
+                              <span className="block truncate">{selectedSection || 'Select Section'}</span>
+                              <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                                <svg className="h-3 w-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </div>
+                            </button>
+                            
+                            {showSectionDropdown && createPortal(
+                              <div 
+                                className="fixed inset-0 z-[99999]"
+                                onClick={() => setShowSectionDropdown(false)}
+                              >
+                                <div 
+                                  className="absolute bg-white dark:bg-gray-700 rounded-md shadow-2xl ring-1 ring-black ring-opacity-5 py-1 text-xs max-h-60 overflow-auto"
+                                  style={{
+                                    top: dropdownPosition.top,
+                                    left: dropdownPosition.left,
+                                    width: dropdownPosition.width,
+                                    zIndex: 99999
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {allSections.map((section) => (
+                                    <button
+                                      key={section.key}
+                                      onClick={() => {
+                                        setSelectedSection(section.key);
+                                        setShowSectionDropdown(false);
+                                      }}
+                                      className="block w-full text-left px-3 py-2 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-gray-900 dark:text-gray-100 hover:text-blue-900 dark:hover:text-blue-100"
+                                    >
+                                      {section.key}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>,
+                              document.body
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* Second column: Ready */}
+                        <button 
+                          onClick={() => handleSectionProgressFilter('ready')}
+                          className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 p-2 rounded-lg border border-emerald-200/60 dark:border-emerald-700/60 hover:from-emerald-100 hover:to-green-100 dark:hover:from-emerald-900/30 dark:hover:to-green-900/30 transition-all duration-200 hover:shadow-lg hover:scale-[1.02] cursor-pointer"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                                <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">Ready</span>
+                              </div>
+                              <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                                {inventorySummary.totalVehicles > 0 ? Math.round((getSectionProgressCounts(selectedSection).ready / inventorySummary.totalVehicles) * 100) : 0}%
+                              </p>
+                            </div>
+                            <p className="text-2xl font-bold text-emerald-900 dark:text-emerald-100">
+                              {getSectionProgressCounts(selectedSection).ready}
+                            </p>
+                          </div>
+                        </button>
+                        
+                        {/* Third column: Working */}
+                        <button 
+                          onClick={() => handleSectionProgressFilter('working')}
+                          className="bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 p-2 rounded-lg border border-amber-200/60 dark:border-amber-700/60 hover:from-amber-100 hover:to-yellow-100 dark:hover:from-amber-900/30 dark:hover:to-yellow-900/30 transition-all duration-200 hover:shadow-lg hover:scale-[1.02] cursor-pointer"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <Activity className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                                <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wide">Working</span>
+                              </div>
+                              <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+                                {inventorySummary.totalVehicles > 0 ? Math.round((getSectionProgressCounts(selectedSection).working / inventorySummary.totalVehicles) * 100) : 0}%
+                              </p>
+                            </div>
+                            <p className="text-2xl font-bold text-amber-900 dark:text-amber-100">
+                              {getSectionProgressCounts(selectedSection).working}
+                            </p>
+                          </div>
+                        </button>
+                        
+                        {/* Fourth column: Issues */}
+                        <button 
+                          onClick={() => handleSectionProgressFilter('issues')}
+                          className="bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20 p-2 rounded-lg border border-red-200/60 dark:border-red-700/60 hover:from-red-100 hover:to-rose-100 dark:hover:from-red-900/30 dark:hover:to-rose-900/30 transition-all duration-200 hover:shadow-lg hover:scale-[1.02] cursor-pointer"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400" />
+                                <span className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wide">Issues</span>
+                              </div>
+                              <p className="text-xs text-red-600 dark:text-red-400 font-medium">
+                                {inventorySummary.totalVehicles > 0 ? Math.round((getSectionProgressCounts(selectedSection).issues / inventorySummary.totalVehicles) * 100) : 0}%
+                              </p>
+                            </div>
+                            <p className="text-2xl font-bold text-red-900 dark:text-red-100">
+                              {getSectionProgressCounts(selectedSection).issues}
+                            </p>
+                          </div>
+                        </button>
+                        
+                        {/* Fifth column: Unchecked */}
+                        <button 
+                          onClick={() => handleSectionProgressFilter('unchecked')}
+                          className="bg-gradient-to-br from-gray-50 to-slate-50 dark:from-gray-900/20 dark:to-slate-900/20 p-2 rounded-lg border border-gray-200/60 dark:border-gray-700/60 hover:from-gray-100 hover:to-slate-100 dark:hover:from-gray-900/30 dark:hover:to-slate-900/30 transition-all duration-200 hover:shadow-lg hover:scale-[1.02] cursor-pointer"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <Circle className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                                <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">Unchecked</span>
+                              </div>
+                              <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">
+                                {inventorySummary.totalVehicles > 0 ? Math.round((getSectionProgressCounts(selectedSection).unchecked / inventorySummary.totalVehicles) * 100) : 0}%
+                              </p>
+                            </div>
+                            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                              {getSectionProgressCounts(selectedSection).unchecked}
+                            </p>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Progress Overview - COMPACT ON MOBILE */}
                   {inventorySummary.totalVehicles > 0 && (
                     <div className="mt-3 sm:mt-6 p-3 sm:p-4 bg-gray-50/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-lg sm:rounded-xl border border-gray-200/60 dark:border-gray-700/60">
@@ -1074,7 +1393,7 @@ const Dashboard: React.FC = () => {
                 </div>
 
                 {/* MOBILE OPTIMIZED: Compact search and filters - SAME AS TODO/CALENDAR */}
-                <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 p-3 sm:p-4 transition-colors duration-300 relative z-10">
+                <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 p-3 sm:p-4 transition-colors duration-300 relative z-0">
                   {/* Search and Filter Toggle Row */}
                   <div className="flex gap-2 mb-3">
                     <div className="flex-1 relative">
@@ -1106,7 +1425,7 @@ const Dashboard: React.FC = () => {
                   {showFilters && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 pt-3 border-t border-gray-200/60 dark:border-gray-700/60">
                       {/* Status Filter - Multi-select */}
-                      <div className="relative z-20">
+                      <div className="relative z-10">
                         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
                         <HeadlessMenu as="div" className="relative inline-block w-full">
                           <HeadlessMenu.Button className="inline-flex w-full justify-between items-center gap-x-1.5 rounded-md bg-white dark:bg-gray-700 px-3 py-2 text-sm font-medium text-gray-900 dark:text-white shadow-sm border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
@@ -1121,7 +1440,7 @@ const Dashboard: React.FC = () => {
                             <ChevronDownIcon className="-mr-1 h-4 w-4 text-gray-400" aria-hidden="true" />
                           </HeadlessMenu.Button>
 
-                          <HeadlessMenu.Items className="absolute right-0 z-[9999] mt-2 w-56 origin-top-right rounded-md bg-white dark:bg-gray-700 shadow-2xl ring-1 ring-black ring-opacity-5 focus:outline-none">
+                          <HeadlessMenu.Items className="absolute right-0 z-40 mt-2 w-56 origin-top-right rounded-md bg-white dark:bg-gray-700 shadow-2xl ring-1 ring-black ring-opacity-5 focus:outline-none">
                             <div className="py-1">
                               {filterOptions.map((option) => (
                                 <HeadlessMenu.Item key={option.id}>
@@ -1157,7 +1476,7 @@ const Dashboard: React.FC = () => {
                       </div>
 
                       {/* Location Filter - Multi-select */}
-                      <div className="relative z-20">
+                      <div className="relative z-10">
                         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Location</label>
                         <HeadlessMenu as="div" className="relative inline-block w-full">
                           <HeadlessMenu.Button className="inline-flex w-full justify-between items-center gap-x-1.5 rounded-md bg-white dark:bg-gray-700 px-3 py-2 text-sm font-medium text-gray-900 dark:text-white shadow-sm border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
@@ -1172,7 +1491,7 @@ const Dashboard: React.FC = () => {
                             <ChevronDownIcon className="-mr-1 h-4 w-4 text-gray-400" aria-hidden="true" />
                           </HeadlessMenu.Button>
 
-                          <HeadlessMenu.Items className="absolute right-0 z-[9999] mt-2 w-56 origin-top-right rounded-md bg-white dark:bg-gray-700 shadow-2xl ring-1 ring-black ring-opacity-5 focus:outline-none">
+                          <HeadlessMenu.Items className="absolute right-0 z-40 mt-2 w-56 origin-top-right rounded-md bg-white dark:bg-gray-700 shadow-2xl ring-1 ring-black ring-opacity-5 focus:outline-none">
                             <div className="py-1">
                               {locationFilterOptions.map((option) => (
                                 <HeadlessMenu.Item key={option.id}>
@@ -1210,7 +1529,7 @@ const Dashboard: React.FC = () => {
                   )}
 
                   {/* Active Filter Indicators */}
-                  {(vehicleFilter.length > 0 && !vehicleFilter.includes('all')) || (locationFilter.length > 0 && !locationFilter.includes('all')) ? (
+                  {(vehicleFilter.length > 0 && !vehicleFilter.includes('all')) || (locationFilter.length > 0 && !locationFilter.includes('all')) || (sectionFilter.section && sectionFilter.status) ? (
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       <span className="text-xs text-gray-600 dark:text-gray-400">Active filters:</span>
                       {vehicleFilter.length > 0 && !vehicleFilter.includes('all') && vehicleFilter.map(filter => (
@@ -1235,10 +1554,22 @@ const Dashboard: React.FC = () => {
                           </button>
                         </span>
                       ))}
+                      {sectionFilter.section && sectionFilter.status && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 rounded-full text-xs font-medium">
+                          {sectionFilter.section}: {sectionFilter.status}
+                          <button
+                            onClick={() => setSectionFilter({ section: null, status: null })}
+                            className="ml-1 p-0.5 hover:bg-purple-200 dark:hover:bg-purple-800 rounded-full transition-colors"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      )}
                       <button
                         onClick={() => {
                           setVehicleFilter(['all']);
                           setLocationFilter(['all']);
+                          setSectionFilter({ section: null, status: null });
                         }}
                         className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 underline"
                       >

@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { Vehicle } from '../types/vehicle';
@@ -95,9 +94,8 @@ const Dashboard: React.FC = () => {
   // NEW: Selected section for progress overview
   const [selectedSection, setSelectedSection] = useState<string | undefined>(undefined);
 
-  // NEW: Portal dropdown state
+  // NEW: Dropdown state
   const [showSectionDropdown, setShowSectionDropdown] = useState(false);
-  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
   const dropdownButtonRef = useRef<HTMLButtonElement>(null);
 
   // NEW: Section-based filter state
@@ -106,16 +104,8 @@ const Dashboard: React.FC = () => {
     status: null
   });
 
-  // Calculate dropdown position when opening
+  // Toggle dropdown visibility
   const handleDropdownToggle = () => {
-    if (!showSectionDropdown && dropdownButtonRef.current) {
-      const rect = dropdownButtonRef.current.getBoundingClientRect();
-      setDropdownPosition({
-        top: rect.bottom + 2, // Add small gap
-        left: rect.left,
-        width: rect.width
-      });
-    }
     setShowSectionDropdown(!showSectionDropdown);
   };
 
@@ -1154,7 +1144,7 @@ const Dashboard: React.FC = () => {
             {activeView === 'inventory' && (
               <div className="space-y-6">
                 {/* Inventory Summary Dashboard - ENHANCED MOBILE STYLING */}
-                <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/20 p-3 sm:p-6 transition-colors duration-300">
+                <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/20 p-3 sm:p-6 transition-colors duration-300 relative z-50">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
                     <div>
                       <h2 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">Inventory Overview</h2>
@@ -1256,12 +1246,12 @@ const Dashboard: React.FC = () => {
 
                   {/* NEW: Section Progress Overview */}
                   {allSections.length > 0 && (
-                    <div className="mt-3 sm:mt-6" style={{ isolation: 'isolate', zIndex: 9999, position: 'relative' }}>
-                      <div className="grid grid-cols-5 gap-2 sm:gap-3">
+                    <div className="mt-3 sm:mt-6 relative z-[60]">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
                         {/* First column: Title and Dropdown */}
-                        <div className="flex flex-col gap-2">
+                        <div className="col-span-2 sm:col-span-3 lg:col-span-1 flex flex-col gap-2">
                           <h3 className="text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300">Section Progress</h3>
-                          <div className="relative">
+                          <div className="relative z-[70]">
                             <button 
                               ref={dropdownButtonRef}
                               className="appearance-none w-full text-xs px-3 py-1.5 pr-8 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer text-left"
@@ -1275,41 +1265,28 @@ const Dashboard: React.FC = () => {
                               </div>
                             </button>
                             
-                            {showSectionDropdown && createPortal(
+                            {showSectionDropdown && (
                               <div 
-                                className="fixed inset-0 z-[99999]"
-                                onClick={() => setShowSectionDropdown(false)}
+                                className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-700 rounded-md shadow-2xl ring-1 ring-black ring-opacity-5 py-1 text-xs max-h-60 overflow-auto z-[80]"
                               >
-                                <div 
-                                  className="absolute bg-white dark:bg-gray-700 rounded-md shadow-2xl ring-1 ring-black ring-opacity-5 py-1 text-xs max-h-60 overflow-auto"
-                                  style={{
-                                    top: dropdownPosition.top,
-                                    left: dropdownPosition.left,
-                                    width: dropdownPosition.width,
-                                    zIndex: 99999
-                                  }}
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  {allSections.map((section) => (
-                                    <button
-                                      key={section.key}
-                                      onClick={() => {
-                                        setSelectedSection(section.key);
-                                        setShowSectionDropdown(false);
-                                      }}
-                                      className="block w-full text-left px-3 py-2 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-gray-900 dark:text-gray-100 hover:text-blue-900 dark:hover:text-blue-100"
-                                    >
-                                      {section.key}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>,
-                              document.body
+                                {allSections.map((section) => (
+                                  <button
+                                    key={section.key}
+                                    onClick={() => {
+                                      setSelectedSection(section.key);
+                                      setShowSectionDropdown(false);
+                                    }}
+                                    className="block w-full text-left px-3 py-2 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-gray-900 dark:text-gray-100 hover:text-blue-900 dark:hover:text-blue-100"
+                                  >
+                                    {section.key}
+                                  </button>
+                                ))}
+                              </div>
                             )}
                           </div>
                         </div>
                         
-                        {/* Second column: Ready */}
+                        {/* Ready */}
                         <button 
                           onClick={() => handleSectionProgressFilter('ready')}
                           className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 p-2 rounded-lg border border-emerald-200/60 dark:border-emerald-700/60 hover:from-emerald-100 hover:to-green-100 dark:hover:from-emerald-900/30 dark:hover:to-green-900/30 transition-all duration-200 hover:shadow-lg hover:scale-[1.02] cursor-pointer"
@@ -1330,7 +1307,7 @@ const Dashboard: React.FC = () => {
                           </div>
                         </button>
                         
-                        {/* Third column: Working */}
+                        {/* Working */}
                         <button 
                           onClick={() => handleSectionProgressFilter('working')}
                           className="bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 p-2 rounded-lg border border-amber-200/60 dark:border-amber-700/60 hover:from-amber-100 hover:to-yellow-100 dark:hover:from-amber-900/30 dark:hover:to-yellow-900/30 transition-all duration-200 hover:shadow-lg hover:scale-[1.02] cursor-pointer"
@@ -1351,7 +1328,7 @@ const Dashboard: React.FC = () => {
                           </div>
                         </button>
                         
-                        {/* Fourth column: Issues */}
+                        {/* Issues */}
                         <button 
                           onClick={() => handleSectionProgressFilter('issues')}
                           className="bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20 p-2 rounded-lg border border-red-200/60 dark:border-red-700/60 hover:from-red-100 hover:to-rose-100 dark:hover:from-red-900/30 dark:hover:to-rose-900/30 transition-all duration-200 hover:shadow-lg hover:scale-[1.02] cursor-pointer"
@@ -1372,7 +1349,7 @@ const Dashboard: React.FC = () => {
                           </div>
                         </button>
                         
-                        {/* Fifth column: Unchecked */}
+                        {/* Unchecked */}
                         <button 
                           onClick={() => handleSectionProgressFilter('unchecked')}
                           className="bg-gradient-to-br from-gray-50 to-slate-50 dark:from-gray-900/20 dark:to-slate-900/20 p-2 rounded-lg border border-gray-200/60 dark:border-gray-700/60 hover:from-gray-100 hover:to-slate-100 dark:hover:from-gray-900/30 dark:hover:to-slate-900/30 transition-all duration-200 hover:shadow-lg hover:scale-[1.02] cursor-pointer"

@@ -1397,7 +1397,7 @@ const Dashboard: React.FC = () => {
                 </div>
 
                 {/* MOBILE OPTIMIZED: Compact search and filters - SAME AS TODO/CALENDAR */}
-                <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 p-3 sm:p-4 transition-colors duration-300 relative z-0">
+                <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-xl shadow-lg border border-white/20 dark:border-gray-700/20 p-3 sm:p-4 transition-colors duration-300 relative z-30">
                   {/* Search and Filter Toggle Row */}
                   <div className="flex gap-2 mb-3">
                     <div className="flex-1 relative">
@@ -1584,7 +1584,7 @@ const Dashboard: React.FC = () => {
                 </div>
 
                 {/* Vehicle Grid */}
-                <div id="vehicle-grid" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+                <div id="vehicle-grid" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 relative z-10">
                   {filteredVehicles.length > 0 ? (
                     filteredVehicles.map((vehicle) => (
                       <div key={vehicle.id} className="relative">
